@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.SimpleTypes
@@ -10,11 +10,14 @@ namespace Bridge.ClientTest.SimpleTypes
         [Test]
         public void TypePropertiesAreInt32()
         {
-            Assert.True((object)0 is char);
+            Assert.False((object)0 is char);
             Assert.False((object)0.5 is char);
             Assert.False((object)-1 is char);
             Assert.False((object)65536 is char);
             Assert.AreEqual("System.Char", typeof(char).FullName);
+            Assert.False(typeof(char).IsClass);
+            Assert.False(typeof(IComparable<byte>).IsAssignableFrom(typeof(char)));
+            Assert.False(typeof(IEquatable<byte>).IsAssignableFrom(typeof(char)));
         }
 
         [Test]
@@ -25,34 +28,34 @@ namespace Bridge.ClientTest.SimpleTypes
 
             unchecked
             {
-                Assert.AreStrictEqual(65535, (int)(char)i1, "-1 unchecked");
-                Assert.AreStrictEqual(0, (int)(char)i2, "0 unchecked");
-                Assert.AreStrictEqual(234, (int)(char)i3, "234 unchecked");
-                Assert.AreStrictEqual(65535, (int)(char)i4, "65535 unchecked");
-                Assert.AreStrictEqual(0, (int)(char)i5, "65536 unchecked");
+                Assert.AreEqual(65535, (int)(char)i1, "-1 unchecked");
+                Assert.AreEqual(0, (int)(char)i2, "0 unchecked");
+                Assert.AreEqual(234, (int)(char)i3, "234 unchecked");
+                Assert.AreEqual(65535, (int)(char)i4, "65535 unchecked");
+                Assert.AreEqual(0, (int)(char)i5, "65536 unchecked");
 
-                Assert.AreStrictEqual(65535, (int?)(char?)ni1, "nullable -1 unchecked");
-                Assert.AreStrictEqual(0, (int?)(char?)ni2, "nullable 0 unchecked");
-                Assert.AreStrictEqual(234, (int?)(char?)ni3, "nullable 234 unchecked");
-                Assert.AreStrictEqual(65535, (int?)(char?)ni4, "nullable 65535 unchecked");
-                Assert.AreStrictEqual(0, (int?)(char?)ni5, "nullable 65536 unchecked");
-                Assert.AreStrictEqual(null, (int?)(char?)ni6, "null unchecked");
+                Assert.AreEqual(65535, (int?)(char?)ni1, "nullable -1 unchecked");
+                Assert.AreEqual(0, (int?)(char?)ni2, "nullable 0 unchecked");
+                Assert.AreEqual(234, (int?)(char?)ni3, "nullable 234 unchecked");
+                Assert.AreEqual(65535, (int?)(char?)ni4, "nullable 65535 unchecked");
+                Assert.AreEqual(0, (int?)(char?)ni5, "nullable 65536 unchecked");
+                Assert.AreEqual(null, (int?)(char?)ni6, "null unchecked");
             }
 
             checked
             {
-                Assert.Throws(() => { var b = (int)(char)i1; }, err => err is OverflowException);
-                Assert.AreStrictEqual(0, (int?)(char)i2, "0 checked");
-                Assert.AreStrictEqual(234, (int?)(char)i3, "234 checked");
-                Assert.AreStrictEqual(65535, (int?)(char)i4, "65535 checked");
-                Assert.Throws(() => { var b = (int)(char)i5; }, err => err is OverflowException);
+                Assert.Throws<OverflowException>(() => { var b = (int)(char)i1; });
+                Assert.AreEqual(0, (int?)(char)i2, "0 checked");
+                Assert.AreEqual(234, (int?)(char)i3, "234 checked");
+                Assert.AreEqual(65535, (int?)(char)i4, "65535 checked");
+                Assert.Throws<OverflowException>(() => { var b = (int)(char)i5; });
 
-                Assert.Throws(() => { var b = (int?)(char?)ni1; }, err => err is OverflowException);
-                Assert.AreStrictEqual(0, (int?)(char?)ni2, "nullable 0 checked");
-                Assert.AreStrictEqual(234, (int?)(char?)ni3, "nullable 234 checked");
-                Assert.AreStrictEqual(65535, (int?)(char?)ni4, "nullable 65535 checked");
-                Assert.Throws(() => { var b = (int?)(char?)ni5; }, err => err is OverflowException);
-                Assert.AreStrictEqual(null, (int?)(char?)ni6, "null checked");
+                Assert.Throws<OverflowException>(() => { var b = (int?)(char?)ni1; });
+                Assert.AreEqual(0, (int?)(char?)ni2, "nullable 0 checked");
+                Assert.AreEqual(234, (int?)(char?)ni3, "nullable 234 checked");
+                Assert.AreEqual(65535, (int?)(char?)ni4, "nullable 65535 checked");
+                Assert.Throws<OverflowException>(() => { var b = (int?)(char?)ni5; });
+                Assert.AreEqual(null, (int?)(char?)ni6, "null checked");
             }
         }
 
@@ -70,13 +73,13 @@ namespace Bridge.ClientTest.SimpleTypes
         [Test]
         public void DefaultConstructorReturnsZero()
         {
-            Assert.AreStrictEqual(0, (int)new char());
+            Assert.AreEqual(0, (int)new char());
         }
 
         [Test]
         public void CreatingInstanceReturnsZero()
         {
-            Assert.AreStrictEqual(0, Activator.CreateInstance<char>());
+            Assert.AreEqual(0, Activator.CreateInstance<char>());
         }
 
         [Test]
@@ -98,13 +101,14 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.True(a < b);
         }
 
+
         [Test]
         public void ParseWorks()
         {
             Assert.AreEqual('a', char.Parse("a"), "Parse 1");
-            Assert.Throws(() => char.Parse(null), "Parse 2");
-            Assert.Throws(() => char.Parse(""), "Parse 3");
-            Assert.Throws(() => char.Parse("ab"), "Parse 4");
+            Assert.Throws<ArgumentNullException>(() => char.Parse(null), "Parse 2");
+            Assert.Throws<FormatException>(() => char.Parse(""), "Parse 3");
+            Assert.Throws<FormatException>(() => char.Parse("ab"), "Parse 4");
         }
 
         [Test]
@@ -119,11 +123,38 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.AreEqual("0023", '\x23'.ToString("x4"));
         }
 
+        // Not C# API
+        //[Test]
+        //public void LocaleFormatWorks()
+        //{
+        //    Assert.AreEqual('\x23'.LocaleFormat("x4"), "0023");
+        //}
+
         [Test]
         public void ToStringWorks()
         {
             Assert.AreEqual("A", 'A'.ToString());
         }
+
+        [Test]
+        public void StaticToStringWorks()
+        {
+            Assert.AreEqual("B", Char.ToString('B'));
+        }
+
+        // Not C# API
+        //[Test]
+        //public void ToLocaleStringWorks()
+        //{
+        //    Assert.AreEqual('A'.ToLocaleString(), "A");
+        //}
+
+        // Not C# API
+        //[Test]
+        //public void CastCharToStringWorks()
+        //{
+        //    Assert.AreEqual((string)'c', "c");
+        //}
 
         [Test]
         public void GetHashCodeWorks()
@@ -136,10 +167,17 @@ namespace Bridge.ClientTest.SimpleTypes
         [Test]
         public void EqualsWorks()
         {
-            Assert.True('0'.Equals((int)'0'));
+            Assert.False('0'.Equals((int)'0'));
             Assert.False('1'.Equals((int)'0'));
             Assert.False('0'.Equals((int)'1'));
-            Assert.True('1'.Equals((int)'1'));
+            Assert.False('1'.Equals((int)'1'));
+
+            object charZero = '0';
+            object charOne = '1';
+            Assert.True('0'.Equals(charZero));
+            Assert.False('1'.Equals(charZero));
+            Assert.False('0'.Equals(charOne));
+            Assert.True('1'.Equals(charOne));
         }
 
         [Test]
@@ -174,6 +212,19 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.True(char.IsUpper('A'), "#1");
             Assert.False(char.IsUpper('a'), "#2");
             Assert.False(char.IsUpper('3'), "#3");
+
+            string val = "Ab1#Z";
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => char.IsUpper(val, -1), "throws an ArgumentOutOfRangeException");
+
+            Assert.True(char.IsUpper(val, 0), "A is uppercase");
+            Assert.False(char.IsUpper(val, 1), "b is not uppercase");
+            Assert.False(char.IsUpper(val, 2), "1 is not uppercase");
+            Assert.False(char.IsUpper(val, 3), "# is not uppercase");
+            Assert.True(char.IsUpper(val, 4), "Z is uppercase");
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => char.IsUpper(val, 5), "throws an ArgumentOutOfRangeException");
+            Assert.Throws<ArgumentNullException>(() => char.IsUpper(null, 0), "null throws an ArgumentNullException");
         }
 
         [Test]
@@ -198,14 +249,7 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.True(char.IsDigit('0'), "#1");
             Assert.False(char.IsDigit('.'), "#2");
             Assert.False(char.IsDigit('A'), "#3");
-        }
-
-        [Test]
-        public void IsWhiteSpaceWorks()
-        {
-            Assert.True(char.IsWhiteSpace(' '), "#1");
-            Assert.True(char.IsWhiteSpace('\n'), "#2");
-            Assert.False(char.IsWhiteSpace('A'), "#3");
+            Assert.False(char.IsDigit('\u0100'), "#4");
         }
 
         [Test]
@@ -218,6 +262,17 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.False(char.IsDigit(".012345", 0), "#5");
             Assert.False(char.IsDigit("012345.", 6), "#6");
             Assert.False(char.IsDigit("012.345", 3), "#7");
+            Assert.False(char.IsDigit("012.345", 3), "#8");
+            Assert.False(char.IsDigit("0"+ '\u0100', 1), "#9");
+        }
+
+        [Test]
+        public void IsWhiteSpaceWorks()
+        {
+            Assert.True(char.IsWhiteSpace(' '), "#1");
+            Assert.True(char.IsWhiteSpace('\n'), "#2");
+            Assert.False(char.IsWhiteSpace('A'), "#3");
+            Assert.False(char.IsWhiteSpace('\u0100'), "#4");
         }
 
         [Test]
@@ -230,6 +285,53 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.False(char.IsWhiteSpace(".\r\n     ", 0), "#5");
             Assert.False(char.IsWhiteSpace("\r\n    .", 6), "#6");
             Assert.False(char.IsWhiteSpace("\r  .\n  ", 3), "#7");
+            Assert.False(char.IsWhiteSpace(" " + '\u0100', 1), "#8");
+            Assert.True(char.IsWhiteSpace(" " + '\u0100', 0), "#9");
+        }
+
+        [Test]
+        public void IsPunctuationWorks()
+        {
+            Assert.False(char.IsPunctuation('a'));
+            Assert.True(char.IsPunctuation('-'));
+            Assert.False(char.IsPunctuation('b'));
+            Assert.True(char.IsPunctuation(','));
+            Assert.False(char.IsPunctuation('\u0100'));
+        }
+
+        [Test]
+        public void IsPunctuationWithStringAndIndexWorks()
+        {
+            var s = "a-b," + '\u0100';
+            Assert.False(char.IsPunctuation(s, 0), "0");
+            Assert.True(char.IsPunctuation(s, 1), "1");
+            Assert.False(char.IsPunctuation(s, 2), "2");
+            Assert.True(char.IsPunctuation(s, 3), "3");
+            Assert.False(char.IsPunctuation(s, 4), "4");
+        }
+
+        [Test]
+        public void IsLetterWorks()
+        {
+            Assert.False(char.IsLetter('0'), "#1");
+            Assert.False(char.IsLetter('.'), "#2");
+            Assert.True(char.IsLetter('A'), "#3");
+            Assert.True(char.IsLetter('\u0100'), "#4");
+        }
+
+        [Test]
+        public void IsLetterWithStringAndIndexWorks()
+        {
+            Assert.False(char.IsLetter("abc0def", 3), "#1");
+            Assert.False(char.IsLetter("1", 0), "#2");
+            Assert.False(char.IsLetter("abcdef5", 6), "#3");
+            Assert.True(char.IsLetter("9abcdef", 1), "#4");
+            Assert.False(char.IsLetter(".012345", 0), "#5");
+            Assert.False(char.IsLetter("012345.", 6), "#6");
+            Assert.False(char.IsLetter("012.345", 3), "#7");
+            Assert.False(char.IsLetter("012.345", 3), "#8");
+            Assert.True(char.IsLetter("0" + '\u0100', 1), "#9");
+            Assert.False(char.IsLetter("0" + '\u0100', 0), "#10");
         }
     }
 }

@@ -1,51 +1,7 @@
-    System.Diagnostics.Debug = {
-        writeln: function (text) {
-            Bridge.Console.debug(text);
-        },
-
-        _fail: function (message) {
-            System.Diagnostics.Debug.writeln(message);
-            debugger;
-        },
-
-        assert: function (condition, message) {
-            if (!condition) {
-                message = 'Assert failed: ' + message;
-
-                if (confirm(message + '\r\n\r\nBreak into debugger?')) {
-                    System.Diagnostics.Debug._fail(message);
-                }
-            }
-        },
-
-        fail: function (message) {
-            System.Diagnostics.Debug._fail(message);
-        }
-    }
-
     Bridge.define("System.Diagnostics.Stopwatch", {
         ctor: function () {
             this.$initialize();
-            this._stopTime = System.Int64.Zero;
-            this._startTime = System.Int64.Zero;
-            this.isRunning = false;
-        },
-
-        reset: function () {
-            this._stopTime = this._startTime = System.Diagnostics.Stopwatch.getTimestamp();
-            this.isRunning = false;
-        },
-
-        ticks: function () {
-            return (this.isRunning ? System.Diagnostics.Stopwatch.getTimestamp() : this._stopTime).sub(this._startTime);
-        },
-
-        milliseconds: function () {
-            return this.ticks().mul(1000).div(System.Diagnostics.Stopwatch.frequency);
-        },
-
-        timeSpan: function () {
-            return new System.TimeSpan(this.milliseconds().mul(10000));
+            this.reset();
         },
 
         start: function () {
@@ -62,19 +18,50 @@
                 return;
             }
 
-            this._stopTime = System.Diagnostics.Stopwatch.getTimestamp();
+            var endTimeStamp = System.Diagnostics.Stopwatch.getTimestamp();
+            var elapsedThisPeriod = endTimeStamp.sub(this._startTime);
+            this._elapsed = this._elapsed.add(elapsedThisPeriod);
+            this.isRunning = false;
+        },
+
+        reset: function () {
+            this._startTime = System.Int64.Zero;
+            this._elapsed = System.Int64.Zero;
             this.isRunning = false;
         },
 
         restart: function () {
             this.isRunning = false;
+            this._elapsed = System.Int64.Zero;
+            this._startTime = System.Diagnostics.Stopwatch.getTimestamp();
             this.start();
+        },
+
+        ticks: function () {
+            var timeElapsed = this._elapsed;
+
+            if (this.isRunning)
+            {
+                var currentTimeStamp = System.Diagnostics.Stopwatch.getTimestamp();
+                var elapsedUntilNow = currentTimeStamp.sub(this._startTime);
+
+                timeElapsed = timeElapsed.add(elapsedUntilNow);
+            }
+
+            return timeElapsed;
+        },
+
+        milliseconds: function () {
+            return this.ticks().mul(1000).div(System.Diagnostics.Stopwatch.frequency);
+        },
+
+        timeSpan: function () {
+            return new System.TimeSpan(this.milliseconds().mul(10000));
         },
 
         statics: {
             startNew: function () {
                 var s = new System.Diagnostics.Stopwatch();
-
                 s.start();
 
                 return s;
@@ -82,13 +69,13 @@
         }
     });
 
-    if (typeof (window) !== 'undefined' && window.performance && window.performance.now) {
+if (typeof window !== 'undefined' && window.performance && window.performance.now) {
         System.Diagnostics.Stopwatch.frequency = new System.Int64(1e6);
         System.Diagnostics.Stopwatch.isHighResolution = true;
         System.Diagnostics.Stopwatch.getTimestamp = function () {
             return new System.Int64(Math.round(window.performance.now() * 1000));
         };
-    } else if (typeof (process) !== 'undefined' && process.hrtime) {
+    } else if (typeof (process) !== "undefined" && process.hrtime) {
         System.Diagnostics.Stopwatch.frequency = new System.Int64(1e9);
         System.Diagnostics.Stopwatch.isHighResolution = true;
         System.Diagnostics.Stopwatch.getTimestamp = function () {
@@ -119,19 +106,19 @@
                 throw new System.Diagnostics.Contracts.ContractException(failureKind, displayMessage, userMessage, conditionText, innerException);
             }
         },
-        assert: function (failureKind, condition, message) {
-            if (!condition()) {
+        assert: function (failureKind, scope, condition, message) {
+            if (!condition.call(scope)) {
                 System.Diagnostics.Contracts.Contract.reportFailure(failureKind, message, condition, null);
             }
         },
-        requires: function (TException, condition, message) {
-            if (!condition()) {
+        requires: function (TException, scope, condition, message) {
+            if (!condition.call(scope)) {
                 System.Diagnostics.Contracts.Contract.reportFailure(0, message, condition, null, TException);
             }
         },
         forAll: function (fromInclusive, toExclusive, predicate) {
             if (!predicate) {
-                throw new System.ArgumentNullException("predicate");
+                throw new System.ArgumentNullException.$ctor1("predicate");
             }
 
             for (; fromInclusive < toExclusive; fromInclusive++) {
@@ -144,29 +131,30 @@
         },
         forAll$1: function (collection, predicate) {
             if (!collection) {
-                throw new System.ArgumentNullException("collection");
+                throw new System.ArgumentNullException.$ctor1("collection");
             }
 
             if (!predicate) {
-                throw new System.ArgumentNullException("predicate");
+                throw new System.ArgumentNullException.$ctor1("predicate");
             }
 
             var enumerator = Bridge.getEnumerator(collection);
 
             try {
                 while (enumerator.moveNext()) {
-                    if (!predicate(enumerator.getCurrent())) {
+                    if (!predicate(enumerator.Current)) {
                         return false;
                     }
                 }
+
                 return true;
             } finally {
-                enumerator.dispose();
+                enumerator.Dispose();
             }
         },
         exists: function (fromInclusive, toExclusive, predicate) {
             if (!predicate) {
-                throw new System.ArgumentNullException("predicate");
+                throw new System.ArgumentNullException.$ctor1("predicate");
             }
 
             for (; fromInclusive < toExclusive; fromInclusive++) {
@@ -179,24 +167,25 @@
         },
         exists$1: function (collection, predicate) {
             if (!collection) {
-                throw new System.ArgumentNullException("collection");
+                throw new System.ArgumentNullException.$ctor1("collection");
             }
 
             if (!predicate) {
-                throw new System.ArgumentNullException("predicate");
+                throw new System.ArgumentNullException.$ctor1("predicate");
             }
 
             var enumerator = Bridge.getEnumerator(collection);
 
             try {
                 while (enumerator.moveNext()) {
-                    if (predicate(enumerator.getCurrent())) {
+                    if (predicate(enumerator.Current)) {
                         return true;
                     }
                 }
+
                 return false;
             } finally {
-                enumerator.dispose();
+                enumerator.Dispose();
             }
         }
     };
@@ -216,6 +205,34 @@
     Bridge.define("System.Diagnostics.Contracts.ContractException", {
         inherits: [System.Exception],
 
+        config: {
+            properties: {
+                Kind: {
+                    get: function () {
+                        return this._kind;
+                    }
+                },
+
+                Failure: {
+                    get: function () {
+                        return this._failureMessage;
+                    }
+                },
+
+                UserMessage: {
+                    get: function () {
+                        return this._userMessage;
+                    }
+                },
+
+                Condition: {
+                    get: function () {
+                        return this._condition;
+                    }
+                }
+            }
+        },
+
         ctor: function (failureKind, failureMessage, userMessage, condition, innerException) {
             this.$initialize();
             System.Exception.ctor.call(this, failureMessage, innerException);
@@ -223,18 +240,5 @@
             this._failureMessage = failureMessage || null;
             this._userMessage = userMessage || null;
             this._condition = condition || null;
-        },
-
-        getKind: function () {
-            return this._kind;
-        },
-        getFailure: function () {
-            return this._failureMessage;
-        },
-        getUserMessage: function () {
-            return this._userMessage;
-        },
-        getCondition: function () {
-            return this._condition;
         }
     });

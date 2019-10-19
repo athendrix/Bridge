@@ -1,25 +1,23 @@
-using Bridge;
-
 namespace System.Reflection
 {
-    [External]
-    [Name("Object")]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Name("System.Object")]
     public class ParameterInfo
     {
-        [Name("sname")]
-        [FieldProperty]
+        [Bridge.Name("sn")]
         public extern string ScriptName
         {
             get;
         }
 
-        [FieldProperty]
+        [Bridge.Name("n")]
         public extern string Name
         {
             get;
         }
 
-        [FieldProperty]
+        [Bridge.Name("dv")]
         public extern string DefaultValue
         {
             get;
@@ -27,52 +25,52 @@ namespace System.Reflection
 
         public extern bool HasDefaultValue
         {
-            [Template("({this}.isOptional || false)")]
+            [Bridge.Template("({this}.isOptional || false)")]
             get;
         }
 
         public extern bool IsOptional
         {
-            [Template("({this}.isOptional || false)")]
+            [Bridge.Template("({this}.o || false)")]
             get;
         }
 
         public extern bool IsOut
         {
-            [Template("({this}.isOut || false)")]
+            [Bridge.Template("({this}.out || false)")]
             get;
         }
 
         public extern bool IsRef
         {
-            [Template("({this}.isRef || false)")]
+            [Bridge.Template("({this}.ref || false)")]
             get;
         }
 
         public extern bool IsParams
         {
-            [Template("({this}.isParams || false)")]
+            [Bridge.Template("({this}.ip || false)")]
             get;
         }
 
-        [FieldProperty]
+        [Bridge.Name("pt")]
         public extern Type ParameterType
         {
             get;
         }
 
-        [FieldProperty]
+        [Bridge.Name("ps")]
         public extern int Position
         {
             get;
         }
 
         /// <summary>
-		/// Returns an array of all custom attributes applied to this member.
-		/// </summary>
-		/// <param name="inherit">Ignored for members. Base members will never be considered.</param>
-		/// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined. </returns>
-		[Template("({this}.attr || [])")]
+        /// Returns an array of all custom attributes applied to this member.
+        /// </summary>
+        /// <param name="inherit">Ignored for members. Base members will never be considered.</param>
+        /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined. </returns>
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, false, {inherit})")]
         public extern object[] GetCustomAttributes(bool inherit);
 
         /// <summary>
@@ -81,14 +79,14 @@ namespace System.Reflection
         /// <param name="attributeType">The type of attribute to search for. Only attributes that are assignable to this type are returned. </param>
         /// <param name="inherit">Ignored for members. Base members will never be considered.</param>
         /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined.</returns>
-        [Template("({this}.attr || []).filter(function(a) { return Bridge.is(a, {attributeType}); })")]
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, {attributeType}, {inherit})")]
         public extern object[] GetCustomAttributes(Type attributeType, bool inherit);
 
         /// <summary>
         /// Returns an array of all custom attributes applied to this member.
         /// </summary>
         /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined. </returns>
-        [Template("({this}.attr || [])")]
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, false)")]
         public extern object[] GetCustomAttributes();
 
         /// <summary>
@@ -96,7 +94,7 @@ namespace System.Reflection
         /// </summary>
         /// <param name="attributeType">The type of attribute to search for. Only attributes that are assignable to this type are returned. </param>
         /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined.</returns>
-        [Template("({this}.attr || []).filter(function(a) { return Bridge.is(a, {attributeType}); })")]
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, {attributeType})")]
         public extern object[] GetCustomAttributes(Type attributeType);
     }
 }

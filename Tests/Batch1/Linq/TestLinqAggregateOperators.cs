@@ -1,6 +1,6 @@
 using Bridge.ClientTest.Utilities;
 using Bridge.Html5;
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System.Linq;
 
 namespace Bridge.ClientTest.Linq
@@ -231,7 +231,7 @@ namespace Bridge.ClientTest.Linq
         [Test(ExpectedCount = 1)]
         public static void Bridge315()
         {
-            var q = "a,b,c,a".ToUpperCase().Split(",").Aggregate("", (workingSentence, next) => next + " " + workingSentence);
+            var q = "a,b,c,a".ToUpperCase().Split(',').Aggregate("", (workingSentence, next) => next + " " + workingSentence);
 
             Assert.AreStrictEqual("A C B A ", q, "Enumerable.Aggregate");
         }

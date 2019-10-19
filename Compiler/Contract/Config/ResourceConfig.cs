@@ -1,4 +1,5 @@
 using System;
+using Bridge.Contract.Constants;
 using Newtonsoft.Json;
 
 namespace Bridge.Contract
@@ -101,6 +102,11 @@ namespace Bridge.Contract
             {
                 this.Silent = true;
             }
+
+            if (!this.RemoveBom.HasValue)
+            {
+                this.RemoveBom = true;
+            }
         }
 
         public string Header
@@ -119,6 +125,11 @@ namespace Bridge.Contract
         }
 
         public bool? Silent
+        {
+            get; set;
+        }
+
+        public bool? RemoveBom
         {
             get; set;
         }
@@ -160,18 +171,11 @@ namespace Bridge.Contract
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            var resourceConfig = existingValue as ResourceConfig;
-
             ResourceConfigItem[] items = null;
 
-            var failed = false;
-
-            try
+            if (reader.TokenType == JsonToken.Boolean)
             {
                 // Check if the resource setting format used is "resources": true/false
-                // This case has low possibility
-                // but to have a more meaningful exception details for the second case (below)
-                // it is done at first
                 var inject = serializer.Deserialize<bool>(reader);
 
                 items = new ResourceConfigItem[]
@@ -181,22 +185,30 @@ namespace Bridge.Contract
                         Inject = inject
                     }
                 };
-            }
-            catch (JsonSerializationException)
-            {
-                failed = true;
-            }
 
-            if (failed)
+            }
+            else if (reader.TokenType == JsonToken.StartArray)
             {
                 // Check if the resource setting format used is "resources": [ {} ]
                 items = serializer.Deserialize<ResourceConfigItem[]>(reader);
             }
+            else if (reader.TokenType == JsonToken.Null || reader.TokenType == JsonToken.None)
+            {
+                return existingValue;
+            }
+            else
+            {
+                throw new JsonReaderException(
+                   string.Format(
+                       Messages.Exceptions.ERROR_CONFIG_DESERIALIZATION_NODE,
+                       "Resources. It should be either bool value false/true or an array of objects [{ ... }].")
+                   );
+            }
 
+            var resourceConfig = existingValue as ResourceConfig;
             resourceConfig.Items = items;
 
             return resourceConfig;
-
         }
 
         public override bool CanConvert(Type objectType)

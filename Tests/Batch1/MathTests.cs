@@ -1,4 +1,5 @@
-﻿using Bridge.Test;
+﻿using Bridge.ClientTestHelper;
+using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest
@@ -7,37 +8,22 @@ namespace Bridge.ClientTest
     [TestFixture(TestNameFormat = "Math - {0}")]
     public class MathTests
     {
-        private void AssertAlmostEqual(double d1, double d2)
-        {
-            var diff = d2 - d1;
-            if (diff < 0)
-                diff = -diff;
-            Assert.True(diff < 1e-8);
-        }
-
-        private void AssertIsDecimalAndEqualTo(object v, object d, string message = null)
-        {
-            Assert.AreStrictEqual(true, v is decimal, message);
-            Assert.AreStrictEqual(d.ToString(), v.ToString(), message);
-        }
-
-        private void AssertIsDoubleAndEqualTo(object v, object d, string message = null)
-        {
-            Assert.AreStrictEqual(true, v is double, message);
-            Assert.AreStrictEqual(d.ToString(), v.ToString(), message);
-        }
+        public const double E2 = Math.E;
+        public const double PI2 = Math.PI;
 
         [Test]
         public void ConstantsWork()
         {
-            AssertAlmostEqual(Math.E, 2.718281828459045);
-            AssertAlmostEqual(Math.LN2, 0.6931471805599453);
-            AssertAlmostEqual(Math.LN10, 2.302585092994046);
-            AssertAlmostEqual(Math.LOG2E, 1.4426950408889634);
-            AssertAlmostEqual(Math.LOG10E, 0.4342944819032518);
-            AssertAlmostEqual(Math.PI, 3.141592653589793);
-            AssertAlmostEqual(Math.SQRT1_2, 0.7071067811865476);
-            AssertAlmostEqual(Math.SQRT2, 1.4142135623730951);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.E, 2.718281828459045);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.PI, 3.141592653589793);
+        }
+
+        // #2473
+        [Test]
+        public void ConstantsWork_N2473()
+        {
+            NumberHelper.AssertDoubleWithEpsilon8(E2, 2.718281828459045);
+            NumberHelper.AssertDoubleWithEpsilon8(PI2, 3.141592653589793);
         }
 
         [Test]
@@ -79,37 +65,73 @@ namespace Bridge.ClientTest
         [Test]
         public void AbsOfDecimalWorks()
         {
-            AssertIsDecimalAndEqualTo(Math.Abs(-10.0m), 10.0);
+            NumberHelper.AssertDecimal(10.0m, Math.Abs(-10.0m));
+            NumberHelper.AssertDecimal(10.5m, Math.Abs(10.5m));
+            NumberHelper.AssertDecimal(10.5m, Math.Abs(-10.5m));
+            NumberHelper.AssertDecimal(0m, Math.Abs(0m));
         }
 
         [Test]
         public void AcosWorks()
         {
-            AssertAlmostEqual(Math.Acos(0.5), 1.0471975511965979);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Acos(0.5), 1.0471975511965979);
         }
 
         [Test]
         public void AsinWorks()
         {
-            AssertAlmostEqual(Math.Asin(0.5), 0.5235987755982989);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Asin(0.5), 0.5235987755982989);
         }
 
         [Test]
         public void AtanWorks()
         {
-            AssertAlmostEqual(Math.Atan(0.5), 0.4636476090008061);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Atan(0.5), 0.4636476090008061);
         }
 
         [Test]
         public void Atan2Works()
         {
-            AssertAlmostEqual(Math.Atan2(1, 2), 0.4636476090008061);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Atan2(1, 2), 0.4636476090008061);
+        }
+
+        [Test]
+        public void CeilingOfDoubleWorks()
+        {
+            Assert.AreEqual(4.0, Math.Ceiling(3.2));
+            Assert.AreEqual(-3.0, Math.Ceiling(-3.2));
+        }
+
+        [Test]
+        public void CeilingOfDecimalWorks()
+        {
+            NumberHelper.AssertDecimal(4, Math.Ceiling(3.1m));
+            NumberHelper.AssertDecimal(-3, Math.Ceiling(-3.9m));
+            NumberHelper.AssertDecimal(3, Math.Ceiling(3m));
         }
 
         [Test]
         public void CosWorks()
         {
-            AssertAlmostEqual(Math.Cos(0.5), 0.8775825618903728);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Cos(0.5), 0.8775825618903728);
+        }
+
+        [Test]
+        public void CoshWorks()
+        {
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Cosh(0.1), 1.0050041680558035E+000);
+        }
+
+        [Test]
+        public void SinhWorks()
+        {
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Sinh(-0.98343), -1.1497925156481d);
+        }
+
+        [Test]
+        public void TanhWorks()
+        {
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Tanh(5.4251848), 0.999961205877d);
         }
 
         [Test]
@@ -133,12 +155,19 @@ namespace Bridge.ClientTest
 
             Math.DivRem(2341, 157, out resultLong);
             Assert.True(143 == resultLong);
+
+            int result;
+            Assert.AreEqual(1073741823, Math.DivRem(2147483647, 2, out result));
+            Assert.AreEqual(1, result);
+            long longResult;
+            Assert.AreEqual(23058430092136L, Math.DivRem(92233720368547L, 4L, out longResult));
+            Assert.AreEqual(3L, longResult);
         }
 
         [Test]
         public void ExpWorks()
         {
-            AssertAlmostEqual(Math.Exp(0.5), 1.6487212707001282);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Exp(0.5), 1.6487212707001282);
         }
 
         [Test]
@@ -151,14 +180,38 @@ namespace Bridge.ClientTest
         [Test]
         public void FloorOfDecimalWorks()
         {
-            AssertIsDecimalAndEqualTo(Math.Floor(3.6m), 3.0);
-            AssertIsDecimalAndEqualTo(Math.Floor(-3.6m), -4.0);
+            NumberHelper.AssertDecimal(3.0, Math.Floor(3.6m));
+            NumberHelper.AssertDecimal(-4.0, Math.Floor(-3.6m));
+            NumberHelper.AssertDecimal(3, decimal.Floor(3m));
         }
 
         [Test]
         public void LogWorks()
         {
-            AssertAlmostEqual(Math.Log(0.5), -0.6931471805599453);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Log(0.5), -0.6931471805599453);
+        }
+
+        [Test]
+        public void LogWithBaseWorks_SPI_1566()
+        {
+            // #1566
+            // Test restructure to keep assertion count correct (prevent uncaught test exception)
+            var d1 = 0d;
+            CommonHelper.Safe(() => d1 = Math.Log(16, 2));
+            Assert.AreEqual(4.0, d1);
+
+            var d2 = 0d;
+            CommonHelper.Safe(() => d2 = Math.Log(16, 4));
+            Assert.AreEqual(2.0, d2);
+        }
+
+        // #SPI
+        [Test]
+        public void Log10Works_SPI_1629()
+        {
+            // #1629
+            Assert.AreEqual(Math.Log10(10), 1.0);
+            Assert.AreEqual(Math.Log10(100), 2.0);
         }
 
         [Test]
@@ -171,8 +224,8 @@ namespace Bridge.ClientTest
         [Test]
         public void MaxOfDecimalWorks()
         {
-            AssertIsDecimalAndEqualTo(Math.Max(-14.5m, 3.0m), 3.0);
-            AssertIsDecimalAndEqualTo(Math.Max(5.4m, 3.0m), 5.4);
+            NumberHelper.AssertDecimal(3.0m, Math.Max(-14.5m, 3.0m));
+            NumberHelper.AssertDecimal(5.4m, Math.Max(5.4m, 3.0m));
         }
 
         [Test]
@@ -234,8 +287,8 @@ namespace Bridge.ClientTest
         [Test]
         public void MaxOfULongWorks()
         {
-            Assert.True((ulong)300 == Math.Max((ulong)100, (ulong)300));
-            Assert.True((ulong)500 == Math.Max((ulong)500, (ulong)300));
+            Assert.AreEqual((ulong)300, Math.Max((ulong)100, (ulong)300));
+            Assert.AreEqual((ulong)500, Math.Max((ulong)500, (ulong)300));
         }
 
         [Test]
@@ -248,8 +301,8 @@ namespace Bridge.ClientTest
         [Test]
         public void MinOfDecimalWorks()
         {
-            AssertIsDecimalAndEqualTo(Math.Min(-14.5m, 3.0m), -14.5);
-            AssertIsDecimalAndEqualTo(Math.Min(5.4m, 3.0m), 3.0);
+            NumberHelper.AssertDecimal(-14.5m, Math.Min(-14.5m, 3.0m));
+            NumberHelper.AssertDecimal(3.0m, Math.Min(5.4m, 3.0m));
         }
 
         [Test]
@@ -276,8 +329,8 @@ namespace Bridge.ClientTest
         [Test]
         public void MinOfLongWorks()
         {
-            Assert.True(1L == Math.Min(1L, 3L));
-            Assert.True(3L == Math.Min(4L, 3L));
+            Assert.AreEqual(1L, Math.Min(1L, 3L));
+            Assert.AreEqual(3L, Math.Min(4L, 3L));
         }
 
         [Test]
@@ -311,17 +364,17 @@ namespace Bridge.ClientTest
         [Test]
         public void MinOfULongWorks()
         {
-            Assert.True((ulong)100 == Math.Min((ulong)100, (ulong)300));
-            Assert.True((ulong)300 == Math.Min((ulong)500, (ulong)300));
+            Assert.AreEqual((ulong)100, Math.Min((ulong)100, (ulong)300));
+            Assert.AreEqual((ulong)300, Math.Min((ulong)500, (ulong)300));
         }
 
         [Test]
         public void PowWorks()
         {
-            AssertAlmostEqual(Math.Pow(3, 0.5), 1.7320508075688772);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Pow(3, 0.5), 1.7320508075688772);
 
-            AssertAlmostEqual(Math.Pow(3, 2), 9);
-            AssertAlmostEqual(Math.Pow(2, 3), 8);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Pow(3, 2), 9);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Pow(2, 3), 8);
         }
 
         [Test]
@@ -349,297 +402,297 @@ namespace Bridge.ClientTest
         [Test]
         public void RoundDecimalWithModeWorks()
         {
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m), 4, "3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m), 4, "3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m), 3, "3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m), -3, "-3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m), -4, "-3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m), -4, "-3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m), "3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.5m), "3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m), "3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m), "-3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.5m), "-3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m), "-3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.Up), 4, "Up 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.Up), 4, "Up 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.Up), 4, "Up 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.Up), -4, "Up -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.Up), -4, "Up -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.Up), -4, "Up -3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m, MidpointRounding.Up), "Up 3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.5m, MidpointRounding.Up), "Up 3.5m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.2m, MidpointRounding.Up), "Up 3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.2m, MidpointRounding.Up), "Up -3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.5m, MidpointRounding.Up), "Up -3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m, MidpointRounding.Up), "Up -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.Down), 3, "Down 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.Down), 3, "Down 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.Down), 3, "Down 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.Down), -3, "Down -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.Down), -3, "Down -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.Down), -3, "Down -3.8m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.8m, MidpointRounding.Down), "Down 3.8m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.5m, MidpointRounding.Down), "Down 3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m, MidpointRounding.Down), "Down 3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m, MidpointRounding.Down), "Down -3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.5m, MidpointRounding.Down), "Down -3.5");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.8m, MidpointRounding.Down), "Down -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.InfinityPos), 4, "InfinityPos 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.InfinityPos), 4, "InfinityPos 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.InfinityPos), 4, "InfinityPos 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.InfinityPos), -3, "InfinityPos -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.InfinityPos), -3, "InfinityPos -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.InfinityPos), -3, "InfinityPos -3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m, MidpointRounding.InfinityPos), "InfinityPos 3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.5m, MidpointRounding.InfinityPos), "InfinityPos 3.5m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.2m, MidpointRounding.InfinityPos), "InfinityPos 3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m, MidpointRounding.InfinityPos), "InfinityPos -3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.5m, MidpointRounding.InfinityPos), "InfinityPos -3.5");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.8m, MidpointRounding.InfinityPos), "InfinityPos -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.8m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.8m, MidpointRounding.InfinityNeg), "InfinityNeg 3.8m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.5m, MidpointRounding.InfinityNeg), "InfinityNeg 3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m, MidpointRounding.InfinityNeg), "InfinityNeg 3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.2m, MidpointRounding.InfinityNeg), "InfinityNeg -3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.5m, MidpointRounding.InfinityNeg), "InfinityNeg -3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m, MidpointRounding.InfinityNeg), "InfinityNeg -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.TowardsZero), 4, "TowardsZero 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.TowardsZero), 3, "TowardsZero 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.TowardsZero), 3, "TowardsZero 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.TowardsZero), -3, "TowardsZero -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.TowardsZero), -3, "TowardsZero -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.TowardsZero), -4, "TowardsZero -3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m, MidpointRounding.TowardsZero), "TowardsZero 3.8m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.5m, MidpointRounding.TowardsZero), "TowardsZero 3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m, MidpointRounding.TowardsZero), "TowardsZero 3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m, MidpointRounding.TowardsZero), "TowardsZero -3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.5m, MidpointRounding.TowardsZero), "TowardsZero -3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m, MidpointRounding.TowardsZero), "TowardsZero -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.AwayFromZero), 4, "AwayFromZero 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.AwayFromZero), 4, "AwayFromZero 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.AwayFromZero), 3, "AwayFromZero 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.AwayFromZero), -3, "AwayFromZero -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.AwayFromZero), -4, "AwayFromZero -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.AwayFromZero), -4, "AwayFromZero -3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m, MidpointRounding.AwayFromZero), "AwayFromZero 3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.5m, MidpointRounding.AwayFromZero), "AwayFromZero 3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m, MidpointRounding.AwayFromZero), "AwayFromZero 3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m, MidpointRounding.AwayFromZero), "AwayFromZero -3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.5m, MidpointRounding.AwayFromZero), "AwayFromZero -3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m, MidpointRounding.AwayFromZero), "AwayFromZero -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.Ceil), 4, "Ceil 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.Ceil), 4, "Ceil 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.Ceil), 3, "Ceil 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.Ceil), -3, "Ceil -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.Ceil), -3, "Ceil -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.Ceil), -4, "Ceil -3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m, MidpointRounding.Ceil), "Ceil 3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.5m, MidpointRounding.Ceil), "Ceil 3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m, MidpointRounding.Ceil), "Ceil 3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m, MidpointRounding.Ceil), "Ceil -3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.5m, MidpointRounding.Ceil), "Ceil -3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m, MidpointRounding.Ceil), "Ceil -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.Floor), 4, "Floor 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.Floor), 3, "Floor 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.Floor), 3, "Floor 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.Floor), -3, "Floor -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.Floor), -4, "Floor -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.Floor), -4, "Floor -3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m, MidpointRounding.Floor), "Floor 3.8m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.5m, MidpointRounding.Floor), "Floor 3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m, MidpointRounding.Floor), "Floor 3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m, MidpointRounding.Floor), "Floor -3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.5m, MidpointRounding.Floor), "Floor -3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m, MidpointRounding.Floor), "Floor -3.8m");
 
-            AssertIsDecimalAndEqualTo(Math.Round(3.8m, MidpointRounding.ToEven), 4, "ToEven 3.8m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.5m, MidpointRounding.ToEven), 4, "ToEven 3.5m");
-            AssertIsDecimalAndEqualTo(Math.Round(3.2m, MidpointRounding.ToEven), 3, "ToEven 3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.2m, MidpointRounding.ToEven), -3, "ToEven -3.2m");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.5m, MidpointRounding.ToEven), -4, "ToEven -3.5");
-            AssertIsDecimalAndEqualTo(Math.Round(-3.8m, MidpointRounding.ToEven), -4, "ToEven -3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.8m, MidpointRounding.ToEven), "ToEven 3.8m");
+            NumberHelper.AssertDecimal(4, Math.Round(3.5m, MidpointRounding.ToEven), "ToEven 3.5m");
+            NumberHelper.AssertDecimal(3, Math.Round(3.2m, MidpointRounding.ToEven), "ToEven 3.2m");
+            NumberHelper.AssertDecimal(-3, Math.Round(-3.2m, MidpointRounding.ToEven), "ToEven -3.2m");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.5m, MidpointRounding.ToEven), "ToEven -3.5");
+            NumberHelper.AssertDecimal(-4, Math.Round(-3.8m, MidpointRounding.ToEven), "ToEven -3.8m");
         }
 
         [Test]
         public void RoundDecimalWithPrecisionAndModeWorks()
         {
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1), 1.4m, "Bridge584 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1), 1.6m, "Bridge584 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4), 123.4568m, "Bridge584 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6), 123.456789m, "Bridge584 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8), 123.456789m, "Bridge584 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0), -123m, "Bridge584 6");
+            NumberHelper.AssertNumber(1.4m, Math.Round(1.45m, 1), "Bridge584 1");
+            NumberHelper.AssertNumber(1.6m, Math.Round(1.55m, 1), "Bridge584 2");
+            NumberHelper.AssertNumber(123.4568m, Math.Round(123.456789M, 4), "Bridge584 3");
+            NumberHelper.AssertNumber(123.456789m, Math.Round(123.456789M, 6), "Bridge584 4");
+            NumberHelper.AssertNumber(123.456789m, Math.Round(123.456789M, 8), "Bridge584 5");
+            NumberHelper.AssertNumber(-123m, Math.Round(-123.456M, 0), "Bridge584 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.Up), 1.5, "Bridge584 Up 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.Up), 1.6, "Bridge584 Up 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.Up), 123.4568, "Bridge584 Up 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.Up), 123.456789, "Bridge584 Up 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.Up), 123.456789, "Bridge584 Up 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.Up), -124.0, "Bridge584 Up 6");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.45m, 1, MidpointRounding.Up), "Bridge584 Up 1");
+            NumberHelper.AssertDecimal(1.6, Math.Round(1.55m, 1, MidpointRounding.Up), "Bridge584 Up 2");
+            NumberHelper.AssertDecimal(123.4568, Math.Round(123.456789M, 4, MidpointRounding.Up), "Bridge584 Up 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.Up), "Bridge584 Up 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.Up), "Bridge584 Up 5");
+            NumberHelper.AssertDecimal(-124.0, Math.Round(-123.456M, 0, MidpointRounding.Up), "Bridge584 Up 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.AwayFromZero), 1.5, "Bridge584 AwayFromZero 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.AwayFromZero), 1.6, "Bridge584 AwayFromZero 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.AwayFromZero), 123.4568, "Bridge584 AwayFromZero 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.AwayFromZero), 123.456789, "Bridge584 AwayFromZero 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.AwayFromZero), 123.456789, "Bridge584 AwayFromZero 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.AwayFromZero), -123.0, "Bridge584 AwayFromZero 6");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.45m, 1, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 1");
+            NumberHelper.AssertDecimal(1.6, Math.Round(1.55m, 1, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 2");
+            NumberHelper.AssertDecimal(123.4568, Math.Round(123.456789M, 4, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 5");
+            NumberHelper.AssertDecimal(-123.0, Math.Round(-123.456M, 0, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.Down), 1.4, "Bridge584 Down 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.Down), 1.5, "Bridge584 Down 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.Down), 123.4567, "Bridge584 Down 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.Down), 123.456789, "Bridge584 Down 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.Down), 123.456789, "Bridge584 Down 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.Down), -123.0, "Bridge584 Down 6");
+            NumberHelper.AssertDecimal(1.4, Math.Round(1.45m, 1, MidpointRounding.Down), "Bridge584 Down 1");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.55m, 1, MidpointRounding.Down), "Bridge584 Down 2");
+            NumberHelper.AssertDecimal(123.4567, Math.Round(123.456789M, 4, MidpointRounding.Down), "Bridge584 Down 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.Down), "Bridge584 Down 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.Down), "Bridge584 Down 5");
+            NumberHelper.AssertDecimal(-123.0, Math.Round(-123.456M, 0, MidpointRounding.Down), "Bridge584 Down 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.InfinityPos), 1.5, "Bridge584 InfinityPos 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.InfinityPos), 1.6, "Bridge584 InfinityPos 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.InfinityPos), 123.4568, "Bridge584 InfinityPos 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.InfinityPos), 123.456789, "Bridge584 InfinityPos 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.InfinityPos), 123.456789, "Bridge584 InfinityPos 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.InfinityPos), -123.0, "Bridge584 InfinityPos 6");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.45m, 1, MidpointRounding.InfinityPos), "Bridge584 InfinityPos 1");
+            NumberHelper.AssertDecimal(1.6, Math.Round(1.55m, 1, MidpointRounding.InfinityPos), "Bridge584 InfinityPos 2");
+            NumberHelper.AssertDecimal(123.4568, Math.Round(123.456789M, 4, MidpointRounding.InfinityPos), "Bridge584 InfinityPos 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.InfinityPos), "Bridge584 InfinityPos 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.InfinityPos), "Bridge584 InfinityPos 5");
+            NumberHelper.AssertDecimal(-123.0, Math.Round(-123.456M, 0, MidpointRounding.InfinityPos), "Bridge584 InfinityPos 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.InfinityNeg), 1.4, "Bridge584 InfinityNeg 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.InfinityNeg), 1.5, "Bridge584 InfinityNeg 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.InfinityNeg), 123.4567, "Bridge584 InfinityNeg 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.InfinityNeg), 123.456789, "Bridge584 InfinityNeg 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.InfinityNeg), 123.456789, "Bridge584 InfinityNeg 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.InfinityNeg), -124.0, "Bridge584 InfinityNeg 6");
+            NumberHelper.AssertDecimal(1.4, Math.Round(1.45m, 1, MidpointRounding.InfinityNeg), "Bridge584 InfinityNeg 1");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.55m, 1, MidpointRounding.InfinityNeg), "Bridge584 InfinityNeg 2");
+            NumberHelper.AssertDecimal(123.4567, Math.Round(123.456789M, 4, MidpointRounding.InfinityNeg), "Bridge584 InfinityNeg 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.InfinityNeg), "Bridge584 InfinityNeg 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.InfinityNeg), "Bridge584 InfinityNeg 5");
+            NumberHelper.AssertDecimal(-124.0, Math.Round(-123.456M, 0, MidpointRounding.InfinityNeg), "Bridge584 InfinityNeg 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.TowardsZero), 1.4, "Bridge584 TowardsZero 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.TowardsZero), 1.5, "Bridge584 TowardsZero 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.TowardsZero), 123.4568, "Bridge584 TowardsZero 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.TowardsZero), 123.456789, "Bridge584 TowardsZero 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.TowardsZero), 123.456789, "Bridge584 TowardsZero 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.TowardsZero), -123.0, "Bridge584 TowardsZero 6");
+            NumberHelper.AssertDecimal(1.4, Math.Round(1.45m, 1, MidpointRounding.TowardsZero), "Bridge584 TowardsZero 1");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.55m, 1, MidpointRounding.TowardsZero), "Bridge584 TowardsZero 2");
+            NumberHelper.AssertDecimal(123.4568, Math.Round(123.456789M, 4, MidpointRounding.TowardsZero), "Bridge584 TowardsZero 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.TowardsZero), "Bridge584 TowardsZero 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.TowardsZero), "Bridge584 TowardsZero 5");
+            NumberHelper.AssertDecimal(-123.0, Math.Round(-123.456M, 0, MidpointRounding.TowardsZero), "Bridge584 TowardsZero 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.ToEven), 1.4, "Bridge584 ToEven 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.ToEven), 1.6, "Bridge584 ToEven 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.ToEven), 123.4568, "Bridge584 ToEven 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.ToEven), 123.456789, "Bridge584 ToEven 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.ToEven), 123.456789, "Bridge584 ToEven 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.ToEven), -123.0, "Bridge584 ToEven 6");
+            NumberHelper.AssertDecimal(1.4, Math.Round(1.45m, 1, MidpointRounding.ToEven), "Bridge584 ToEven 1");
+            NumberHelper.AssertDecimal(1.6, Math.Round(1.55m, 1, MidpointRounding.ToEven), "Bridge584 ToEven 2");
+            NumberHelper.AssertDecimal(123.4568, Math.Round(123.456789M, 4, MidpointRounding.ToEven), "Bridge584 ToEven 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.ToEven), "Bridge584 ToEven 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.ToEven), "Bridge584 ToEven 5");
+            NumberHelper.AssertDecimal(-123.0, Math.Round(-123.456M, 0, MidpointRounding.ToEven), "Bridge584 ToEven 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.Ceil), 1.5, "Bridge584 Ceil 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.Ceil), 1.6, "Bridge584 Ceil 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.Ceil), 123.4568, "Bridge584 Ceil 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.Ceil), 123.456789, "Bridge584 Ceil 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.Ceil), 123.456789, "Bridge584 Ceil 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.Ceil), -123.0, "Bridge584 Ceil 6");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.45m, 1, MidpointRounding.Ceil), "Bridge584 Ceil 1");
+            NumberHelper.AssertDecimal(1.6, Math.Round(1.55m, 1, MidpointRounding.Ceil), "Bridge584 Ceil 2");
+            NumberHelper.AssertDecimal(123.4568, Math.Round(123.456789M, 4, MidpointRounding.Ceil), "Bridge584 Ceil 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.Ceil), "Bridge584 Ceil 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.Ceil), "Bridge584 Ceil 5");
+            NumberHelper.AssertDecimal(-123.0, Math.Round(-123.456M, 0, MidpointRounding.Ceil), "Bridge584 Ceil 6");
 
-            AssertIsDecimalAndEqualTo(Math.Round(1.45m, 1, MidpointRounding.Floor), 1.4, "Bridge584 Floor 1");
-            AssertIsDecimalAndEqualTo(Math.Round(1.55m, 1, MidpointRounding.Floor), 1.5, "Bridge584 Floor 2");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 4, MidpointRounding.Floor), 123.4568, "Bridge584 Floor 3");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 6, MidpointRounding.Floor), 123.456789, "Bridge584 Floor 4");
-            AssertIsDecimalAndEqualTo(Math.Round(123.456789M, 8, MidpointRounding.Floor), 123.456789, "Bridge584 Floor 5");
-            AssertIsDecimalAndEqualTo(Math.Round(-123.456M, 0, MidpointRounding.Floor), -123.0, "Bridge584 Floor 6");
+            NumberHelper.AssertDecimal(1.4, Math.Round(1.45m, 1, MidpointRounding.Floor), "Bridge584 Floor 1");
+            NumberHelper.AssertDecimal(1.5, Math.Round(1.55m, 1, MidpointRounding.Floor), "Bridge584 Floor 2");
+            NumberHelper.AssertDecimal(123.4568, Math.Round(123.456789M, 4, MidpointRounding.Floor), "Bridge584 Floor 3");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 6, MidpointRounding.Floor), "Bridge584 Floor 4");
+            NumberHelper.AssertDecimal(123.456789, Math.Round(123.456789M, 8, MidpointRounding.Floor), "Bridge584 Floor 5");
+            NumberHelper.AssertDecimal(-123.0, Math.Round(-123.456M, 0, MidpointRounding.Floor), "Bridge584 Floor 6");
         }
 
         [Test]
         public void RoundDoubleWithModeWorks()
         {
-            AssertIsDoubleAndEqualTo(Math.Round(3.8), 4, "3.8");
-            AssertIsDoubleAndEqualTo(Math.Round(3.5), 4, "3.5");
-            AssertIsDoubleAndEqualTo(Math.Round(3.2), 3, "3.2");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.2), -3, "-3.2");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.5), -4, "-3.5");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.8), -4, "-3.8");
+            NumberHelper.AssertDouble(4, Math.Round(3.8), "3.8");
+            NumberHelper.AssertDouble(4, Math.Round(3.5), "3.5");
+            NumberHelper.AssertDouble(3, Math.Round(3.2), "3.2");
+            NumberHelper.AssertDouble(-3, Math.Round(-3.2), "-3.2");
+            NumberHelper.AssertDouble(-4, Math.Round(-3.5), "-3.5");
+            NumberHelper.AssertDouble(-4, Math.Round(-3.8), "-3.8");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.Up), 4, "Up 3.8");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.Up), 4, "Up 3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.Up), 4, "Up 3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.Up), -4, "Up -3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.Up), -4, "Up -3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.Up), -4, "Up -3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.8, MidpointRounding.Up), 4, "Up 3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.5, MidpointRounding.Up), 4, "Up 3.5");
+            //NumberHelper.AssertNumber(Math.Round(3.2, MidpointRounding.Up), 4, "Up 3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.2, MidpointRounding.Up), -4, "Up -3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.5, MidpointRounding.Up), -4, "Up -3.5");
+            //NumberHelper.AssertNumber(Math.Round(-3.8, MidpointRounding.Up), -4, "Up -3.8");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.Down), 3, "Down 3.8");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.Down), 3, "Down 3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.Down), 3, "Down 3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.Down), -3, "Down -3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.Down), -3, "Down -3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.Down), -3, "Down -3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.8, MidpointRounding.Down), 3, "Down 3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.5, MidpointRounding.Down), 3, "Down 3.5");
+            //NumberHelper.AssertNumber(Math.Round(3.2, MidpointRounding.Down), 3, "Down 3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.2, MidpointRounding.Down), -3, "Down -3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.5, MidpointRounding.Down), -3, "Down -3.5");
+            //NumberHelper.AssertNumber(Math.Round(-3.8, MidpointRounding.Down), -3, "Down -3.8");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.InfinityPos), 4, "InfinityPos 3.8");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.InfinityPos), 4, "InfinityPos 3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.InfinityPos), 4, "InfinityPos 3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.InfinityPos), -3, "InfinityPos -3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.InfinityPos), -3, "InfinityPos -3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.InfinityPos), -3, "InfinityPos -3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.8, MidpointRounding.InfinityPos), 4, "InfinityPos 3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.5, MidpointRounding.InfinityPos), 4, "InfinityPos 3.5");
+            //NumberHelper.AssertNumber(Math.Round(3.2, MidpointRounding.InfinityPos), 4, "InfinityPos 3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.2, MidpointRounding.InfinityPos), -3, "InfinityPos -3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.5, MidpointRounding.InfinityPos), -3, "InfinityPos -3.5");
+            //NumberHelper.AssertNumber(Math.Round(-3.8, MidpointRounding.InfinityPos), -3, "InfinityPos -3.8");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.8");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.8, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.5, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.5");
+            //NumberHelper.AssertNumber(Math.Round(3.2, MidpointRounding.InfinityNeg), 3, "InfinityNeg 3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.2, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.5, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.5");
+            //NumberHelper.AssertNumber(Math.Round(-3.8, MidpointRounding.InfinityNeg), -4, "InfinityNeg -3.8");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.TowardsZero), 4, "TowardsZero 3.8");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.TowardsZero), 3, "TowardsZero 3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.TowardsZero), 3, "TowardsZero 3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.TowardsZero), -3, "TowardsZero -3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.TowardsZero), -3, "TowardsZero -3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.TowardsZero), -4, "TowardsZero -3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.8, MidpointRounding.TowardsZero), 4, "TowardsZero 3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.5, MidpointRounding.TowardsZero), 3, "TowardsZero 3.5");
+            //NumberHelper.AssertNumber(Math.Round(3.2, MidpointRounding.TowardsZero), 3, "TowardsZero 3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.2, MidpointRounding.TowardsZero), -3, "TowardsZero -3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.5, MidpointRounding.TowardsZero), -3, "TowardsZero -3.5");
+            //NumberHelper.AssertNumber(Math.Round(-3.8, MidpointRounding.TowardsZero), -4, "TowardsZero -3.8");
 
-            AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.AwayFromZero), 4, "AwayFromZero 3.8");
-            AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.AwayFromZero), 4, "AwayFromZero 3.5");
-            AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.AwayFromZero), 3, "AwayFromZero 3.2");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.AwayFromZero), -3, "AwayFromZero -3.2");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.AwayFromZero), -4, "AwayFromZero -3.5");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.AwayFromZero), -4, "AwayFromZero -3.8");
+            NumberHelper.AssertDouble(4, Math.Round(3.8, MidpointRounding.AwayFromZero), "AwayFromZero 3.8");
+            NumberHelper.AssertDouble(4, Math.Round(3.5, MidpointRounding.AwayFromZero), "AwayFromZero 3.5");
+            NumberHelper.AssertDouble(3, Math.Round(3.2, MidpointRounding.AwayFromZero), "AwayFromZero 3.2");
+            NumberHelper.AssertDouble(-3, Math.Round(-3.2, MidpointRounding.AwayFromZero), "AwayFromZero -3.2");
+            NumberHelper.AssertDouble(-4, Math.Round(-3.5, MidpointRounding.AwayFromZero), "AwayFromZero -3.5");
+            NumberHelper.AssertDouble(-4, Math.Round(-3.8, MidpointRounding.AwayFromZero), "AwayFromZero -3.8");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.Ceil), 4, "Ceil 3.8");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.Ceil), 4, "Ceil 3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.Ceil), 3, "Ceil 3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.Ceil), -3, "Ceil -3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.Ceil), -3, "Ceil -3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.Ceil), -4, "Ceil -3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.8, MidpointRounding.Ceil), 4, "Ceil 3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.5, MidpointRounding.Ceil), 4, "Ceil 3.5");
+            //NumberHelper.AssertNumber(Math.Round(3.2, MidpointRounding.Ceil), 3, "Ceil 3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.2, MidpointRounding.Ceil), -3, "Ceil -3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.5, MidpointRounding.Ceil), -3, "Ceil -3.5");
+            //NumberHelper.AssertNumber(Math.Round(-3.8, MidpointRounding.Ceil), -4, "Ceil -3.8");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.Floor), 4, "Floor 3.8");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.Floor), 3, "Floor 3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.Floor), 3, "Floor 3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.Floor), -3, "Floor -3.2");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.Floor), -4, "Floor -3.5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.Floor), -4, "Floor -3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.8, MidpointRounding.Floor), 4, "Floor 3.8");
+            //NumberHelper.AssertNumber(Math.Round(3.5, MidpointRounding.Floor), 3, "Floor 3.5");
+            //NumberHelper.AssertNumber(Math.Round(3.2, MidpointRounding.Floor), 3, "Floor 3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.2, MidpointRounding.Floor), -3, "Floor -3.2");
+            //NumberHelper.AssertNumber(Math.Round(-3.5, MidpointRounding.Floor), -4, "Floor -3.5");
+            //NumberHelper.AssertNumber(Math.Round(-3.8, MidpointRounding.Floor), -4, "Floor -3.8");
 
-            AssertIsDoubleAndEqualTo(Math.Round(3.8, MidpointRounding.ToEven), 4, "ToEven 3.8");
-            AssertIsDoubleAndEqualTo(Math.Round(3.5, MidpointRounding.ToEven), 4, "ToEven 3.5");
-            AssertIsDoubleAndEqualTo(Math.Round(3.2, MidpointRounding.ToEven), 3, "ToEven 3.2");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.2, MidpointRounding.ToEven), -3, "ToEven -3.2");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.5, MidpointRounding.ToEven), -4, "ToEven -3.5");
-            AssertIsDoubleAndEqualTo(Math.Round(-3.8, MidpointRounding.ToEven), -4, "ToEven -3.8");
+            NumberHelper.AssertDouble(4, Math.Round(3.8, MidpointRounding.ToEven), "ToEven 3.8");
+            NumberHelper.AssertDouble(4, Math.Round(3.5, MidpointRounding.ToEven), "ToEven 3.5");
+            NumberHelper.AssertDouble(3, Math.Round(3.2, MidpointRounding.ToEven), "ToEven 3.2");
+            NumberHelper.AssertDouble(-3, Math.Round(-3.2, MidpointRounding.ToEven), "ToEven -3.2");
+            NumberHelper.AssertDouble(-4, Math.Round(-3.5, MidpointRounding.ToEven), "ToEven -3.5");
+            NumberHelper.AssertDouble(-4, Math.Round(-3.8, MidpointRounding.ToEven), "ToEven -3.8");
         }
 
         [Test]
         public void RoundDoubleWithPrecisionAndModeWorks()
         {
-            AssertIsDoubleAndEqualTo(Math.Round(1.45, 1), 1.4, "Bridge584 1");
-            AssertIsDoubleAndEqualTo(Math.Round(1.55, 1), 1.6, "Bridge584 2");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4), 123.4568, "Bridge584 3");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6), 123.456789, "Bridge584 4");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8), 123.456789, "Bridge584 5");
-            AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0), -123, "Bridge584 6");
+            NumberHelper.AssertDouble(1.4, Math.Round(1.45, 1), "Bridge584 1");
+            NumberHelper.AssertDouble(1.6, Math.Round(1.55, 1), "Bridge584 2");
+            NumberHelper.AssertDouble(123.4568, Math.Round(123.456789, 4), "Bridge584 3");
+            NumberHelper.AssertDouble(123.456789, Math.Round(123.456789, 6), "Bridge584 4");
+            NumberHelper.AssertDouble(123.456789, Math.Round(123.456789, 8), "Bridge584 5");
+            NumberHelper.AssertDouble(-123, Math.Round(-123.456, 0), "Bridge584 6");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.Up), 1.5, "Bridge584 Up 1");
-            //AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.Up), 1.6, "Bridge584 Up 2");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.Up), 123.4568, "Bridge584 Up 3");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.Up), 123.456789, "Bridge584 Up 4");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.Up), 123.456789, "Bridge584 Up 5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.Up), -124.0, "Bridge584 Up 6");
+            //NumberHelper.AssertNumber(Math.Round(1.45, 1, MidpointRounding.Up), 1.5, "Bridge584 Up 1");
+            //NumberHelper.AssertNumber(Math.Round(1.55, 1, MidpointRounding.Up), 1.6, "Bridge584 Up 2");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 4, MidpointRounding.Up), 123.4568, "Bridge584 Up 3");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 6, MidpointRounding.Up), 123.456789, "Bridge584 Up 4");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 8, MidpointRounding.Up), 123.456789, "Bridge584 Up 5");
+            //NumberHelper.AssertNumber(Math.Round(-123.456, 0, MidpointRounding.Up), -124.0, "Bridge584 Up 6");
 
-            AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.AwayFromZero), 1.5, "Bridge584 AwayFromZero 1");
-            AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.AwayFromZero), 1.6, "Bridge584 AwayFromZero 2");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.AwayFromZero), 123.4568, "Bridge584 AwayFromZero 3");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.AwayFromZero), 123.456789, "Bridge584 AwayFromZero 4");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.AwayFromZero), 123.456789, "Bridge584 AwayFromZero 5");
-            AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.AwayFromZero), -123.0, "Bridge584 AwayFromZero 6");
+            NumberHelper.AssertDouble(1.5, Math.Round(1.45, 1, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 1");
+            NumberHelper.AssertDouble(1.6, Math.Round(1.55, 1, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 2");
+            NumberHelper.AssertDouble(123.4568, Math.Round(123.456789, 4, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 3");
+            NumberHelper.AssertDouble(123.456789, Math.Round(123.456789, 6, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 4");
+            NumberHelper.AssertDouble(123.456789, Math.Round(123.456789, 8, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 5");
+            NumberHelper.AssertDouble(-123.0, Math.Round(-123.456, 0, MidpointRounding.AwayFromZero), "Bridge584 AwayFromZero 6");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.Down), 1.4, "Bridge584 Down 1");
-            //AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.Down), 1.5, "Bridge584 Down 2");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.Down), 123.4567, "Bridge584 Down 3");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.Down), 123.456789, "Bridge584 Down 4");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.Down), 123.456789, "Bridge584 Down 5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.Down), -123.0, "Bridge584 Down 6");
+            //NumberHelper.AssertNumber(Math.Round(1.45, 1, MidpointRounding.Down), 1.4, "Bridge584 Down 1");
+            //NumberHelper.AssertNumber(Math.Round(1.55, 1, MidpointRounding.Down), 1.5, "Bridge584 Down 2");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 4, MidpointRounding.Down), 123.4567, "Bridge584 Down 3");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 6, MidpointRounding.Down), 123.456789, "Bridge584 Down 4");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 8, MidpointRounding.Down), 123.456789, "Bridge584 Down 5");
+            //NumberHelper.AssertNumber(Math.Round(-123.456, 0, MidpointRounding.Down), -123.0, "Bridge584 Down 6");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.InfinityPos), 1.5, "Bridge584 InfinityPos 1");
-            //AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.InfinityPos), 1.6, "Bridge584 InfinityPos 2");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.InfinityPos), 123.4568, "Bridge584 InfinityPos 3");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.InfinityPos), 123.456789, "Bridge584 InfinityPos 4");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.InfinityPos), 123.456789, "Bridge584 InfinityPos 5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.InfinityPos), -123.0, "Bridge584 InfinityPos 6");
+            //NumberHelper.AssertNumber(Math.Round(1.45, 1, MidpointRounding.InfinityPos), 1.5, "Bridge584 InfinityPos 1");
+            //NumberHelper.AssertNumber(Math.Round(1.55, 1, MidpointRounding.InfinityPos), 1.6, "Bridge584 InfinityPos 2");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 4, MidpointRounding.InfinityPos), 123.4568, "Bridge584 InfinityPos 3");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 6, MidpointRounding.InfinityPos), 123.456789, "Bridge584 InfinityPos 4");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 8, MidpointRounding.InfinityPos), 123.456789, "Bridge584 InfinityPos 5");
+            //NumberHelper.AssertNumber(Math.Round(-123.456, 0, MidpointRounding.InfinityPos), -123.0, "Bridge584 InfinityPos 6");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.InfinityNeg), 1.4, "Bridge584 InfinityNeg 1");
-            //AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.InfinityNeg), 1.5, "Bridge584 InfinityNeg 2");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.InfinityNeg), 123.4567, "Bridge584 InfinityNeg 3");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.InfinityNeg), 123.456789, "Bridge584 InfinityNeg 4");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.InfinityNeg), 123.456789, "Bridge584 InfinityNeg 5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.InfinityNeg), -124.0, "Bridge584 InfinityNeg 6");
+            //NumberHelper.AssertNumber(Math.Round(1.45, 1, MidpointRounding.InfinityNeg), 1.4, "Bridge584 InfinityNeg 1");
+            //NumberHelper.AssertNumber(Math.Round(1.55, 1, MidpointRounding.InfinityNeg), 1.5, "Bridge584 InfinityNeg 2");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 4, MidpointRounding.InfinityNeg), 123.4567, "Bridge584 InfinityNeg 3");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 6, MidpointRounding.InfinityNeg), 123.456789, "Bridge584 InfinityNeg 4");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 8, MidpointRounding.InfinityNeg), 123.456789, "Bridge584 InfinityNeg 5");
+            //NumberHelper.AssertNumber(Math.Round(-123.456, 0, MidpointRounding.InfinityNeg), -124.0, "Bridge584 InfinityNeg 6");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.TowardsZero), 1.4, "Bridge584 TowardsZero 1");
-            //AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.TowardsZero), 1.5, "Bridge584 TowardsZero 2");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.TowardsZero), 123.4568, "Bridge584 TowardsZero 3");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.TowardsZero), 123.456789, "Bridge584 TowardsZero 4");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.TowardsZero), 123.456789, "Bridge584 TowardsZero 5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.TowardsZero), -123.0, "Bridge584 TowardsZero 6");
+            //NumberHelper.AssertNumber(Math.Round(1.45, 1, MidpointRounding.TowardsZero), 1.4, "Bridge584 TowardsZero 1");
+            //NumberHelper.AssertNumber(Math.Round(1.55, 1, MidpointRounding.TowardsZero), 1.5, "Bridge584 TowardsZero 2");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 4, MidpointRounding.TowardsZero), 123.4568, "Bridge584 TowardsZero 3");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 6, MidpointRounding.TowardsZero), 123.456789, "Bridge584 TowardsZero 4");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 8, MidpointRounding.TowardsZero), 123.456789, "Bridge584 TowardsZero 5");
+            //NumberHelper.AssertNumber(Math.Round(-123.456, 0, MidpointRounding.TowardsZero), -123.0, "Bridge584 TowardsZero 6");
 
-            AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.ToEven), 1.4, "Bridge584 ToEven 1");
-            AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.ToEven), 1.6, "Bridge584 ToEven 2");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.ToEven), 123.4568, "Bridge584 ToEven 3");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.ToEven), 123.456789, "Bridge584 ToEven 4");
-            AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.ToEven), 123.456789, "Bridge584 ToEven 5");
-            AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.ToEven), -123.0, "Bridge584 ToEven 6");
+            NumberHelper.AssertDouble(1.4, Math.Round(1.45, 1, MidpointRounding.ToEven), "Bridge584 ToEven 1");
+            NumberHelper.AssertDouble(1.6, Math.Round(1.55, 1, MidpointRounding.ToEven), "Bridge584 ToEven 2");
+            NumberHelper.AssertDouble(123.4568, Math.Round(123.456789, 4, MidpointRounding.ToEven), "Bridge584 ToEven 3");
+            NumberHelper.AssertDouble(123.456789, Math.Round(123.456789, 6, MidpointRounding.ToEven), "Bridge584 ToEven 4");
+            NumberHelper.AssertDouble(123.456789, Math.Round(123.456789, 8, MidpointRounding.ToEven), "Bridge584 ToEven 5");
+            NumberHelper.AssertDouble(-123.0, Math.Round(-123.456, 0, MidpointRounding.ToEven), "Bridge584 ToEven 6");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.Ceil), 1.5, "Bridge584 Ceil 1");
-            //AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.Ceil), 1.6, "Bridge584 Ceil 2");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.Ceil), 123.4568, "Bridge584 Ceil 3");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.Ceil), 123.456789, "Bridge584 Ceil 4");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.Ceil), 123.456789, "Bridge584 Ceil 5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.Ceil), -123.0, "Bridge584 Ceil 6");
+            //NumberHelper.AssertNumber(Math.Round(1.45, 1, MidpointRounding.Ceil), 1.5, "Bridge584 Ceil 1");
+            //NumberHelper.AssertNumber(Math.Round(1.55, 1, MidpointRounding.Ceil), 1.6, "Bridge584 Ceil 2");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 4, MidpointRounding.Ceil), 123.4568, "Bridge584 Ceil 3");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 6, MidpointRounding.Ceil), 123.456789, "Bridge584 Ceil 4");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 8, MidpointRounding.Ceil), 123.456789, "Bridge584 Ceil 5");
+            //NumberHelper.AssertNumber(Math.Round(-123.456, 0, MidpointRounding.Ceil), -123.0, "Bridge584 Ceil 6");
 
-            //AssertIsDoubleAndEqualTo(Math.Round(1.45, 1, MidpointRounding.Floor), 1.4, "Bridge584 Floor 1");
-            //AssertIsDoubleAndEqualTo(Math.Round(1.55, 1, MidpointRounding.Floor), 1.5, "Bridge584 Floor 2");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 4, MidpointRounding.Floor), 123.4568, "Bridge584 Floor 3");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 6, MidpointRounding.Floor), 123.456789, "Bridge584 Floor 4");
-            //AssertIsDoubleAndEqualTo(Math.Round(123.456789, 8, MidpointRounding.Floor), 123.456789, "Bridge584 Floor 5");
-            //AssertIsDoubleAndEqualTo(Math.Round(-123.456, 0, MidpointRounding.Floor), -123.0, "Bridge584 Floor 6");
+            //NumberHelper.AssertNumber(Math.Round(1.45, 1, MidpointRounding.Floor), 1.4, "Bridge584 Floor 1");
+            //NumberHelper.AssertNumber(Math.Round(1.55, 1, MidpointRounding.Floor), 1.5, "Bridge584 Floor 2");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 4, MidpointRounding.Floor), 123.4568, "Bridge584 Floor 3");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 6, MidpointRounding.Floor), 123.456789, "Bridge584 Floor 4");
+            //NumberHelper.AssertNumber(Math.Round(123.456789, 8, MidpointRounding.Floor), 123.456789, "Bridge584 Floor 5");
+            //NumberHelper.AssertNumber(Math.Round(-123.456, 0, MidpointRounding.Floor), -123.0, "Bridge584 Floor 6");
         }
 
         [Test]
@@ -656,29 +709,133 @@ namespace Bridge.ClientTest
         [Test]
         public void IEEERemainderWorks()
         {
-            AssertAlmostEqual(Math.IEEERemainder(3.1, 4.0), -0.9);
-            AssertAlmostEqual(Math.IEEERemainder(16.1, 4.0), 0.100000000000001);
-            AssertAlmostEqual(Math.IEEERemainder(4.0, 16.1), 4.0);
-            AssertAlmostEqual(Math.IEEERemainder(3.1, 3.2), -0.1);
-            AssertAlmostEqual(Math.IEEERemainder(3.2, 3.1), 0.1);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(3.1, 4.0), -0.9);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(16.1, 4.0), 0.100000000000001);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(4.0, 16.1), 4.0);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(3.1, 3.2), -0.1);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(3.2, 3.1), 0.1);
+
+            Assert.AreEqual(-1.0, Math.IEEERemainder(3.0, 2.0));
+            Assert.AreEqual(0.0, Math.IEEERemainder(4.0, 2.0));
+            Assert.AreEqual(1.0, Math.IEEERemainder(10.0, 3.0));
+            Assert.AreEqual(-1.0, Math.IEEERemainder(11.0, 3.0));
+            Assert.AreEqual(-1.0, Math.IEEERemainder(27.0, 4.0));
+            Assert.AreEqual(-2.0, Math.IEEERemainder(28.0, 5.0));
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(17.8, 4.0), 1.8);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(17.8, 4.1), 1.4);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(-16.3, 4.1), 0.0999999999999979);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(17.8, -4.1), 1.4);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.IEEERemainder(-17.8, -4.1), -1.4);
+
+            // Issue #3899
+            NumberHelper.AssertDoubleWithEpsilon8(1, Math.IEEERemainder(-3, 2));
+            NumberHelper.AssertDoubleWithEpsilon8(1, Math.IEEERemainder(5, 2));
+            NumberHelper.AssertDoubleWithEpsilon8(2, Math.IEEERemainder(2, Double.NegativeInfinity));
+            NumberHelper.AssertDoubleWithEpsilon8(-4.3, Math.IEEERemainder(-4.3, Double.NegativeInfinity));
+        }
+
+        [Test]
+        public void SignWithDecimalWorks()
+        {
+            Assert.AreEqual(-1, Math.Sign(-0.5m));
+            Assert.AreEqual(0, Math.Sign(0.0m));
+            Assert.AreEqual(1, Math.Sign(3.35m));
+        }
+
+        [Test]
+        public void SignWithDoubleWorks()
+        {
+            Assert.AreEqual(-1, Math.Sign(-0.5));
+            Assert.AreEqual(0, Math.Sign(0.0));
+            Assert.AreEqual(1, Math.Sign(3.35));
+        }
+
+        // #SPI
+        //[Test]
+        //public void SignWithShortWorks_SPI_1629()
+        //{
+        //    // #1629
+        //    Assert.AreEqual(Math.Sign((short)-15), -1);
+        //    Assert.AreEqual(Math.Sign((short)0), 0);
+        //    Assert.AreEqual(Math.Sign((short)4), 1);
+        //}
+
+        // #SPI
+        //[Test]
+        //public void SignWithIntWorks_SPI_1629()
+        //{
+        //    // #1629
+        //    Assert.AreEqual(Math.Sign(-15), -1);
+        //    Assert.AreEqual(Math.Sign(0), 0);
+        //    Assert.AreEqual(Math.Sign(4), 1);
+        //}
+
+        // #SPI
+        //[Test]
+        //public void SignWithLongWorks_SPI_1629()
+        //{
+        //    // #1629
+        //    Assert.AreEqual(Math.Sign(-15L), -1);
+        //    Assert.AreEqual(Math.Sign(0L), 0);
+        //    Assert.AreEqual(Math.Sign(4L), 1);
+        //}
+
+        // #SPI
+        //[Test]
+        //public void SignWithSByteWorks_SPI_1629()
+        //{
+        //    // #1629
+        //    Assert.AreEqual(Math.Sign((sbyte)-15), -1);
+        //    Assert.AreEqual(Math.Sign((sbyte)0), 0);
+        //    Assert.AreEqual(Math.Sign((sbyte)4), 1);
+        //}
+
+        [Test]
+        public void SignWithFloatWorks()
+        {
+            Assert.AreEqual(-1, Math.Sign(-0.5f));
+            Assert.AreEqual(0, Math.Sign(0.0f));
+            Assert.AreEqual(1, Math.Sign(3.35f));
         }
 
         [Test]
         public void SinWorks()
         {
-            AssertAlmostEqual(Math.Sin(0.5), 0.479425538604203);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Sin(0.5), 0.479425538604203);
         }
 
         [Test]
         public void SqrtWorks()
         {
-            AssertIsDecimalAndEqualTo(Math.Sqrt(3m), "1.7320508075688772935274463415");
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Sqrt((double)3m), 1.73205080756888);
         }
 
         [Test]
         public void TanWorks()
         {
-            AssertAlmostEqual(Math.Tan(0.5), 0.5463024898437905);
+            NumberHelper.AssertDoubleWithEpsilon8(Math.Tan(0.5), 0.5463024898437905);
         }
+
+        [Test]
+        public void TruncateWithDoubleWorks()
+        {
+            Assert.AreEqual(3.0, Math.Truncate(3.9));
+            Assert.AreEqual(-3.0, Math.Truncate(-3.9));
+        }
+
+        [Test]
+        public void TruncateWithDecimalWorks()
+        {
+            NumberHelper.AssertDecimal(3.0, Math.Truncate(3.9m));
+            NumberHelper.AssertDecimal(-3.0, Math.Truncate(-3.9m));
+        }
+
+        // #SPI
+        //[Test]
+        //public void BigMulWorks_SPI_1629()
+        //{
+        //    // #1629
+        //    Assert.AreEqual(Math.BigMul(214748364, 214748364), 46116859840676496L);
+        //}
     }
 }

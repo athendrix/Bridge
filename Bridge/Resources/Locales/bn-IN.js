@@ -1,19 +1,19 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("bn-IN", true), {
+Bridge.merge(new System.Globalization.CultureInfo("bn-IN", true), {
     englishName: "Bangla (India)",
     nativeName: "বাংলা (ভারত)",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "NaN",
+        nanSymbol: "NaN",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "-Infinity",
-        positiveInfinitySymbol: "Infinity",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
         percentGroupSizes: [3,2],
         percentDecimalDigits: 2,
         percentDecimalSeparator: ".",
         percentGroupSeparator: ",",
-        percentPositivePattern: 0,
+        percentPositivePattern: 1,
         percentNegativePattern: 1,
         currencySymbol: "₹",
         currencyGroupSizes: [3,2],
@@ -53,6 +53,18 @@
         timeSeparator: ".",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "MMMM, yyyy",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 0,
+        CultureName: "bn-IN",
+        EBCDICCodePage: 500,
+        IsRightToLeft: false,
+        LCID: 1093,
+        listSeparator: ",",
+        MacCodePage: 2,
+        OEMCodePage: 1,
+        IsReadOnly: true
     })
 });

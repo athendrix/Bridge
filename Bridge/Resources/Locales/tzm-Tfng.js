@@ -1,9 +1,9 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("tzm-Tfng", true), {
+Bridge.merge(new System.Globalization.CultureInfo("tzm-Tfng", true), {
     englishName: "Central Atlas Tamazight (Tifinagh)",
     nativeName: "ⵜⴰⵎⴰⵣⵉⵖⵜ",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "ⵡⴰⵔ ⴰⵎⴹⴰⵏ",
+        nanSymbol: "ⵡⴰⵔ ⴰⵎⴹⴰⵏ",
         negativeSign: "-",
         positiveSign: "+",
         negativeInfinitySymbol: "-∞",
@@ -12,20 +12,20 @@
         percentGroupSizes: [3],
         percentDecimalDigits: 2,
         percentDecimalSeparator: ",",
-        percentGroupSeparator: " ",
+        percentGroupSeparator: " ",
         percentPositivePattern: 0,
         percentNegativePattern: 0,
         currencySymbol: "ⴷⵔ",
         currencyGroupSizes: [3],
         currencyDecimalDigits: 2,
         currencyDecimalSeparator: ",",
-        currencyGroupSeparator: " ",
+        currencyGroupSeparator: " ",
         currencyNegativePattern: 8,
         currencyPositivePattern: 3,
         numberGroupSizes: [3],
         numberDecimalDigits: 2,
         numberDecimalSeparator: ",",
-        numberGroupSeparator: " ",
+        numberGroupSeparator: " ",
         numberNegativePattern: 1
     }),
 
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "MMMM, yyyy",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 0,
+        CultureName: "tzm-Tfng-MA",
+        EBCDICCodePage: 500,
+        IsRightToLeft: false,
+        LCID: 4191,
+        listSeparator: ";",
+        MacCodePage: 2,
+        OEMCodePage: 1,
+        IsReadOnly: true
     })
 });

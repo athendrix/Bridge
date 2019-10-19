@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ICSharpCode.NRefactory.Semantics;
+using Newtonsoft.Json;
 
 namespace Bridge.Translator
 {
@@ -45,6 +46,21 @@ namespace Bridge.Translator
 
         protected virtual void EmitMethods(Dictionary<string, List<MethodDeclaration>> methods, Dictionary<string, List<EntityDeclaration>> properties, Dictionary<OperatorType, List<OperatorDeclaration>> operators)
         {
+            int pos = this.Emitter.Output.Length;
+            var writerInfo = this.SaveWriter();
+
+            string globalTarget = BridgeTypes.GetGlobalTarget(this.TypeInfo.Type.GetDefinition(), this.TypeInfo.TypeDeclaration);
+
+            if (globalTarget == null)
+            {
+                this.EnsureComma();
+                this.Write(JS.Fields.METHODS);
+                this.WriteColon();
+                this.BeginBlock();
+            }
+
+            int checkPos = this.Emitter.Output.Length;
+
             var names = new List<string>(properties.Keys);
 
             foreach (var name in names)
@@ -64,29 +80,6 @@ namespace Bridge.Translator
                     else if (prop is IndexerDeclaration)
                     {
                         this.Emitter.VisitIndexerDeclaration((IndexerDeclaration)prop);
-                    }
-                }
-            }
-
-            if (!this.StaticBlock)
-            {
-                MethodDeclaration entryPoint = null;
-                if (this.TypeInfo.StaticMethods.Any(group =>
-                {
-                    return group.Value.Any(method =>
-                    {
-                        var result = Helpers.IsEntryPointMethod(this.Emitter, method);
-                        if (result)
-                        {
-                            entryPoint = method;
-                        }
-                        return result;
-                    });
-                }))
-                {
-                    if (!entryPoint.Body.IsNull)
-                    {
-                        this.Emitter.VisitMethodDeclaration(entryPoint);
                     }
                 }
             }
@@ -128,7 +121,7 @@ namespace Bridge.Translator
                     this.Emitter.Comma = true;
                 }
             }
-            else if(this.StaticBlock)
+            else if (this.StaticBlock)
             {
                 var ctor = this.TypeInfo.Type.GetConstructors().FirstOrDefault(c => c.Parameters.Count == 0 && this.Emitter.GetInline(c) != null);
 
@@ -147,6 +140,22 @@ namespace Bridge.Translator
                     this.Emitter.Comma = true;
                 }
             }
+
+            if (globalTarget == null)
+            {
+                if (checkPos == this.Emitter.Output.Length)
+                {
+                    this.Emitter.IsNewLine = writerInfo.IsNewLine;
+                    this.Emitter.ResetLevel(writerInfo.Level);
+                    this.Emitter.Comma = writerInfo.Comma;
+                    this.Emitter.Output.Length = pos;
+                }
+                else
+                {
+                    this.WriteNewLine();
+                    this.EndBlock();
+                }
+            }
         }
 
         protected virtual void EmitStructMethods()
@@ -158,7 +167,7 @@ namespace Bridge.Translator
 
             if (!immutable)
             {
-                var mutableFields = this.TypeInfo.Type.GetFields(f => !f.IsReadOnly && !f.IsConst, GetMemberOptions.IgnoreInheritedMembers);
+                var mutableFields = this.TypeInfo.Type.GetFields(f => !f.IsConst, GetMemberOptions.IgnoreInheritedMembers);
                 var autoProps = typeDef.Properties.Where(Helpers.IsAutoProperty);
                 var autoEvents = this.TypeInfo.Type.GetEvents(null, GetMemberOptions.IgnoreInheritedMembers);
                 immutable = !mutableFields.Any() && !autoProps.Any() && !autoEvents.Any();
@@ -213,7 +222,7 @@ namespace Bridge.Translator
                 this.EnsureComma();
                 this.Write(JS.Funcs.EQUALS + ": function (o) ");
                 this.BeginBlock();
-                this.Write("if (!" + JS.Funcs.BRIDGE_IS + "(o, ");
+                this.Write("if (!" + JS.Types.Bridge.IS + "(o, ");
                 this.Write(structName);
                 this.Write(")) ");
                 this.BeginBlock();
@@ -337,7 +346,7 @@ namespace Bridge.Translator
         {
             if (group.Count == 1)
             {
-                if (!group[0].Body.IsNull && (!this.StaticBlock || !Helpers.IsEntryPointMethod(this.Emitter, group[0])))
+                if ((!group[0].Body.IsNull || this.Emitter.GetScript(group[0]) != null) && (!this.StaticBlock || !Helpers.IsEntryPointMethod(this.Emitter, group[0])))
                 {
                     this.Emitter.VisitMethodDeclaration(group[0]);
                 }

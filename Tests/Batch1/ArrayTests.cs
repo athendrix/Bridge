@@ -1,5 +1,4 @@
-﻿using Bridge.Linq;
-using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -45,6 +44,46 @@ namespace Bridge.ClientTest
                 Assert.True(arr is ICollection<int>, "is ICollection<int> should be true");
                 Assert.True(arr is IEnumerable<int>, "is IEnumerable<int> should be true");
                 Assert.True(arr is IList<int>, "is IList<int> should be true");
+                Assert.True(arr is IReadOnlyCollection<int>, "#1626 is IReadOnlyCollection<int> should be true");
+                Assert.True(arr is IReadOnlyList<int>, "#1626 is IReadOnlyList<int> should be true");
+
+                Assert.AreEqual("System.Int32[]", typeof(int[]).FullName, "FullName should be Array");
+                Assert.True(typeof(Array).IsClass, "IsClass should be true");
+                Assert.True(typeof(int[]).IsClass, "IsClass should be true");
+
+                var interfaces = typeof(int[]).GetInterfaces();
+                Assert.AreEqual(7, interfaces.Length, "Interface count should be 7");
+                Assert.True(interfaces.Contains(typeof(IEnumerable<int>)), "Interfaces should contain IEnumerable<int>");
+                Assert.True(interfaces.Contains(typeof(ICollection<int>)), "Interfaces should contain ICollection<int>");
+                Assert.True(interfaces.Contains(typeof(IList<int>)), "Interfaces should contain IList<int>");
+                Assert.True(interfaces.Contains(typeof(IReadOnlyCollection<int>)), "Interfaces should contain IReadOnlyCollection<int>");
+                // #1626
+                //Assert.True(interfaces.Contains(typeof(IReadOnlyList<int>)), "Interfaces should contain IReadOnlyList<int>");
+            }
+
+            [Test]
+            public void ArrayCanBeAssignedToTheCollectionInterfaces_SPI_1547()
+            {
+                // #1547
+                Assert.True(typeof(IEnumerable<int>).IsAssignableFrom(typeof(int[])));
+                Assert.True(typeof(ICollection<int>).IsAssignableFrom(typeof(int[])));
+                Assert.True(typeof(IList<int>).IsAssignableFrom(typeof(int[])));
+            }
+
+            [Test]
+            public void CreateWithNegativeLenghtShouldThrow()
+            {
+                int size = -1;
+                Assert.Throws<ArgumentOutOfRangeException>(() =>
+                {
+                    var a = new int[size];
+                });
+
+                long lsize = -1;
+                Assert.Throws<ArgumentOutOfRangeException>(() =>
+                {
+                    var a = new int[lsize];
+                });
             }
 
             [Test]
@@ -53,6 +92,17 @@ namespace Bridge.ClientTest
                 Assert.AreEqual(0, new int[0].Length);
                 Assert.AreEqual(1, new[] { "x" }.Length);
                 Assert.AreEqual(2, new[] { "x", "y" }.Length);
+            }
+
+            [Test]
+            public void LongLengthWorks()
+            {
+                Assert.AreEqual((long)0, new int[0].LongLength, "0 cast into long matches empty array's LongLength.");
+                Assert.AreEqual((long)1, new[] { "x" }.LongLength, "1 cast into long matches 1 element big array's LongLength.");
+                Assert.AreEqual((long)2, new[] { "x", "y" }.LongLength, "2 cast into long matches 2 elements big array's LongLength.");
+                Assert.AreEqual(0L, new int[0].LongLength, "Int64 0 matches empty array's LongLength.");
+                Assert.AreEqual(1L, new[] { "x" }.LongLength, "Int64 1 matches 1 element big array's LongLength.");
+                Assert.AreEqual(2L, new[] { "x", "y" }.LongLength, "Int64 2 matches 2 elements big array's LongLength.");
             }
 
             [Test]
@@ -143,8 +193,8 @@ namespace Bridge.ClientTest
             public void ConcatWorks()
             {
                 var arr = new[] { "a", "b" };
-                Assert.AreDeepEqual(new[] { "a", "b", "c" }, arr.Concat("c"));
-                Assert.AreDeepEqual(new[] { "a", "b", "c", "d" }, arr.Concat("c", "d"));
+                Assert.AreDeepEqual(new[] { "a", "b", "c" }, arr.Concat(new[] { "c" }).ToArray());
+                Assert.AreDeepEqual(new[] { "a", "b", "c", "d" }, arr.Concat(new[] { "c", "d" }).ToArray());
                 Assert.AreDeepEqual(new[] { "a", "b" }, arr);
             }
 
@@ -231,14 +281,6 @@ namespace Bridge.ClientTest
             }
 
             [Test]
-            public void ForeachWithArrayCallbackWorks()
-            {
-                string result = "";
-                new[] { "a", "b", "c" }.ForEach((s, i) => result += s + i);
-                Assert.AreEqual("a0b1c2", result);
-            }
-
-            [Test]
             public void IndexOfWithoutStartIndexWorks()
             {
                 Assert.AreEqual(1, new[] { "a", "b", "c", "b" }.IndexOf("b"));
@@ -248,8 +290,8 @@ namespace Bridge.ClientTest
             public void IndexOfWithoutStartIndexUsesEqualsMethod()
             {
                 var arr = new[] { new C(1), new C(2), new C(3) };
-                Assert.AreEqual(1, arr.IndexOf(new C(2)));
-                Assert.AreEqual(-1, arr.IndexOf(new C(4)));
+                Assert.AreEqual(1, Array.IndexOf(arr, new C(2)));
+                Assert.AreEqual(-1, Array.IndexOf(arr, new C(4)));
             }
 
             [Test]
@@ -385,6 +427,14 @@ namespace Bridge.ClientTest
             }
 
             [Test]
+            public void SortWithCompareCallbackWorks()
+            {
+                var arr = new[] { 1, 6, 6, 4, 2 };
+                Array.Sort(arr, Comparer<int>.Create((x, y) => y - x));
+                Assert.AreEqual(new[] { 6, 6, 4, 2, 1 }, arr);
+            }
+
+            [Test]
             public void ForeachWhenCastToIListWorks()
             {
                 IList<string> list = new[] { "x", "y" };
@@ -396,6 +446,26 @@ namespace Bridge.ClientTest
                 Assert.AreEqual("xy", result);
             }
 
+            #region System.Collections.ICollection
+            /// <summary>
+            /// Tests System.Collections.ICollection inherited members to
+            /// System.Array (public members).
+            /// </summary>
+            [Test]
+            public void ICollectionNonGenericInterface()
+            {
+                Array a = new[] { 1, 2, 3 };
+
+                // We expect it to return the same array reference -- because
+                // an array reference is effectively the root of an array.
+                Assert.AreEqual(a, a.SyncRoot, "ICollection's SyncRoot returns the same array reference.");
+
+                // By design, this is always false.
+                Assert.False(a.IsSynchronized, "ICollection's IsSynchronized returns false.");
+            }
+            #endregion System.Collections.ICollections
+
+            #region System.Collections.Generic.ICollection
             [Test]
             public void ICollectionCountWorks()
             {
@@ -414,19 +484,16 @@ namespace Bridge.ClientTest
             public void ICollectionAddWorks()
             {
                 IList<string> l = new[] { "x", "y", "z" };
-                l.Add("a");
-                Assert.AreDeepEqual(new[] { "x", "y", "z", "a" }, l);
+                Assert.Throws<NotSupportedException>(() => l.Add("a"));
+                Assert.AreDeepEqual(new[] { "x", "y", "z" }, l);
             }
 
             [Test]
             public void ICollectionClearWorks()
             {
                 IList<string> l = new[] { "x", "y", "z" };
-                l.Clear();
-                Assert.AreDeepEqual(new string[3], l);
-                Assert.AreDeepEqual(null, l[0]);
-                Assert.AreDeepEqual(null, l[1]);
-                Assert.AreDeepEqual(null, l[2]);
+                Assert.Throws<NotSupportedException>(() => l.Clear());
+                Assert.AreDeepEqual(new[] { "x", "y", "z" }, l);
             }
 
             [Test]
@@ -493,9 +560,40 @@ namespace Bridge.ClientTest
             public void ICollectionRemoveWorks()
             {
                 IList<string> l = new[] { "x", "y", "z" };
-                Assert.True(l.Remove("y"));
-                Assert.False(l.Remove("a"));
-                Assert.AreDeepEqual(new[] { "x", "z" }, l);
+                Assert.Throws<NotSupportedException>(() => l.Remove("y"));
+                Assert.AreDeepEqual(new[] { "x", "y", "z" }, l);
+            }
+            #endregion System.Collections.Generic.ICollection
+
+            #region System.Collections.IList
+            /// <summary>
+            /// Tests System.Collections.IList inherited members to
+            /// System.Array
+            /// </summary>
+            [Test]
+            public void IListNonGenericInterface()
+            {
+                Array a = new[] { 1, 2, 3 };
+
+                Assert.True(a.IsFixedSize, "IList's IsFixedSize returns true.");
+            }
+            #endregion System.Collections.IList
+
+            [Test]
+            public void IReadOnlyCollectionCountWorks_SPI_1626()
+            {
+                // #1626
+                IReadOnlyCollection<string> l = new[] { "x", "y", "z" };
+                Assert.AreEqual(l.Count, 3);
+            }
+
+            [Test]
+            public void IReadOnlyCollectionContainsWorks_SPI_1626()
+            {
+                // #1626
+                IReadOnlyCollection<string> l = new[] { "x", "y", "z" };
+                Assert.True(l.Contains("y"));
+                Assert.False(l.Contains("a"));
             }
 
             [Test]
@@ -526,24 +624,86 @@ namespace Bridge.ClientTest
             public void IListIndexOfUsesEqualsMethod()
             {
                 var arr = new[] { new C(1), new C(2), new C(3) };
-                Assert.AreEqual(1, arr.IndexOf(new C(2)));
-                Assert.AreEqual(-1, arr.IndexOf(new C(4)));
+                Assert.AreEqual(1, Array.IndexOf(arr, new C(2)));
+                Assert.AreEqual(-1, Array.IndexOf(arr, new C(4)));
             }
 
             [Test]
             public void IListInsertWorks()
             {
                 IList<string> l = new[] { "x", "y", "z" };
-                l.Insert(1, "a");
-                Assert.AreDeepEqual(new[] { "x", "a", "y", "z" }, l);
+                Assert.Throws<NotSupportedException>(() => l.Insert(1, "a"));
+                Assert.AreDeepEqual(new[] { "x", "y", "z" }, l);
             }
 
             [Test]
             public void IListRemoveAtWorks()
             {
                 IList<string> l = new[] { "x", "y", "z" };
-                l.RemoveAt(1);
-                Assert.AreDeepEqual(new[] { "x", "z" }, l);
+                Assert.Throws<NotSupportedException>(() => l.RemoveAt(1));
+                Assert.AreDeepEqual(new[] { "x", "y", "z" }, l);
+            }
+
+            [Test]
+            public void IReadOnlyListIndexingWorks_SPI_1626()
+            {
+                // #1626
+                IReadOnlyList<string> l = new[] { "x", "y", "z" };
+                Assert.AreEqual(l[1], "y");
+            }
+
+            [Test]
+            public void ClearWorks()
+            {
+                var arr1 = new byte[] { 10, 11, 12, 13 };
+                Array.Clear(arr1, 2, 2);
+                Assert.AreEqual(new byte[] { 10, 11, 0, 0 }, arr1);
+
+                var arr2 = new int[] { 10, 11, 12, 13 };
+                Array.Clear(arr2, 0, 4);
+                Assert.AreEqual(new int[] { 0, 0, 0, 0 }, arr2);
+
+                var arr3 = new string[] { "A", "B", "C", "D" };
+                Array.Clear(arr3, 3, 1);
+                Assert.AreEqual(new string[] { "A", "B", "C", null }, arr3);
+            }
+
+            [Test]
+            public void CopyWithDifferentArraysWorks()
+            {
+                var arr1 = new[] { 1, 2, 3, 4 };
+                var arr2 = new[] { 9, 8, 7, 6 };
+                Array.Copy(arr1, arr2, 2);
+                Assert.AreEqual(new[] { 1, 2, 7, 6 }, arr2);
+
+                var arr3 = new[] { 9, 8, 7, 6 };
+                Array.Copy(arr1, 3, arr3, 2, 1);
+                Assert.AreEqual(new[] { 9, 8, 4, 6 }, arr3);
+            }
+
+            [Test]
+            public void CopyWithDifferentArraysLongWorks()
+            {
+                var arr1 = new[] { 1, 2, 3, 4 };
+                var arr2 = new[] { 9, 8, 7, 6 };
+                Array.Copy(arr1, arr2, (long)2);
+                Assert.AreEqual(new[] { 1, 2, 7, 6 }, arr2, "Array.Copy({1,2,3,4}, {9,8,7,6}, (long)2) results in {1,2,7,6}.");
+
+                var arr3 = new[] { 9, 8, 7, 6 };
+                Array.Copy(arr1, (long)3, arr3, (long)2, (long)1);
+                Assert.AreEqual(new[] { 9, 8, 4, 6 }, arr3, "Array.Copy({1,2,3,4}, (long)3, {9,8,7,6}, (long)2, (long)1) results in {9,8,4,6}.");
+            }
+
+            [Test]
+            public void CopyWithinArrayWorks()
+            {
+                var arr1 = new[] { 1, 2, 3, 4 };
+                Array.Copy(arr1, 0, arr1, 1, 2);
+                Assert.AreEqual(new[] { 1, 1, 2, 4 }, arr1);
+
+                var arr2 = new[] { 1, 2, 3, 4 };
+                Array.Copy(arr2, 2, arr2, 1, 2);
+                Assert.AreEqual(new[] { 1, 3, 4, 4 }, arr2);
             }
         }
 
@@ -639,6 +799,7 @@ namespace Bridge.ClientTest
                 Assert.AreEqual(v, 2);
                 v = il[2];
                 Assert.AreEqual(v, 3);
+
                 il[2] = 42;
                 Assert.AreEqual(((int[])a)[2], 42);
 
@@ -832,11 +993,7 @@ namespace Bridge.ClientTest
                 Assert.AreEqual(idirect[2], 0);
 
                 idirect = new int[] { 7, 8, 9 };
-
-                ((IList<int>)idirect).Clear();
-                Assert.AreEqual(idirect[0], 0);
-                Assert.AreEqual(idirect[1], 0);
-                Assert.AreEqual(idirect[2], 0);
+                Assert.Throws(() => { ((IList<int>)idirect).Clear(); });
 
                 idirect = new int[] { 0x1234567, 0x789abcde, 0x22334455, 0x66778899, 0x11335577, 0x22446688 };
                 Array.Clear(idirect, 2, 3);
@@ -886,12 +1043,7 @@ namespace Bridge.ClientTest
                 Assert.Null(sdirect[1]);
                 Assert.Null(sdirect[2]);
 
-                sdirect = new string[] { "7", "8", "9" };
-
-                ((IList<string>)sdirect).Clear();
-                Assert.Null(sdirect[0]);
-                Assert.Null(sdirect[1]);
-                Assert.Null(sdirect[2]);
+                Assert.Throws(() => { ((IList<string>)sdirect).Clear(); });
 
                 sdirect = new string[] { "0x1234567", "0x789abcde", "0x22334455", "0x66778899", "0x11335577", "0x22446688" };
                 Array.Clear(sdirect, 2, 3);

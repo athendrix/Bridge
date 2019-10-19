@@ -1,26 +1,23 @@
-using Bridge;
-
 namespace System.Reflection
 {
-    [External]
-    [Name("Object")]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Name("System.Object")]
     public class MemberInfo
     {
-        [Name("type")]
-        [FieldProperty]
+        [Bridge.Name("t")]
         public extern MemberTypes MemberType
         {
             get;
         }
 
-        [FieldProperty]
+        [Bridge.Name("n")]
         public extern string Name
         {
             get;
         }
 
-        [Name("typeDef")]
-        [FieldProperty]
+        [Bridge.Name("td")]
         public extern Type DeclaringType
         {
             get;
@@ -28,67 +25,73 @@ namespace System.Reflection
 
         public extern bool IsStatic
         {
-            [Template("({this}.isStatic || false)")]
+            [Bridge.Template("({this}.is || false)")]
             get;
         }
 
         public extern bool IsOverride
         {
-            [Template("({this}.isOverride || false)")]
+            [Bridge.Template("({this}.ov || false)")]
             get;
         }
 
         public extern bool IsVirtual
         {
-            [Template("({this}.isVirtual || false)")]
+            [Bridge.Template("({this}.v || false)")]
             get;
         }
 
         public extern bool IsAbstract
         {
-            [Template("({this}.isAbstract || false)")]
+            [Bridge.Template("({this}.ab || false)")]
             get;
         }
 
         public extern bool IsSealed
         {
-            [Template("({this}.isSealed || false)")]
+            [Bridge.Template("({this}.sl || false)")]
             get;
         }
 
         public extern bool IsSpecialName
         {
-            [Template("({this}.isSynthetic || false)")]
+            [Bridge.Template("({this}.sy || false)")]
             get;
         }
 
         public extern bool IsFamily
         {
-            [Template("({this}.accessibility === 3)")]
+            [Bridge.Template("({this}.a === 3)")]
             get;
         }
 
         public extern bool IsFamilyOrAssembly
         {
-            [Template("({this}.accessibility === 5)")]
+            [Bridge.Template("({this}.a === 5)")]
+            get;
+        }
+
+        public extern bool IsFamilyAndAssembly
+        {
+            [Bridge.Template("({this}.a === 6)")]
             get;
         }
 
         public extern bool IsPrivate
         {
-            [Template("({this}.accessibility === 1)")]
+            [Bridge.Template("({this}.a === 1)")]
             get;
         }
 
         public extern bool IsPublic
         {
-            [Template("({this}.accessibility === 2)")]
+            [Bridge.Template("({this}.a === 2)")]
             get;
         }
 
         public extern bool IsAssembly
         {
-            [Template("({this}.accessibility === 4)")]
+            [Bridge.Template("({this}.a === 4)")]
             get;
         }
 
@@ -97,7 +100,7 @@ namespace System.Reflection
         /// </summary>
         /// <param name="inherit">Ignored for members. Base members will never be considered.</param>
         /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined. </returns>
-        [Template("({this}.attr || [])")]
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, false, {inherit})")]
         public extern object[] GetCustomAttributes(bool inherit);
 
         /// <summary>
@@ -106,14 +109,14 @@ namespace System.Reflection
         /// <param name="attributeType">The type of attribute to search for. Only attributes that are assignable to this type are returned. </param>
         /// <param name="inherit">Ignored for members. Base members will never be considered.</param>
         /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined.</returns>
-        [Template("({this}.attr || []).filter(function(a) { return Bridge.is(a, {attributeType}); })")]
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, {attributeType}, {inherit})")]
         public extern object[] GetCustomAttributes(Type attributeType, bool inherit);
 
         /// <summary>
         /// Returns an array of all custom attributes applied to this member.
         /// </summary>
         /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined. </returns>
-        [Template("({this}.attr || [])")]
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, false)")]
         public extern object[] GetCustomAttributes();
 
         /// <summary>
@@ -121,8 +124,17 @@ namespace System.Reflection
         /// </summary>
         /// <param name="attributeType">The type of attribute to search for. Only attributes that are assignable to this type are returned. </param>
         /// <returns>An array that contains all the custom attributes applied to this member, or an array with zero elements if no attributes are defined.</returns>
-        [Template("({this}.attr || []).filter(function(a) { return Bridge.is(a, {attributeType}); })")]
+        [Bridge.Template("System.Attribute.getCustomAttributes({this}, {attributeType})")]
         public extern object[] GetCustomAttributes(Type attributeType);
+
+        [Bridge.Template("System.Attribute.isDefined({this}, {attributeType}, {inherit})")]
+        public extern bool IsDefined(Type attributeType, bool inherit);
+
+        public extern bool ContainsGenericParameters
+        {
+            [Bridge.Template("Bridge.Reflection.containsGenericParameters({this})")]
+            get;
+        }
 
         internal extern MemberInfo();
     }

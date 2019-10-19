@@ -5,8 +5,8 @@ namespace Test.BridgeIssues.N1424
 
     public class Alpha
     {
-        // [FieldProperty] with not implemented getter and setter should be compilable
-        [FieldProperty]
+        // [Field] with not implemented getter and setter should be compilable
+        [Field]
         public int Data
         {
             get;
@@ -16,38 +16,53 @@ namespace Test.BridgeIssues.N1424
 
     public class A
     {
-        // [FieldProperty] with implemented getter and setter should be compilable with [External] on property declaration
-        [FieldProperty]
+        // [Field] with implemented getter and setter should be compilable with [External] on property declaration
+        [Field]
         [External]
         public int Data
         {
-            get { return 7; }
-            set { }
+            get
+            {
+                return 7;
+            }
+            set
+            {
+            }
         }
     }
 
     public class B
     {
-        // [FieldProperty] with implemented getter and setter should be compilable with [Template]
-        [FieldProperty]
+        // [Field] with implemented getter and setter should be compilable with [Template]
+        [Field]
         public int Data
         {
             [Template("Q")]
-            get { return 8; }
+            get
+            {
+                return 8;
+            }
             [Template("W")]
-            set { }
+            set
+            {
+            }
         }
     }
 
     [External]
     public class C
     {
-        // [FieldProperty] with implemented getter and setter should be compilable with [External] on class declaration
-        [FieldProperty]
+        // [Field] with implemented getter and setter should be compilable with [External] on class declaration
+        [Field]
         public int Data
         {
-            get { return 8; }
-            set { }
+            get
+            {
+                return 8;
+            }
+            set
+            {
+            }
         }
     }
 }

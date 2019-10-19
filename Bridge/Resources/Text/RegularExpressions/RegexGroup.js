@@ -1,4 +1,4 @@
-﻿    Bridge.define("System.Text.RegularExpressions.Group", {
+    Bridge.define("System.Text.RegularExpressions.Group", {
         inherits: function () {
             return [System.Text.RegularExpressions.Capture];
         },
@@ -16,7 +16,7 @@
 
             synchronized: function (group) {
                 if (group == null) {
-                    throw new System.ArgumentNullException("group");
+                    throw new System.ArgumentNullException.$ctor1("group");
                 }
 
                 // force Captures to be computed.

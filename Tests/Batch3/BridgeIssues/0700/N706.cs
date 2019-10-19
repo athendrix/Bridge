@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
@@ -7,7 +7,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
     [TestFixture(TestNameFormat = "#706 - {0}")]
     public class Bridge706
     {
-        [FieldProperty]
+        [Field]
         public static object Value
         {
             get;

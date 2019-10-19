@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
 {
@@ -21,7 +21,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         [Name("Foo")]
         public class Foo
         {
-            [FieldProperty]
+            [Field]
             [Name("currentBar")]
             public bool Bar
             {

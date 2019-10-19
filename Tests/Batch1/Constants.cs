@@ -2,6 +2,8 @@
 {
     public static class Constants
     {
+        public const string MODULE_HTML5 = "HTML5";
+
         public const string PREFIX_SYSTEM_CLASSES = "Simple types";
         public const string PREFIX_SYSTEM_INTERFACES = "System interface";
         public const string PREFIX_COLLECTIONS = "Collections";
@@ -24,6 +26,8 @@
         public const string MODULE_TUPLE = PREFIX_SYSTEM_CLASSES; // + "Tuple";
         public const string MODULE_VERSION = PREFIX_SYSTEM_CLASSES; // + "Version";
 
+        public const string MODULE_ATTRIBUTE = "Attribute";
+
         public const string MODULE_BASIC_CSHARP = "C#"; // "";
         public const string MODULE_LINQ = "LINQ"; // "";
         public const string MODULE_LINQ_EXPRESSIONS = "LINQ Expressions"; // "";
@@ -35,12 +39,16 @@
         public const string MODULE_REGEX_JS = "RegexJS";
         public const string MODULE_ENUM = "Enum";
         public const string MODULE_GUID = "Guid";
+        public const string MODULE_STRUCT = "Struct";
+        public const string MODULE_ENCODING = "Encoding";
 
         public const string MODULE_MATH = "Math";
         public const string MODULE_DECIMAL_MATH = "Decimal Math";
 
+        public const string MODULE_BIT_CONVERTER = "BitConverter";
         public const string MODULE_CONVERT = "Convert";
         public const string MODULE_RANDOM = "Random";
+        public const string MODULE_CONVENTION = "Convention";
 
         public const string MODULE_TYPEDARRAYS = "Typed Arrays";
         public const string MODULE_ICOLLECTION = PREFIX_COLLECTIONS; // + "ICollection";
@@ -86,6 +94,9 @@
         public const string MODULE_NULLREFERENCEEXCEPTION = PREFIX_EXCEPTIONS; // + "NullReferenceException";
         public const string MODULE_ARGUMENTOUTOFRANGEEXCEPTION = PREFIX_EXCEPTIONS; // + "ArgumentOutOfRangeException";
 
+        public const string MODULE_ACTIVATOR = "Activator";
+        public const string MODULE_IFORMATTABLE = "IFormattable";
+        public const string MODULE_DELEGATE = "Delegate";
         public const string MODULE_THREADING = "Threading";
         public const string MODULE_DIAGNOSTICS = "Diagnostics";
         public const string MODULE_CHECKED_UNCKECKED = "Checked/Unckecked";
@@ -93,8 +104,13 @@
         public const string MODULE_REFLECTION = "Reflection";
         public const string MODULE_FUNCTIONS = "Functions";
         public const string MODULE_SERIALIZATION = "Serialization";
-        public const string MODULE_BRIDGECONSOLE = "Bridge Console";
+        public const string MODULE_BRIDGE_CORE = "Bridge Namespace";
+        public const string MODULE_BRIDGE_CONSOLE = "Bridge Console";
+        public const string MODULE_SYSTEM_CONSOLE = "System Console";
         public const string MODULE_OBJECTLITERAL = "[ObjectLiteral]";
+        public const string MODULE_SCRIPT = "Script";
+        public const string MODULE_RUNTIME = "Runtime helpers"; // + "Array";
+        public const string MODULE_IO = "IO";
 
         public const string IGNORE_DATE = null;
     }

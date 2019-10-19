@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 using System.Collections.Generic;
 
@@ -12,9 +12,14 @@ namespace Bridge.ClientTest.Exceptions
         public void TypePropertiesAreCorrect()
         {
             Assert.AreEqual("System.Collections.Generic.KeyNotFoundException", typeof(KeyNotFoundException).FullName, "Name");
+            Assert.True(typeof(KeyNotFoundException).IsClass, "IsClass");
+            Assert.AreEqual(typeof(SystemException), typeof(KeyNotFoundException).BaseType, "BaseType");
             object d = new KeyNotFoundException();
             Assert.True(d is KeyNotFoundException, "is KeyNotFoundException");
             Assert.True(d is Exception, "is Exception");
+
+            var interfaces = typeof(KeyNotFoundException).GetInterfaces();
+            Assert.AreEqual(0, interfaces.Length, "Interfaces length");
         }
 
         [Test]
@@ -23,7 +28,7 @@ namespace Bridge.ClientTest.Exceptions
             var ex = new KeyNotFoundException();
             Assert.True((object)ex is KeyNotFoundException, "is KeyNotFoundException");
             Assert.AreEqual(null, ex.InnerException, "InnerException");
-            Assert.AreEqual("Key not found.", ex.Message);
+            Assert.AreEqual("The given key was not present in the dictionary.", ex.Message);
         }
 
         [Test]

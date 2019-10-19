@@ -49,19 +49,19 @@ namespace Bridge.Translator
             protected set;
         }
 
-        public string AssemblyName
-        {
-            get;
-            protected set;
-        }
-
-        public string BuildArguments
+        public ProjectProperties ProjectProperties
         {
             get;
             set;
         }
 
         public string DefaultNamespace
+        {
+            get;
+            set;
+        }
+
+        public string BuildArguments
         {
             get;
             set;
@@ -87,7 +87,7 @@ namespace Bridge.Translator
             protected set;
         }
 
-        public IList<ParsedSourceFile> ParsedSourceFiles
+        public ParsedSourceFile[] ParsedSourceFiles
         {
             get;
             protected set;
@@ -125,10 +125,16 @@ namespace Bridge.Translator
             protected set;
         }
 
-        public Dictionary<string, string> Outputs
+        public TranslatorOutput Outputs
         {
             get;
             protected set;
+        }
+
+        public IEmitterOutputs EmitterOutputs
+        {
+            get;
+            set;
         }
 
         public IPlugins Plugins
@@ -162,12 +168,6 @@ namespace Bridge.Translator
         }
 
         public bool Recursive
-        {
-            get;
-            set;
-        }
-
-        public string Configuration
         {
             get;
             set;
@@ -211,5 +211,10 @@ namespace Bridge.Translator
             get;
             set;
         }
+
+        public HashSet<string> ExtractedScripts
+        {
+            get; set;
+        } = new HashSet<string>();
     }
 }

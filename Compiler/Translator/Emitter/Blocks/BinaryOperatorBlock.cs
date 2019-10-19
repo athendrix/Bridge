@@ -4,6 +4,7 @@ using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -26,6 +27,16 @@ namespace Bridge.Translator
             set;
         }
 
+        public List<IAsyncStep> EmittedAsyncSteps
+        {
+            get;
+            set;
+        }
+        public bool NullStringCheck
+        {
+            get; private set;
+        }
+
         protected override Expression GetExpression()
         {
             return this.BinaryOperatorExpression;
@@ -34,6 +45,99 @@ namespace Bridge.Translator
         protected override void EmitConversionExpression()
         {
             this.VisitBinaryOperatorExpression();
+        }
+
+        internal void WriteAsyncBinaryExpression(int index)
+        {
+            if (this.Emitter.AsyncBlock.WrittenAwaitExpressions.Contains(this.BinaryOperatorExpression))
+            {
+                return;
+            }
+
+            this.Emitter.AsyncBlock.WrittenAwaitExpressions.Add(this.BinaryOperatorExpression);
+
+            this.WriteAwaiters(this.BinaryOperatorExpression.Left);
+
+            this.WriteIf();
+            this.WriteOpenParentheses();
+
+            var oldValue = this.Emitter.ReplaceAwaiterByVar;
+            var oldAsyncExpressionHandling = this.Emitter.AsyncExpressionHandling;
+            this.Emitter.ReplaceAwaiterByVar = true;
+            this.Emitter.AsyncExpressionHandling = true;
+
+            var isOr = this.BinaryOperatorExpression.Operator == BinaryOperatorType.BitwiseOr ||
+                        this.BinaryOperatorExpression.Operator == BinaryOperatorType.ConditionalOr;
+
+            if (isOr)
+            {
+                this.Write("!");
+            }
+
+            this.BinaryOperatorExpression.Left.AcceptVisitor(this.Emitter);
+            this.WriteCloseParentheses();
+            this.Emitter.ReplaceAwaiterByVar = oldValue;
+            this.Emitter.AsyncExpressionHandling = oldAsyncExpressionHandling;
+
+            int startCount = 0;
+            IAsyncStep trueStep = null;
+            startCount = this.Emitter.AsyncBlock.Steps.Count;
+
+            this.EmittedAsyncSteps = this.Emitter.AsyncBlock.EmittedAsyncSteps;
+            this.Emitter.AsyncBlock.EmittedAsyncSteps = new List<IAsyncStep>();
+
+            var taskResultVar = JS.Vars.ASYNC_TASK_RESULT + index;
+            if (!this.Emitter.Locals.ContainsKey(taskResultVar))
+            {
+                this.AddLocal(taskResultVar, null, AstType.Null);
+            }
+
+            this.WriteSpace();
+            this.BeginBlock();
+            this.Write($"{JS.Vars.ASYNC_STEP} = {this.Emitter.AsyncBlock.Step};");
+            this.WriteNewLine();
+            this.Write("continue;");
+            var writer = this.SaveWriter();
+            this.Emitter.AsyncBlock.AddAsyncStep();
+
+            this.WriteAwaiters(this.BinaryOperatorExpression.Right);
+
+            oldValue = this.Emitter.ReplaceAwaiterByVar;
+            oldAsyncExpressionHandling = this.Emitter.AsyncExpressionHandling;
+            this.Emitter.ReplaceAwaiterByVar = true;
+            this.Emitter.AsyncExpressionHandling = true;
+            this.Write(taskResultVar + " = ");
+            this.BinaryOperatorExpression.Right.AcceptVisitor(this.Emitter);
+            this.WriteSemiColon();
+            this.Emitter.ReplaceAwaiterByVar = oldValue;
+            this.Emitter.AsyncExpressionHandling = oldAsyncExpressionHandling;
+
+            if (this.Emitter.AsyncBlock.Steps.Count > startCount)
+            {
+                trueStep = this.Emitter.AsyncBlock.Steps.Last();
+            }
+
+            if (this.RestoreWriter(writer) && !this.IsOnlyWhitespaceOnPenultimateLine(true))
+            {
+                this.WriteNewLine();
+            }
+
+            this.EndBlock();
+
+            this.WriteNewLine();
+            this.Write($"{taskResultVar} = {(isOr ? "true" : "false")};");
+            this.WriteNewLine();
+            this.Write($"{JS.Vars.ASYNC_STEP} = {this.Emitter.AsyncBlock.Step};");
+            this.WriteNewLine();
+            this.Write("continue;");
+            var nextStep = this.Emitter.AsyncBlock.AddAsyncStep();
+
+            if (trueStep != null)
+            {
+                trueStep.JumpToStep = nextStep.Step;
+            }
+
+            this.Emitter.AsyncBlock.EmittedAsyncSteps = this.EmittedAsyncSteps;
         }
 
         private IMethod FindOperatorTrueOrFalse(IType type, bool findTrue)
@@ -61,7 +165,7 @@ namespace Bridge.Translator
                         new ArgumentsInfo(this.Emitter, binaryOperatorExpression, orr, method), inline).Emit();
                     return true;
                 }
-                else if (!this.Emitter.Validator.IsIgnoreType(method.DeclaringTypeDefinition))
+                else if (!this.Emitter.Validator.IsExternalType(method.DeclaringTypeDefinition))
                 {
                     bool addClose = false;
                     string leftInterfaceTempVar = null;
@@ -184,7 +288,7 @@ namespace Bridge.Translator
                         new ExpressionListBlock(this.Emitter,
                         new Expression[] { binaryOperatorExpression.Left, binaryOperatorExpression.Right }, null, null, 0).Emit();
                     }
-                    
+
                     this.WriteCloseParentheses();
 
                     if (addClose)
@@ -203,10 +307,10 @@ namespace Bridge.Translator
         {
             var leftResolverResult = emitter.Resolver.ResolveNode(binaryOperatorExpression.Left, emitter);
             var rightResolverResult = emitter.Resolver.ResolveNode(binaryOperatorExpression.Right, emitter);
-            bool leftIsSimple = binaryOperatorExpression.Left is PrimitiveExpression ||
+            bool leftIsSimple = binaryOperatorExpression.Left is PrimitiveExpression || leftResolverResult.Type.IsKnownType(KnownTypeCode.String) ||
                                  leftResolverResult.Type.IsReferenceType != null && !leftResolverResult.Type.IsReferenceType.Value;
 
-            bool rightIsSimple = binaryOperatorExpression.Right is PrimitiveExpression ||
+            bool rightIsSimple = binaryOperatorExpression.Right is PrimitiveExpression || rightResolverResult.Type.IsKnownType(KnownTypeCode.String) ||
                                  rightResolverResult.Type.IsReferenceType != null && !rightResolverResult.Type.IsReferenceType.Value;
 
             bool isSimpleConcat = leftIsSimple && rightIsSimple;
@@ -227,6 +331,28 @@ namespace Bridge.Translator
         protected void VisitBinaryOperatorExpression()
         {
             BinaryOperatorExpression binaryOperatorExpression = this.BinaryOperatorExpression;
+
+            if (this.Emitter.IsAsync && (
+                binaryOperatorExpression.Operator == BinaryOperatorType.BitwiseAnd ||
+                binaryOperatorExpression.Operator == BinaryOperatorType.BitwiseOr ||
+                binaryOperatorExpression.Operator == BinaryOperatorType.ConditionalOr ||
+                binaryOperatorExpression.Operator == BinaryOperatorType.ConditionalAnd
+                ) && this.GetAwaiters(binaryOperatorExpression).Length > 0)
+            {
+                if (this.Emitter.AsyncBlock.WrittenAwaitExpressions.Contains(binaryOperatorExpression))
+                {
+                    var index = System.Array.IndexOf(this.Emitter.AsyncBlock.AwaitExpressions, binaryOperatorExpression) + 1;
+                    this.Write(JS.Vars.ASYNC_TASK_RESULT + index);
+                }
+                else
+                {
+                    var index = System.Array.IndexOf(this.Emitter.AsyncBlock.AwaitExpressions, binaryOperatorExpression) + 1;
+                    this.WriteAsyncBinaryExpression(index);
+                }
+
+                return;
+            }
+
             var resolveOperator = this.Emitter.Resolver.ResolveNode(binaryOperatorExpression, this.Emitter);
             var expectedType = this.Emitter.Resolver.Resolver.GetExpectedType(binaryOperatorExpression);
             bool isDecimalExpected = Helpers.IsDecimalType(expectedType, this.Emitter.Resolver);
@@ -274,6 +400,17 @@ namespace Bridge.Translator
 
             var parentBinary = binaryOperatorExpression.Parent as BinaryOperatorExpression;
             bool parentIsString = resultIsString && parentBinary != null && parentBinary.Operator == BinaryOperatorType.Add;
+
+            if (parentIsString)
+            {
+                var parentResolveOperator = this.Emitter.Resolver.ResolveNode(binaryOperatorExpression.Parent, this.Emitter) as OperatorResolveResult;
+
+                if (parentResolveOperator != null && parentResolveOperator.UserDefinedOperatorMethod != null || BinaryOperatorBlock.IsOperatorSimple(parentBinary, this.Emitter))
+                {
+                    parentIsString = false;
+                }
+            }
+
             bool isSimpleConcat = isStringConcat && BinaryOperatorBlock.IsOperatorSimple(binaryOperatorExpression, this.Emitter);
 
             if (charToString == -1 && isStringConcat && !leftResolverResult.Type.IsKnownType(KnownTypeCode.String))
@@ -356,8 +493,9 @@ namespace Bridge.Translator
                 }
             }
 
-            if (binaryOperatorExpression.Operator == BinaryOperatorType.Divide &&
-                !(this.Emitter.IsJavaScriptOverflowMode && !ConversionBlock.InsideOverflowContext(this.Emitter, binaryOperatorExpression)) &&
+            var insideOverflowContext = ConversionBlock.InsideOverflowContext(this.Emitter, binaryOperatorExpression);
+            if (binaryOperatorExpression.Operator == BinaryOperatorType.Divide && this.Emitter.Rules.Integer == IntegerRule.Managed &&
+                !(this.Emitter.IsJavaScriptOverflowMode && !insideOverflowContext) &&
                 (
                     (Helpers.IsIntegerType(leftResolverResult.Type, this.Emitter.Resolver) &&
                     Helpers.IsIntegerType(rightResolverResult.Type, this.Emitter.Resolver)) ||
@@ -374,12 +512,39 @@ namespace Bridge.Translator
                 return;
             }
 
+            if (binaryOperatorExpression.Operator == BinaryOperatorType.Multiply && this.Emitter.Rules.Integer == IntegerRule.Managed &&
+                !(this.Emitter.IsJavaScriptOverflowMode && !insideOverflowContext) &&
+                (
+                    (Helpers.IsInteger32Type(leftResolverResult.Type, this.Emitter.Resolver) &&
+                    Helpers.IsInteger32Type(rightResolverResult.Type, this.Emitter.Resolver) &&
+                    Helpers.IsInteger32Type(resolveOperator.Type, this.Emitter.Resolver)) ||
+
+                    (Helpers.IsInteger32Type(this.Emitter.Resolver.Resolver.GetExpectedType(binaryOperatorExpression.Left), this.Emitter.Resolver) &&
+                    Helpers.IsInteger32Type(this.Emitter.Resolver.Resolver.GetExpectedType(binaryOperatorExpression.Right), this.Emitter.Resolver) &&
+                    Helpers.IsInteger32Type(resolveOperator.Type, this.Emitter.Resolver))
+                ))
+            {
+                isUint = NullableType.GetUnderlyingType(resolveOperator.Type).IsKnownType(KnownTypeCode.UInt32);
+                this.Write(JS.Types.BRIDGE_INT + "." + (isUint ? JS.Funcs.Math.UMUL : JS.Funcs.Math.MUL) + "(");
+                this.WritePart(binaryOperatorExpression.Left, toStringForLeft, leftResolverResult);
+                this.Write(", ");
+                this.WritePart(binaryOperatorExpression.Right, toStringForRight, rightResolverResult);
+
+                if (ConversionBlock.IsInCheckedContext(this.Emitter, this.BinaryOperatorExpression))
+                {
+                    this.Write(", 1");
+                }
+
+                this.Write(")");
+                return;
+            }
+
             if (binaryOperatorExpression.Operator == BinaryOperatorType.Add ||
                 binaryOperatorExpression.Operator == BinaryOperatorType.Subtract)
             {
                 var add = binaryOperatorExpression.Operator == BinaryOperatorType.Add;
 
-                if (this.Emitter.Validator.IsDelegateOrLambda(leftResolverResult) && this.Emitter.Validator.IsDelegateOrLambda(rightResolverResult))
+                if (expectedType.Kind == TypeKind.Delegate || this.Emitter.Validator.IsDelegateOrLambda(leftResolverResult) && this.Emitter.Validator.IsDelegateOrLambda(rightResolverResult))
                 {
                     delegateOperator = true;
                     this.Write(add ? JS.Funcs.BRIDGE_COMBINE : JS.Funcs.BRIDGE_REMOVE);
@@ -387,6 +552,7 @@ namespace Bridge.Translator
                 }
             }
 
+            this.NullStringCheck = isStringConcat && !parentIsString && isSimpleConcat;
             if (isStringConcat && !parentIsString && !isSimpleConcat)
             {
                 this.Write(JS.Types.System.String.CONCAT);
@@ -432,7 +598,7 @@ namespace Bridge.Translator
                     this.Write("!!(");
                 }
 
-                this.WritePart(binaryOperatorExpression.Left, toStringForLeft, leftResolverResult);
+                this.WritePart(binaryOperatorExpression.Left, toStringForLeft, leftResolverResult, isCoalescing);
 
                 if (isCoalescing)
                 {
@@ -442,7 +608,11 @@ namespace Bridge.Translator
                     this.Write(strictNullChecks ? " !== null" : " != null");
 
                     this.Write(" ? ");
-                    this.Write(variable);
+
+                    ConversionBlock.expressionMap.Add(binaryOperatorExpression.Left, variable);
+                    //this.Write(variable);
+                    binaryOperatorExpression.Left.AcceptVisitor(this.Emitter);
+                    ConversionBlock.expressionMap.Remove(binaryOperatorExpression.Left);
                 }
                 else if (charToString == 0)
                 {
@@ -521,7 +691,7 @@ namespace Bridge.Translator
                         break;
 
                     case BinaryOperatorType.ExclusiveOr:
-                        this.Write(rootSpecial ? JS.Funcs.Math.XOR : "^");
+                        this.Write(rootSpecial ? JS.Funcs.Math.XOR : (isBool ? "!=" : "^"));
                         break;
 
                     case BinaryOperatorType.GreaterThan:
@@ -663,7 +833,7 @@ namespace Bridge.Translator
                     new InlineArgumentsBlock(this.Emitter,
                         new ArgumentsInfo(this.Emitter, this.BinaryOperatorExpression, orr, method), inline).Emit();
                 }
-                else if (!this.Emitter.Validator.IsIgnoreType(method.DeclaringTypeDefinition))
+                else if (!this.Emitter.Validator.IsExternalType(method.DeclaringTypeDefinition))
                 {
                     this.Write(BridgeTypes.ToJsName(method.DeclaringType, this.Emitter));
                     this.WriteDot();
@@ -870,13 +1040,24 @@ namespace Bridge.Translator
             this.HandleType(resolveOperator, isUint ? KnownTypeCode.UInt64 : KnownTypeCode.Int64, op_name, action);
         }
 
-        private void WritePart(Expression expression, bool toString, ResolveResult rr)
+        private void WritePart(Expression expression, bool toString, ResolveResult rr, bool isCoalescing = false)
         {
+            if (isCoalescing)
+            {
+                ConversionBlock.expressionInWork.Add(expression);
+            }
+
+            bool wrapString = false;
+            if (this.NullStringCheck && rr.Type.IsKnownType(KnownTypeCode.String))
+            {
+                wrapString = !(expression is BinaryOperatorExpression) && !(expression is PrimitiveExpression || rr.Type.IsReferenceType != null && !rr.Type.IsReferenceType.Value);
+            }
+
             if (toString)
             {
                 var toStringMethod = rr.Type.GetMembers().FirstOrDefault(m =>
                 {
-                    if (m.Name == "ToString" && !m.IsStatic && m.ReturnType.IsKnownType(KnownTypeCode.String) && m.IsOverride)
+                    if (m.Name == CS.Methods.TOSTRING && !m.IsStatic && m.ReturnType.IsKnownType(KnownTypeCode.String) && m.IsOverride)
                     {
                         var method = m as IMethod;
 
@@ -910,24 +1091,31 @@ namespace Bridge.Translator
                         this.Emitter.Output = writer.Output;
                         this.Emitter.IsNewLine = writer.IsNewLine;
 
-                        var argsInfo = new ArgumentsInfo(this.Emitter, expression, rr);
+                        var argsInfo = new ArgumentsInfo(this.Emitter, expression, (IMethod)toStringMethod);
                         argsInfo.ArgumentsExpressions = new Expression[] { expression };
                         argsInfo.ArgumentsNames = new string[] { "this" };
                         argsInfo.ThisArgument = result;
                         new InlineArgumentsBlock(this.Emitter, argsInfo, writer.InlineCode).Emit();
-
-                        //result = writer.InlineCode.Replace("{this}", result);
-                        //this.Write(result);
-
                         return;
                     }
                 }
-
-                expression.AcceptVisitor(this.Emitter);
             }
-            else
+
+            if (wrapString)
             {
-                expression.AcceptVisitor(this.Emitter);
+                this.Write("(");
+            }
+
+            expression.AcceptVisitor(this.Emitter);
+
+            if (wrapString)
+            {
+                this.Write(" || \"\")");
+            }
+
+            if (isCoalescing)
+            {
+                ConversionBlock.expressionInWork.Remove(expression);
             }
         }
     }

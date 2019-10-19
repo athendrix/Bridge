@@ -1,8 +1,7 @@
-using Bridge;
-
 namespace System
 {
-    [External]
+    [Bridge.External]
+    [Bridge.Reflectable]
     public interface IDisposable
     {
         void Dispose();

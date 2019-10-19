@@ -3,6 +3,7 @@ using Bridge.Contract.Constants;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using System.Linq;
+using ICSharpCode.NRefactory.TypeSystem;
 
 namespace Bridge.Translator
 {
@@ -20,41 +21,45 @@ namespace Bridge.Translator
             get;
             set;
         }
+        public CompilerRule OldRules { get; private set; }
+
+        protected override void BeginEmit()
+        {
+            base.BeginEmit();
+            this.OldRules = this.Emitter.Rules;
+
+            var rr = this.Emitter.Resolver.ResolveNode(this.PropertyDeclaration, this.Emitter) as MemberResolveResult;
+
+            if (rr != null)
+            {
+                this.Emitter.Rules = Rules.Get(this.Emitter, rr.Member);
+            }
+        }
+
+        protected override void EndEmit()
+        {
+            base.EndEmit();
+            this.Emitter.Rules = this.OldRules;
+        }
 
         protected override void DoEmit()
         {
-            if (this.PropertyDeclaration.Getter.Body.IsNull && this.PropertyDeclaration.Setter.Body.IsNull)
-            {
-                return;
-            }
-
-            if (this.Emitter.Validator.IsObjectLiteral(this.Emitter.GetTypeDefinition()))
-            {
-                var memberResult = this.Emitter.Resolver.ResolveNode(this.PropertyDeclaration, this.Emitter) as MemberResolveResult;
-
-                if (memberResult != null && !memberResult.Member.IsStatic)
-                {
-                    return;
-                }
-            }
-
-            this.EmitPropertyMethod(this.PropertyDeclaration, this.PropertyDeclaration.Getter, false, false);
-            this.EmitPropertyMethod(this.PropertyDeclaration, this.PropertyDeclaration.Setter, true, false);
-        }
-
-        public virtual void EmitPropertyMethod(PropertyDeclaration propertyDeclaration, Accessor accessor, bool setter, bool isObjectLiteral)
-        {
-            var memberResult = this.Emitter.Resolver.ResolveNode(propertyDeclaration, this.Emitter) as MemberResolveResult;
+            var memberResult = this.Emitter.Resolver.ResolveNode(this.PropertyDeclaration, this.Emitter) as MemberResolveResult;
 
             if (memberResult != null &&
-                (memberResult.Member.Attributes.Any(a => a.AttributeType.FullName == "Bridge.FieldPropertyAttribute" ||
-                    a.AttributeType.FullName == "Bridge.ExternalAttribute") ||
-                (propertyDeclaration.Getter.IsNull && propertyDeclaration.Setter.IsNull)))
+                memberResult.Member.Attributes.Any(a => a.AttributeType.FullName == "Bridge.ExternalAttribute")
+                )
             {
                 return;
             }
 
-            if (!accessor.IsNull && this.Emitter.GetInline(accessor) == null)
+            this.EmitPropertyMethod(this.PropertyDeclaration, this.PropertyDeclaration.Getter, ((IProperty)memberResult.Member).Getter, false, false);
+            this.EmitPropertyMethod(this.PropertyDeclaration, this.PropertyDeclaration.Setter, ((IProperty)memberResult.Member).Setter, true, false);
+        }
+
+        public virtual void EmitPropertyMethod(PropertyDeclaration propertyDeclaration, Accessor accessor, IMethod method, bool setter, bool isObjectLiteral)
+        {
+            if ((!accessor.IsNull || method != null && Helpers.IsScript(method)) && this.Emitter.GetInline(accessor) == null)
             {
                 this.EnsureComma();
 
@@ -72,20 +77,20 @@ namespace Bridge.Translator
                     this.AddLocals(new ParameterDeclaration[0], accessor.Body);
                 }
 
-                XmlToJsDoc.EmitComment(this, this.PropertyDeclaration);
+                //XmlToJsDoc.EmitComment(this, this.PropertyDeclaration);
 
-                if (isObjectLiteral)
-                {
-                    this.Write(setter ? JS.Funcs.Property.SET : JS.Funcs.Property.GET);
-                }
-                else
-                {
-                    string name = Helpers.GetPropertyRef(propertyDeclaration, this.Emitter, setter, false, false, true);
-                    this.Write(name);
-                }
+                this.Write(setter ? JS.Funcs.Property.SET : JS.Funcs.Property.GET);
 
                 this.WriteColon();
                 this.WriteFunction();
+
+                var m_rr = (MemberResolveResult)this.Emitter.Resolver.ResolveNode(propertyDeclaration, this.Emitter);
+                var nm = Helpers.GetFunctionName(this.Emitter.AssemblyInfo.NamedFunctions, m_rr.Member, this.Emitter, setter);
+                if (nm != null)
+                {
+                    this.Write(nm);
+                }
+
                 this.WriteOpenParentheses();
                 this.Write(setter ? "value" : "");
                 this.WriteCloseParentheses();
@@ -95,7 +100,14 @@ namespace Bridge.Translator
 
                 if (script == null)
                 {
-                    accessor.Body.AcceptVisitor(this.Emitter);
+                    if (YieldBlock.HasYield(accessor.Body))
+                    {
+                        new GeneratorBlock(this.Emitter, accessor).Emit();
+                    }
+                    else
+                    {
+                        accessor.Body.AcceptVisitor(this.Emitter);
+                    }
                 }
                 else
                 {

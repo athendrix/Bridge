@@ -1,9 +1,12 @@
+using System;
 using Bridge.Contract;
 using Bridge.Contract.Constants;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
 using System.Collections.Generic;
+using System.Linq;
+using ICSharpCode.NRefactory.CSharp.Resolver;
 
 namespace Bridge.Translator
 {
@@ -18,6 +21,7 @@ namespace Bridge.Translator
             this.FieldsOnly = fieldsOnly;
             this.Injectors = new List<string>();
             this.IsObjectLiteral = isObjectLiteral;
+            this.ClearTempVariables = true;
         }
 
         public bool IsObjectLiteral
@@ -50,19 +54,40 @@ namespace Bridge.Translator
             private set;
         }
 
+        public int BeginCounter
+        {
+            get;
+            private set;
+        }
+
         public bool WasEmitted
         {
             get;
             private set;
         }
 
+        public bool ClearTempVariables
+        {
+            get; set;
+        }
+
         protected override void DoEmit()
         {
-            if (this.Emitter.TempVariables != null)
+            if (this.Emitter.TempVariables != null && this.ClearTempVariables)
             {
                 this.Emitter.TempVariables = new Dictionary<string, bool>();
             }
             this.EmitFields(this.StaticBlock ? this.TypeInfo.StaticConfig : this.TypeInfo.InstanceConfig);
+
+            /*if (this.Injectors.Count > 0 && this.Emitter.TempVariables != null && this.Emitter.TempVariables.Count > 0)
+            {
+                var writer = this.SaveWriter();
+                this.NewWriter();
+                this.SimpleEmitTempVars(false);
+                this.Injectors.Insert(0, this.Emitter.Output.ToString());
+                this.Emitter.TempVariables.Clear();
+                this.RestoreWriter(writer);
+            }*/
         }
 
         protected virtual void EmitFields(TypeConfigInfo info)
@@ -71,8 +96,8 @@ namespace Bridge.Translator
             {
                 if (info.Fields.Count > 0)
                 {
-                    var hasProperties = this.WriteObject(null, info.Fields, "this.{0} = {1};", "this[{0}] = {1};");
-                    if (hasProperties)
+                    var hasFields = this.WriteObject(JS.Fields.FIELDS, info.Fields.Where(f => f.IsConst).Concat(info.Fields.Where(f => !f.IsConst)).ToList(), "this.{0} = {1};", "this[{0}] = {1};");
+                    if (hasFields)
                     {
                         this.Emitter.Comma = true;
                         this.WasEmitted = true;
@@ -97,7 +122,7 @@ namespace Bridge.Translator
 
             if (info.Properties.Count > 0)
             {
-                var hasProperties = this.WriteObject(JS.Fields.PROPERTIES, info.Properties, JS.Funcs.BRIDGE_PROPERTY + "(this, \"{0}\", {1});", JS.Funcs.BRIDGE_PROPERTY + "(this, {0}, {1});");
+                var hasProperties = this.WriteObject(JS.Fields.PROPERTIES, info.Properties, "this.{0} = {1};", "this[{0}] = {1};");
                 if (hasProperties)
                 {
                     this.Emitter.Comma = true;
@@ -115,9 +140,15 @@ namespace Bridge.Translator
         protected virtual bool WriteObject(string objectName, List<TypeConfigItem> members, string format, string interfaceFormat)
         {
             bool hasProperties = this.HasProperties(objectName, members);
+            int pos = 0;
+            IWriterInfo writer = null;
+            bool beginBlock = false;
 
             if (hasProperties && objectName != null && !this.IsObjectLiteral)
             {
+                beginBlock = true;
+                pos = this.Emitter.Output.Length;
+                writer = this.SaveWriter();
                 this.EnsureComma();
                 this.Write(objectName);
 
@@ -126,6 +157,9 @@ namespace Bridge.Translator
             }
 
             bool isProperty = JS.Fields.PROPERTIES == objectName;
+            bool isField = JS.Fields.FIELDS == objectName;
+            int count = 0;
+
             foreach (var member in members)
             {
                 object constValue = null;
@@ -136,9 +170,24 @@ namespace Bridge.Translator
 
                 if (primitiveExpr != null)
                 {
-                    isPrimitive = true;
+                    //isPrimitive = true;
                     constValue = primitiveExpr.Value;
-                    //writeScript = true;
+
+                    ResolveResult rr = null;
+                    if (member.VarInitializer != null)
+                    {
+                        rr = this.Emitter.Resolver.ResolveNode(member.VarInitializer, this.Emitter);
+                    }
+                    else
+                    {
+                        rr = this.Emitter.Resolver.ResolveNode(member.Entity, this.Emitter);
+                    }
+
+                    if (rr != null && rr.Type.Kind == TypeKind.Enum)
+                    {
+                        constValue = Helpers.GetEnumValue(this.Emitter, rr.Type, constValue);
+                        writeScript = true;
+                    }
                 }
 
                 if (constValue is RawValue)
@@ -148,15 +197,34 @@ namespace Bridge.Translator
                     writeScript = false;
                 }
 
-                var isNull = member.Initializer.IsNull || member.Initializer is NullReferenceExpression;
+                var isNull = member.Initializer.IsNull || member.Initializer is NullReferenceExpression || member.Initializer.Parent == null;
 
                 if (!isNull && !isPrimitive)
                 {
                     var constrr = this.Emitter.Resolver.ResolveNode(member.Initializer, this.Emitter);
                     if (constrr != null && constrr.IsCompileTimeConstant)
                     {
-                        isPrimitive = true;
+                        //isPrimitive = true;
                         constValue = constrr.ConstantValue;
+
+                        var expectedType = this.Emitter.Resolver.Resolver.GetExpectedType(member.Initializer);
+                        if (!expectedType.Equals(constrr.Type) && expectedType.Kind != TypeKind.Dynamic)
+                        {
+                            try
+                            {
+                                constValue = Convert.ChangeType(constValue, ReflectionHelper.GetTypeCode(expectedType));
+                            }
+                            catch (Exception)
+                            {
+                                this.Emitter.Log.Warn($"FieldBlock: Convert.ChangeType is failed. Value type: {constrr.Type.FullName}, Target type: {expectedType.FullName}");
+                            }
+                        }
+
+                        if (constrr.Type.Kind == TypeKind.Enum)
+                        {
+                            constValue = Helpers.GetEnumValue(this.Emitter, constrr.Type, constrr.ConstantValue);
+                        }
+
                         writeScript = true;
                     }
                 }
@@ -173,8 +241,31 @@ namespace Bridge.Translator
                     }
                 }
 
+                string tpl = null;
+                IMember templateMember = null;
+                MemberResolveResult init_rr = null;
+                if (isField && member.VarInitializer != null)
+                {
+                    init_rr = this.Emitter.Resolver.ResolveNode(member.VarInitializer, this.Emitter) as MemberResolveResult;
+                    tpl = init_rr != null ? this.Emitter.GetInline(init_rr.Member) : null;
+
+                    if (tpl != null)
+                    {
+                        templateMember = init_rr.Member;
+                    }
+                }
+
+                bool isAutoProperty = false;
+
+                if (isProperty)
+                {
+                    var member_rr = this.Emitter.Resolver.ResolveNode(member.Entity, this.Emitter) as MemberResolveResult;
+                    var property = (IProperty)member_rr.Member;
+                    isAutoProperty = Helpers.IsAutoProperty(property);
+                }
+
                 bool written = false;
-                if (!isNull && (!isPrimitive || (constValue is AstType)))
+                if (!isNull && (!isPrimitive || constValue is AstType || tpl != null) && !(isProperty && !IsObjectLiteral && !isAutoProperty))
                 {
                     string value = null;
                     bool needContinue = false;
@@ -200,26 +291,32 @@ namespace Bridge.Translator
                         }
 
                         constValue = Inspector.GetDefaultFieldValue(rr.Type, astType);
+                        if (rr.Type.Kind == TypeKind.Enum)
+                        {
+                            constValue = Helpers.GetEnumValue(this.Emitter, rr.Type, constValue);
+                        }
                         isNullable = NullableType.IsNullable(rr.Type);
                         needContinue = constValue is IType;
                         writeScript = true;
 
-                        if (needContinue && !(member.Initializer is ObjectCreateExpression))
+                        /*if (needContinue && !(member.Initializer is ObjectCreateExpression))
                         {
-                            defValue = " || " + Inspector.GetStructDefaultValue((IType) constValue, this.Emitter);
-                        }
+                            defValue = " || " + Inspector.GetStructDefaultValue((IType)constValue, this.Emitter);
+                        }*/
                     }
-                    else
+                    else if (constValue is AstType)
                     {
                         value = isNullable
                             ? "null"
-                            : Inspector.GetStructDefaultValue((AstType) constValue, this.Emitter);
+                            : Inspector.GetStructDefaultValue((AstType)constValue, this.Emitter);
                         constValue = value;
                         write = true;
                         needContinue = !isProperty && !isNullable;
                     }
 
                     var name = member.GetName(this.Emitter);
+
+                    bool isValidIdentifier = Helpers.IsValidIdentifier(name);
 
                     if (isProperty && isPrimitive)
                     {
@@ -228,12 +325,20 @@ namespace Bridge.Translator
                         if (this.IsObjectLiteral)
                         {
                             written = true;
-                            this.Write(string.Format("this.{0} = {1};", name, value));
+                            if (isValidIdentifier)
+                            {
+                                this.Write(string.Format("this.{0} = {1};", name, value));
+                            }
+                            else
+                            {
+                                this.Write(string.Format("this[{0}] = {1};", AbstractEmitterBlock.ToJavaScript(name, this.Emitter), value));
+                            }
+
                             this.WriteNewLine();
                         }
                         else
                         {
-                            this.Injectors.Add(string.Format(name.StartsWith("\"") ? "this[{0}] = {1};" : "this.{0} = {1};", name, value));
+                            this.Injectors.Add(string.Format(name.StartsWith("\"") || !isValidIdentifier ? "this[{0}] = {1};" : "this.{0} = {1};", isValidIdentifier ? name : AbstractEmitterBlock.ToJavaScript(name, this.Emitter), value));
                         }
                     }
                     else
@@ -241,61 +346,167 @@ namespace Bridge.Translator
                         if (this.IsObjectLiteral)
                         {
                             written = true;
-                            this.Write(string.Format("this.{0} = {1};", name, value + defValue));
+                            if (isValidIdentifier)
+                            {
+                                this.Write(string.Format("this.{0} = {1};", name, value + defValue));
+                            }
+                            else
+                            {
+                                this.Write(string.Format("this[{0}] = {1};", AbstractEmitterBlock.ToJavaScript(name, this.Emitter), value + defValue));
+                            }
                             this.WriteNewLine();
+                        }
+                        else if (tpl != null)
+                        {
+                            if (!tpl.Contains("{0}"))
+                            {
+                                tpl = tpl + " = {0};";
+                            }
+
+                            string v = null;
+                            if (!isNull && (!isPrimitive || constValue is AstType))
+                            {
+                                v = value + defValue;
+                            }
+                            else
+                            {
+                                if (write)
+                                {
+                                    v = constValue != null ? constValue.ToString() : "";
+                                }
+                                else if (writeScript)
+                                {
+                                    v = AbstractEmitterBlock.ToJavaScript(constValue, this.Emitter);
+                                }
+                                else
+                                {
+                                    var oldWriter = this.SaveWriter();
+                                    this.NewWriter();
+                                    member.Initializer.AcceptVisitor(this.Emitter);
+                                    v = this.Emitter.Output.ToString();
+                                    this.RestoreWriter(oldWriter);
+                                }
+                            }
+
+                            tpl = Helpers.ConvertTokens(this.Emitter, tpl, templateMember);
+                            tpl = tpl.Replace("{this}", "this").Replace("{0}", v);
+
+                            if (!tpl.EndsWith(";"))
+                            {
+                                tpl += ";";
+                            }
+                            this.Injectors.Add(tpl);
                         }
                         else
                         {
-                            this.Injectors.Add(string.Format(name.StartsWith("\"") ? interfaceFormat : format, name,value + defValue));
+                            var rr = this.Emitter.Resolver.ResolveNode(member.Initializer, this.Emitter) as CSharpInvocationResolveResult;
+                            bool isDefaultInstance = rr != null &&
+                                                     rr.Member.SymbolKind == SymbolKind.Constructor &&
+                                                     rr.Arguments.Count == 0 &&
+                                                     rr.InitializerStatements.Count == 0 &&
+                                                     rr.Type.Kind == TypeKind.Struct;
+
+                            if (!isDefaultInstance)
+                            {
+                                if (isField && !isValidIdentifier)
+                                {
+                                    this.Injectors.Add(string.Format("this[{0}] = {1};", name.StartsWith("\"") ? name : AbstractEmitterBlock.ToJavaScript(name, this.Emitter), value + defValue));
+                                }
+                                else
+                                {
+                                    this.Injectors.Add(string.Format(name.StartsWith("\"") ? interfaceFormat : format, name, value + defValue));
+                                }
+                            }
                         }
                     }
-
-                    if (needContinue)
-                    {
-                        continue;
-                    }
                 }
+
+                count++;
 
                 if (written)
                 {
                     continue;
                 }
+                bool withoutTypeParams = true;
+                MemberResolveResult m_rr = null;
+                if (member.Entity != null)
+                {
+                    m_rr = this.Emitter.Resolver.ResolveNode(member.Entity, this.Emitter) as MemberResolveResult;
+                    if (m_rr != null)
+                    {
+                        withoutTypeParams = OverloadsCollection.ExcludeTypeParameterForDefinition(m_rr);
+                    }
+                }
+
+                var mname = member.GetName(this.Emitter, withoutTypeParams);
+
+                if (this.TypeInfo.IsEnum && m_rr != null)
+                {
+                    mname = this.Emitter.GetEntityName(m_rr.Member);
+                }
+
+                bool isValid = Helpers.IsValidIdentifier(mname);
+                if (!isValid)
+                {
+                    if (this.IsObjectLiteral)
+                    {
+                        mname = "[" + AbstractEmitterBlock.ToJavaScript(mname, this.Emitter) + "]";
+                    }
+                    else
+                    {
+                        mname = AbstractEmitterBlock.ToJavaScript(mname, this.Emitter);
+                    }
+                }
 
                 if (this.IsObjectLiteral)
                 {
                     this.WriteThis();
-                    this.WriteDot();
-                    this.Write(member.GetName(this.Emitter, true));
+                    if (isValid)
+                    {
+                        this.WriteDot();
+                    }
+                    this.Write(mname);
                     this.Write(" = ");
                 }
                 else
                 {
                     this.EnsureComma();
-                    XmlToJsDoc.EmitComment(this, member.Entity);
-                    this.Write(member.GetName(this.Emitter, true));
+                    XmlToJsDoc.EmitComment(this, member.Entity, null, member.Entity is FieldDeclaration ? member.VarInitializer : null);
+                    this.Write(mname);
                     this.WriteColon();
                 }
 
-                if (constValue is AstType)
+                bool close = false;
+                if (isProperty && !IsObjectLiteral && !isAutoProperty)
                 {
-                    if (isNullable)
-                    {
-                        this.Write("null");
-                    }
-                    else
-                    {
-                        this.Write(Inspector.GetStructDefaultValue((AstType)constValue, this.Emitter));
-                    }
+                    var oldTempVars = this.Emitter.TempVariables;
+                    this.BeginBlock();
+                    new VisitorPropertyBlock(this.Emitter, (PropertyDeclaration)member.Entity).Emit();
+                    this.WriteNewLine();
+                    this.EndBlock();
+                    this.Emitter.Comma = true;
+                    this.Emitter.TempVariables = oldTempVars;
+                    continue;
                 }
-                else if (constValue is IType)
+
+                if (constValue is AstType || constValue is IType)
                 {
-                    if (isNullable)
+                    this.Write("null");
+
+                    if (!isNullable)
                     {
-                        this.Write("null");
-                    }
-                    else
-                    {
-                        this.Write(Inspector.GetStructDefaultValue((IType)constValue, this.Emitter));
+                        var name = member.GetName(this.Emitter);
+                        bool isValidIdentifier = Helpers.IsValidIdentifier(name);
+                        var value = constValue is AstType ? Inspector.GetStructDefaultValue((AstType)constValue, this.Emitter) : Inspector.GetStructDefaultValue((IType)constValue, this.Emitter);
+
+                        if (!isValidIdentifier)
+                        {
+                            this.Injectors.Insert(BeginCounter++, string.Format("this[{0}] = {1};", name.StartsWith("\"") ? name : AbstractEmitterBlock.ToJavaScript(name, this.Emitter), value));
+                        }
+                        else
+                        {
+                            this.Injectors.Insert(BeginCounter++, string.Format(name.StartsWith("\"") ? interfaceFormat : format, name, value));
+                        }
                     }
                 }
                 else if (write)
@@ -311,6 +522,11 @@ namespace Bridge.Translator
                     member.Initializer.AcceptVisitor(this.Emitter);
                 }
 
+                if (close)
+                {
+                    this.Write(" }");
+                }
+
                 if (this.IsObjectLiteral)
                 {
                     this.WriteSemiColon(true);
@@ -319,13 +535,21 @@ namespace Bridge.Translator
                 this.Emitter.Comma = true;
             }
 
-            if (hasProperties && objectName != null)
+            if (count > 0 && objectName != null && !IsObjectLiteral)
             {
                 this.WriteNewLine();
                 this.EndBlock();
             }
+            else if (beginBlock)
+            {
+                this.Emitter.IsNewLine = writer.IsNewLine;
+                this.Emitter.ResetLevel(writer.Level);
+                this.Emitter.Comma = writer.Comma;
 
-            return hasProperties;
+                this.Emitter.Output.Length = pos;
+            }
+
+            return count > 0;
         }
 
         protected virtual bool HasProperties(string objectName, List<TypeConfigItem> members)
@@ -358,9 +582,12 @@ namespace Bridge.Translator
                     return true;
                 }
 
-                if (!isPrimitive || (constValue is AstType && objectName != JS.Fields.PROPERTIES))
+                if (objectName != JS.Fields.PROPERTIES && objectName != JS.Fields.FIELDS && objectName != JS.Fields.EVENTS)
                 {
-                    continue;
+                    if (!isPrimitive || constValue is AstType)
+                    {
+                        continue;
+                    }
                 }
 
                 return true;
@@ -375,6 +602,8 @@ namespace Bridge.Translator
             bool oldComma = this.Emitter.Comma;
             bool oldNewLine = this.Emitter.IsNewLine;
             bool nonEmpty = false;
+            var changedIndenting = false;
+            bool newLine = members.Count > 1;
 
             if (objectName != null)
             {
@@ -383,7 +612,13 @@ namespace Bridge.Translator
 
                 this.WriteColon();
                 this.WriteOpenBracket();
-                this.WriteNewLine();
+
+                if (newLine)
+                {
+                    this.WriteNewLine();
+                    this.Indent();
+                    changedIndenting = true;
+                }
             }
 
             foreach (var member in members)
@@ -417,7 +652,15 @@ namespace Bridge.Translator
                 }
             }
 
-            this.WriteNewLine();
+            if (newLine)
+            {
+                this.WriteNewLine();
+                if (changedIndenting)
+                {
+                    this.Outdent();
+                }
+            }
+
             this.WriteCloseBracket();
 
             if (!nonEmpty)
@@ -441,16 +684,33 @@ namespace Bridge.Translator
                 }
             }
 
-            if (member is IProperty)
+            var excludeTypeParam = OverloadsCollection.ExcludeTypeParameterForDefinition(member);
+            var excludeAliasTypeParam = member.IsExplicitInterfaceImplementation && !excludeTypeParam;
+            var pair = false;
+            var itypeDef = interfaceMember.DeclaringTypeDefinition;
+            if (!member.IsExplicitInterfaceImplementation &&
+                MetadataUtils.IsJsGeneric(itypeDef, this.Emitter) &&
+                itypeDef.TypeParameters != null &&
+                itypeDef.TypeParameters.Any(typeParameter => typeParameter.Variance != VarianceModifier.Invariant))
+            {
+                pair = true;
+            }
+
+            if (member is IProperty && ((IProperty)member).IsIndexer)
             {
                 var property = (IProperty)member;
                 if (property.CanGet)
                 {
                     nonEmpty = true;
                     this.EnsureComma();
-                    this.WriteScript(Helpers.GetPropertyRef(member, this.Emitter, false, false, false, true));
+                    this.WriteScript(Helpers.GetPropertyRef(member, this.Emitter, false, false, false, excludeTypeParam));
                     this.WriteComma();
-                    var alias = Helpers.GetPropertyRef(interfaceMember, this.Emitter, false, false, false);
+                    var alias = Helpers.GetPropertyRef(interfaceMember, this.Emitter, false, false, false, withoutTypeParams: excludeAliasTypeParam);
+
+                    if (pair)
+                    {
+                        this.WriteOpenBracket();
+                    }
 
                     if (alias.StartsWith("\""))
                     {
@@ -459,6 +719,13 @@ namespace Bridge.Translator
                     else
                     {
                         this.WriteScript(alias);
+                    }
+
+                    if (pair)
+                    {
+                        this.WriteComma();
+                        this.WriteScript(Helpers.GetPropertyRef(interfaceMember, this.Emitter, withoutTypeParams: true));
+                        this.WriteCloseBracket();
                     }
 
                     this.Emitter.Comma = true;
@@ -468,9 +735,14 @@ namespace Bridge.Translator
                 {
                     nonEmpty = true;
                     this.EnsureComma();
-                    this.WriteScript(Helpers.GetPropertyRef(member, this.Emitter, true, false, false, true));
+                    this.WriteScript(Helpers.GetPropertyRef(member, this.Emitter, true, false, false, excludeTypeParam));
                     this.WriteComma();
-                    var alias = Helpers.GetPropertyRef(interfaceMember, this.Emitter, true, false, false);
+                    var alias = Helpers.GetPropertyRef(interfaceMember, this.Emitter, true, false, false, withoutTypeParams: excludeAliasTypeParam);
+
+                    if (pair)
+                    {
+                        this.WriteOpenBracket();
+                    }
 
                     if (alias.StartsWith("\""))
                     {
@@ -479,6 +751,13 @@ namespace Bridge.Translator
                     else
                     {
                         this.WriteScript(alias);
+                    }
+
+                    if (pair)
+                    {
+                        this.WriteComma();
+                        this.WriteScript(Helpers.GetPropertyRef(interfaceMember, this.Emitter, true, withoutTypeParams: true));
+                        this.WriteCloseBracket();
                     }
 
                     this.Emitter.Comma = true;
@@ -491,9 +770,14 @@ namespace Bridge.Translator
                 {
                     nonEmpty = true;
                     this.EnsureComma();
-                    this.WriteScript(Helpers.GetEventRef(member, this.Emitter, false, false, false, true));
+                    this.WriteScript(Helpers.GetEventRef(member, this.Emitter, false, false, false, excludeTypeParam));
                     this.WriteComma();
-                    var alias = Helpers.GetEventRef(interfaceMember, this.Emitter, false, false, false);
+                    var alias = Helpers.GetEventRef(interfaceMember, this.Emitter, false, false, false, excludeAliasTypeParam);
+
+                    if (pair)
+                    {
+                        this.WriteOpenBracket();
+                    }
 
                     if (alias.StartsWith("\""))
                     {
@@ -502,6 +786,13 @@ namespace Bridge.Translator
                     else
                     {
                         this.WriteScript(alias);
+                    }
+
+                    if (pair)
+                    {
+                        this.WriteComma();
+                        this.WriteScript(Helpers.GetEventRef(interfaceMember, this.Emitter, withoutTypeParams: true));
+                        this.WriteCloseBracket();
                     }
 
                     this.Emitter.Comma = true;
@@ -511,9 +802,14 @@ namespace Bridge.Translator
                 {
                     nonEmpty = true;
                     this.EnsureComma();
-                    this.WriteScript(Helpers.GetEventRef(member, this.Emitter, true, false, false, true));
+                    this.WriteScript(Helpers.GetEventRef(member, this.Emitter, true, false, false, excludeTypeParam));
                     this.WriteComma();
-                    var alias = Helpers.GetEventRef(interfaceMember, this.Emitter, true, false, false);
+                    var alias = Helpers.GetEventRef(interfaceMember, this.Emitter, true, false, false, excludeAliasTypeParam);
+
+                    if (pair)
+                    {
+                        this.WriteOpenBracket();
+                    }
 
                     if (alias.StartsWith("\""))
                     {
@@ -524,6 +820,13 @@ namespace Bridge.Translator
                         this.WriteScript(alias);
                     }
 
+                    if (pair)
+                    {
+                        this.WriteComma();
+                        this.WriteScript(Helpers.GetEventRef(interfaceMember, this.Emitter, true, withoutTypeParams: true));
+                        this.WriteCloseBracket();
+                    }
+
                     this.Emitter.Comma = true;
                 }
             }
@@ -531,9 +834,14 @@ namespace Bridge.Translator
             {
                 nonEmpty = true;
                 this.EnsureComma();
-                this.WriteScript(OverloadsCollection.Create(Emitter, member).GetOverloadName(false, null, true));
+                this.WriteScript(OverloadsCollection.Create(Emitter, member).GetOverloadName(false, null, excludeTypeOnly: excludeTypeParam));
                 this.WriteComma();
-                var alias = OverloadsCollection.Create(Emitter, interfaceMember).GetOverloadName();
+                var alias = OverloadsCollection.Create(Emitter, interfaceMember).GetOverloadName(withoutTypeParams: excludeAliasTypeParam);
+
+                if (pair)
+                {
+                    this.WriteOpenBracket();
+                }
 
                 if (alias.StartsWith("\""))
                 {
@@ -542,6 +850,13 @@ namespace Bridge.Translator
                 else
                 {
                     this.WriteScript(alias);
+                }
+
+                if (pair)
+                {
+                    this.WriteComma();
+                    this.WriteScript(OverloadsCollection.Create(Emitter, interfaceMember).GetOverloadName(withoutTypeParams: true));
+                    this.WriteCloseBracket();
                 }
             }
 

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ICSharpCode.NRefactory.Semantics;
+using ICSharpCode.NRefactory.TypeSystem;
 
 namespace Bridge.Translator
 {
@@ -255,6 +256,15 @@ namespace Bridge.Translator
                         this.Write(")");
                     }
 
+                    if (label.Expression is NullReferenceExpression)
+                    {
+                        this.WriteSpace();
+                        this.Write("||");
+                        this.WriteSpace();
+                        this.Write(switchKey);
+                        this.Write(" === undefined");
+                    }
+
                     writeOr = true;
                 }
 
@@ -262,21 +272,33 @@ namespace Bridge.Translator
                 this.Emitter.ReplaceAwaiterByVar = oldValue;
             }
 
-            if (switchSection.Statements.Count() == 1 && switchSection.Statements.First() is BlockStatement)
+            var isBlock = false;
+            if (switchSection.Statements.Count == 1 && switchSection.Statements.First() is BlockStatement)
             {
+                isBlock = true;
                 this.Emitter.IgnoreBlock = switchSection.Statements.First();
             }
 
-            int startCount = this.Emitter.AsyncBlock.Steps.Count;
             this.WriteSpace();
             this.BeginBlock();
             this.Write(JS.Vars.ASYNC_STEP + " = " + this.Emitter.AsyncBlock.Step + ";");
             this.WriteNewLine();
             this.Write("continue;");
             var writer = this.SaveWriter();
-            this.Emitter.AsyncBlock.AddAsyncStep();
+            var step = this.Emitter.AsyncBlock.AddAsyncStep();
+            step.Node = switchSection;
+
+            if (!isBlock)
+            {
+                this.PushLocals();
+            }
 
             switchSection.Statements.AcceptVisitor(this.Emitter);
+
+            if (!isBlock)
+            {
+                this.PopLocals();
+            }
 
             if (this.RestoreWriter(writer) && !this.IsOnlyWhitespaceOnPenultimateLine(true))
             {
@@ -290,6 +312,11 @@ namespace Bridge.Translator
         protected void VisitSwitchStatement()
         {
             SwitchStatement switchStatement = this.SwitchStatement;
+            this.ParentAsyncSwitch = this.Emitter.AsyncSwitch;
+            this.Emitter.AsyncSwitch = null;
+
+            var jumpStatements = this.Emitter.JumpStatements;
+            this.Emitter.JumpStatements = null;
 
             this.WriteSwitch();
             this.WriteOpenParentheses();
@@ -329,6 +356,8 @@ namespace Bridge.Translator
             switchStatement.SwitchSections.ToList().ForEach(s => s.AcceptVisitor(this.Emitter));
             this.EndBlock();
             this.WriteNewLine();
+            this.Emitter.JumpStatements = jumpStatements;
+            this.Emitter.AsyncSwitch = this.ParentAsyncSwitch;
         }
 
         protected void VisitSwitchSection()
@@ -338,8 +367,19 @@ namespace Bridge.Translator
             switchSection.CaseLabels.ToList().ForEach(l => l.AcceptVisitor(this.Emitter));
             this.Indent();
 
+            var isBlock = switchSection.Statements.Count == 1 && switchSection.Statements.First() is BlockStatement;
+            if (!isBlock)
+            {
+                this.PushLocals();
+            }
             var children = switchSection.Children.Where(c => c.Role == Roles.EmbeddedStatement || c.Role == Roles.Comment);
             children.ToList().ForEach(s => s.AcceptVisitor(this.Emitter));
+
+            if (!isBlock)
+            {
+                this.PopLocals();
+            }
+
             this.Outdent();
         }
 
@@ -375,6 +415,13 @@ namespace Bridge.Translator
                 else
                 {
                     caseLabel.Expression.AcceptVisitor(this.Emitter);
+                }
+
+                if (caserr.Type.Kind == TypeKind.Null)
+                {
+                    this.WriteColon();
+                    this.WriteNewLine();
+                    this.Write("case undefined");
                 }
             }
 

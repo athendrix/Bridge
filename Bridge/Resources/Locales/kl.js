@@ -1,15 +1,15 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("kl", true), {
+Bridge.merge(new System.Globalization.CultureInfo("kl", true), {
     englishName: "Greenlandic",
     nativeName: "kalaallisut",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "NaN",
+        nanSymbol: "¤¤¤",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "-INF",
-        positiveInfinitySymbol: "INF",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
-        percentGroupSizes: [3,0],
+        percentGroupSizes: [3],
         percentDecimalDigits: 2,
         percentDecimalSeparator: ",",
         percentGroupSeparator: ".",
@@ -21,8 +21,8 @@
         currencyDecimalSeparator: ",",
         currencyGroupSeparator: ".",
         currencyNegativePattern: 12,
-        currencyPositivePattern: 2,
-        numberGroupSizes: [3,0],
+        currencyPositivePattern: 0,
+        numberGroupSizes: [3],
         numberDecimalDigits: 2,
         numberDecimalSeparator: ",",
         numberGroupSeparator: ".",
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "MMMM yyyy",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 1252,
+        CultureName: "kl-GL",
+        EBCDICCodePage: 20277,
+        IsRightToLeft: false,
+        LCID: 1135,
+        listSeparator: ";",
+        MacCodePage: 10000,
+        OEMCodePage: 850,
+        IsReadOnly: true
     })
 });

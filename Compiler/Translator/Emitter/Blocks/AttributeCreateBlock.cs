@@ -49,12 +49,12 @@ namespace Bridge.Translator
 
                 if (hasInitializer)
                 {
-                    this.WriteObjectInitializer(attribute.NamedArguments, this.Emitter.AssemblyInfo.PreserveMemberCase, type, attribute);
+                    this.WriteObjectInitializer(attribute.NamedArguments, type, attribute);
                     this.WriteSpace();
                 }
                 else if (this.Emitter.Validator.IsObjectLiteral(type))
                 {
-                    this.WriteObjectInitializer(null, this.Emitter.AssemblyInfo.PreserveMemberCase, type, attribute);
+                    this.WriteObjectInitializer(null, type, attribute);
                     this.WriteSpace();
                 }
 
@@ -64,7 +64,7 @@ namespace Bridge.Translator
             {
                 if (hasInitializer)
                 {
-                    this.Write(JS.Funcs.BRIDGE_MERGE);
+                    this.Write(JS.Types.Bridge.APPLY);
                     this.WriteOpenParentheses();
                 }
 
@@ -84,7 +84,7 @@ namespace Bridge.Translator
                         this.Write(customCtor);
                     }
 
-                    if (!this.Emitter.Validator.IsIgnoreType(type) && type.Methods.Count(m => m.IsConstructor && !m.IsStatic) > (type.IsValueType ? 0 : 1))
+                    if (!this.Emitter.Validator.IsExternalType(type) && type.Methods.Count(m => m.IsConstructor && !m.IsStatic) > (type.IsValueType ? 0 : 1))
                     {
                         this.WriteDot();
                         var name = OverloadsCollection.Create(this.Emitter, attribute.Constructor).GetOverloadName();
@@ -103,7 +103,7 @@ namespace Bridge.Translator
 
                     this.BeginBlock();
 
-                    var inlineInit = this.WriteObjectInitializer(attribute.NamedArguments, this.Emitter.AssemblyInfo.PreserveMemberCase, type, attribute);
+                    var inlineInit = this.WriteObjectInitializer(attribute.NamedArguments, type, attribute);
 
                     this.WriteNewLine();
 
@@ -203,9 +203,9 @@ namespace Bridge.Translator
 
                     if (typeDef != null)
                     {
-                        var enumMode = block.Emitter.Validator.EnumEmitMode(typeDef);
+                        var enumMode = Helpers.EnumEmitMode(typeDef);
 
-                        if ((block.Emitter.Validator.IsIgnoreType(typeDef) && enumMode == -1) || enumMode == 2)
+                        if ((block.Emitter.Validator.IsExternalType(typeDef) && enumMode == -1) || enumMode == 2)
                         {
                             block.WriteScript(mrr.ConstantValue);
 
@@ -290,7 +290,8 @@ namespace Bridge.Translator
                 block.Emitter.IsAssignment = true;
                 block.Emitter.IsUnaryAccessor = false;
 
-                bool hasThis = inlineCode.Contains("{this}");
+                bool hasThis = Helpers.HasThis(inlineCode);
+                inlineCode = Helpers.ConvertTokens(block.Emitter, inlineCode, member);
                 if (inlineCode.StartsWith("<self>"))
                 {
                     hasThis = true;
@@ -343,7 +344,7 @@ namespace Bridge.Translator
             return inlineCode;
         }
 
-        protected virtual List<string> WriteObjectInitializer(IList<KeyValuePair<IMember, ResolveResult>> expressions, bool preserveMemberCase, TypeDefinition type, IAttribute attr)
+        protected virtual List<string> WriteObjectInitializer(IList<KeyValuePair<IMember, ResolveResult>> expressions, TypeDefinition type, IAttribute attr)
         {
             bool needComma = false;
             List<string> names = new List<string>();
@@ -354,8 +355,7 @@ namespace Bridge.Translator
                 foreach (KeyValuePair<IMember, ResolveResult> item in expressions)
                 {
                     var member = item.Key;
-                    var preserveCase = !this.Emitter.IsNativeMember(member.FullName) && preserveMemberCase;
-                    var name = this.Emitter.GetEntityName(member, preserveCase);
+                    var name = this.Emitter.GetEntityName(member);
 
                     var inlineCode = AttributeCreateBlock.GetInlineInit(item, this);
 
@@ -404,16 +404,7 @@ namespace Bridge.Translator
                 var mode = 0;
                 if (attr.Constructor != null)
                 {
-                    if (attr.Constructor.Parameters.Count == 1 &&
-                        attr.Constructor.Parameters.First().Type.FullName == "Bridge.DefaultValueMode")
-                    {
-                        var arg = attr.PositionalArguments.FirstOrDefault();
-                        if (arg != null && arg.ConstantValue != null)
-                        {
-                            mode = (int)arg.ConstantValue;
-                        }
-                    }
-                    else if (itype != null)
+                    if (itype != null)
                     {
                         var oattr = this.Emitter.Validator.GetAttribute(itype.Attributes, Translator.Bridge_ASSEMBLY + ".ObjectLiteralAttribute");
                         if (oattr.PositionalArguments.Count > 0)
@@ -442,11 +433,6 @@ namespace Bridge.Translator
                             }
 
                             var name = member.GetName(this.Emitter);
-
-                            if (!preserveMemberCase)
-                            {
-                                name = Object.Net.Utilities.StringUtils.ToLowerCamelCase(name);
-                            }
 
                             if (names.Contains(name))
                             {

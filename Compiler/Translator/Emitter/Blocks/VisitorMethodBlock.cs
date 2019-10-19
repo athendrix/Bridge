@@ -1,6 +1,8 @@
+using System;
 using Bridge.Contract;
 using ICSharpCode.NRefactory.CSharp;
 using System.Linq;
+using System.Xml.Schema;
 using Bridge.Contract.Constants;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
@@ -21,6 +23,26 @@ namespace Bridge.Translator
             get;
             set;
         }
+        public CompilerRule OldRules { get; private set; }
+
+        protected override void BeginEmit()
+        {
+            base.BeginEmit();
+            this.OldRules = this.Emitter.Rules;
+
+            var rr = this.Emitter.Resolver.ResolveNode(this.MethodDeclaration, this.Emitter) as MemberResolveResult;
+
+            if (rr != null)
+            {
+                this.Emitter.Rules = Rules.Get(this.Emitter, rr.Member);
+            }
+        }
+
+        protected override void EndEmit()
+        {
+            base.EndEmit();
+            this.Emitter.Rules = this.OldRules;
+        }
 
         protected override void DoEmit()
         {
@@ -40,7 +62,7 @@ namespace Bridge.Translator
                     }
                     else if (rr.Type.FullName == "Bridge.InitAttribute")
                     {
-                        int initPosition = 0;
+                        InitPosition initPosition = InitPosition.After;
 
                         if (attr.HasArgumentList)
                         {
@@ -50,7 +72,7 @@ namespace Bridge.Translator
                                 var argrr = this.Emitter.Resolver.ResolveNode(argExpr, this.Emitter);
                                 if (argrr.ConstantValue is int)
                                 {
-                                    initPosition = (int)argrr.ConstantValue;
+                                    initPosition = (InitPosition)argrr.ConstantValue;
                                 }
                             }
                         }
@@ -73,19 +95,38 @@ namespace Bridge.Translator
 
             var overloads = OverloadsCollection.Create(this.Emitter, methodDeclaration);
             XmlToJsDoc.EmitComment(this, this.MethodDeclaration);
+            var isEntryPoint = Helpers.IsEntryPointMethod(this.Emitter, this.MethodDeclaration);
+            var member_rr = (MemberResolveResult)this.Emitter.Resolver.ResolveNode(this.MethodDeclaration, this.Emitter);
 
-            string name = overloads.GetOverloadName(false, null, true);
+            string name = overloads.GetOverloadName(false, null, excludeTypeOnly: OverloadsCollection.ExcludeTypeParameterForDefinition(member_rr));
 
-            if (Helpers.IsEntryPointMethod(this.Emitter, methodDeclaration))
+            if (isEntryPoint)
             {
-                name = JS.Fields.MAIN;
+                this.Write(JS.Funcs.ENTRY_POINT_NAME);
             }
-
-            this.Write(name);
+            else
+            {
+                this.Write(name);
+            }
 
             this.WriteColon();
 
             this.WriteFunction();
+
+            if (isEntryPoint)
+            {
+                this.Write(name);
+                this.WriteSpace();
+            }
+            else
+            {
+                var nm = Helpers.GetFunctionName(this.Emitter.AssemblyInfo.NamedFunctions, member_rr.Member, this.Emitter);
+                if (nm != null)
+                {
+                    this.Write(nm);
+                    this.WriteSpace();
+                }
+            }
 
             this.EmitMethodParameters(methodDeclaration.Parameters, methodDeclaration.TypeParameters.Count > 0 && Helpers.IsIgnoreGeneric(methodDeclaration, this.Emitter) ? null : methodDeclaration.TypeParameters, methodDeclaration);
 
@@ -95,7 +136,11 @@ namespace Bridge.Translator
 
             if (script == null)
             {
-                if (methodDeclaration.HasModifier(Modifiers.Async))
+                if (YieldBlock.HasYield(methodDeclaration.Body))
+                {
+                    new GeneratorBlock(this.Emitter, methodDeclaration).Emit();
+                }
+                else if (methodDeclaration.HasModifier(Modifiers.Async) || AsyncBlock.HasGoto(methodDeclaration.Body))
                 {
                     new AsyncBlock(this.Emitter, methodDeclaration).Emit();
                 }

@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System.Runtime.CompilerServices;
 
 namespace Bridge.ClientTest.Batch4.Runtime.CompilerServices
@@ -12,15 +12,6 @@ namespace Bridge.ClientTest.Batch4.Runtime.CompilerServices
             {
                 return 0;
             }
-        }
-
-        [Test]
-        public void GetHashCodeWoksForObject_SPI_1570()
-        {
-            // #1570
-            object o1 = new object(), o2 = new object();
-            Assert.AreEqual(RuntimeHelpers.GetHashCode(o1), o1.GetHashCode());
-            Assert.AreEqual(o2.GetHashCode(), RuntimeHelpers.GetHashCode(o2));
         }
 
         [Test]

@@ -1,4 +1,4 @@
-﻿/*--------------------------------------------------------------------------
+/*--------------------------------------------------------------------------
  * linq.js - LINQ for JavaScript
  * ver 3.0.4-Beta5 (Jun. 20th, 2013)
  *
@@ -109,8 +109,8 @@
                  : -1;
         },
 
-        dispose: function (obj) {
-            if (obj != null) obj.dispose();
+        Dispose: function (obj) {
+            if (obj != null) obj.Dispose();
         }
     };
 
@@ -123,7 +123,7 @@
         var state = State.Before;
 
         this.getCurrent = yielder.getCurrent;
-        this.reset = function () { throw new Error('Reset is not supported'); };
+        this.reset = function () { throw new Error("Reset is not supported"); };
 
         this.moveNext = function () {
             try {
@@ -137,7 +137,7 @@
                             return true;
                         }
                         else {
-                            this.dispose();
+                            this.Dispose();
                             return false;
                         }
                     case State.After:
@@ -145,12 +145,12 @@
                 }
             }
             catch (e) {
-                this.dispose();
+                this.Dispose();
                 throw e;
             }
         };
 
-        this.dispose = function () {
+        this.Dispose = function () {
             if (state != State.Running) return;
 
             try {
@@ -161,10 +161,29 @@
             }
         };
 
+        this.System$IDisposable$Dispose = this.Dispose;
         this.getCurrent$1 = this.getCurrent;
         this.System$Collections$IEnumerator$getCurrent = this.getCurrent;
         this.System$Collections$IEnumerator$moveNext = this.moveNext;
         this.System$Collections$IEnumerator$reset = this.reset;
+
+        Object.defineProperties(this,
+        {
+            "Current$1": {
+                get: this.getCurrent,
+                enumerable: true
+            },
+
+            "Current": {
+                get: this.getCurrent,
+                enumerable: true
+            },
+
+            "System$Collections$IEnumerator$Current": {
+                get: this.getCurrent,
+                enumerable: true
+            }
+        });
     };
 
     IEnumerator.$$inherits = [];
@@ -184,8 +203,8 @@
     };
 
     // Enumerable constuctor
-    var Enumerable = function (getEnumerator) {
-        this.getEnumerator = getEnumerator;
+    var Enumerable = function (GetEnumerator) {
+        this.GetEnumerator = GetEnumerator;
     };
 
     Enumerable.$$inherits = [];
@@ -199,8 +218,8 @@
         return Utils.createLambda(expression);
     };
 
-    Enumerable.Utils.createEnumerable = function (getEnumerator) {
-        return new Enumerable(getEnumerator);
+    Enumerable.Utils.createEnumerable = function (GetEnumerator) {
+        return new Enumerable(GetEnumerator);
     };
 
     Enumerable.Utils.createEnumerator = function (initialize, tryGetNext, dispose) {
@@ -219,8 +238,8 @@
         }
         else {
             enumerableProto = Enumerable.prototype;
-            Utils.defineProperty(typeProto, "getEnumerator", function () {
-                return Enumerable.from(this).getEnumerator();
+            Utils.defineProperty(typeProto, "GetEnumerator", function () {
+                return Enumerable.from(this).GetEnumerator();
             });
         }
 
@@ -252,7 +271,7 @@
             return new IEnumerator(
                 function () {
                     args = (args[0] instanceof Array) ? args[0]
-                        : (args[0].getEnumerator != null) ? args[0].toArray()
+                        : (args[0].GetEnumerator != null) ? args[0].ToArray()
                         : args;
                 },
                 function () {
@@ -271,7 +290,7 @@
             return new IEnumerator(
                 function () {
                     args = (args[0] instanceof Array) ? args[0]
-                        : (args[0].getEnumerator != null) ? args[0].toArray()
+                        : (args[0].GetEnumerator != null) ? args[0].ToArray()
                         : args;
                 },
                 function () {
@@ -293,7 +312,7 @@
         return emptyEnumerable;
     };
 
-    Enumerable.from = function (obj) {
+    Enumerable.from = function (obj, T) {
         if (obj == null) {
             return Enumerable.empty();
         }
@@ -319,15 +338,15 @@
             return new Enumerable(function () {
                 var enumerator;
                 return new IEnumerator(
-                    function () { enumerator = Bridge.getEnumerator(ienum); },
+                    function () { enumerator = Bridge.getEnumerator(ienum, T); },
                     function () {
                         var ok = enumerator.moveNext();
-                        return ok ? this.yieldReturn(enumerator.getCurrent()) : false;
+                        return ok ? this.yieldReturn(enumerator.Current) : false;
                     },
                     function () {
                         var disposable = Bridge.as(enumerator, System.IDisposable);
                         if (disposable) {
-                            disposable.dispose();
+                            disposable.Dispose();
                         }
                     }
                 );
@@ -604,14 +623,14 @@
             var enumerator;
 
             return new IEnumerator(
-                function () { enumerator = Enumerable.from(enumerableFactory()).getEnumerator(); },
+                function () { enumerator = Enumerable.from(enumerableFactory()).GetEnumerator(); },
                 function () {
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(enumerator.getCurrent())
+                        ? this.yieldReturn(enumerator.Current)
                         : this.yieldBreak();
                 },
                 function () {
-                    Utils.dispose(enumerator);
+                    Utils.Dispose(enumerator);
                 });
         });
     };
@@ -634,12 +653,12 @@
             var buffer = [];
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     while (true) {
                         if (enumerator.moveNext()) {
-                            buffer.push(enumerator.getCurrent());
-                            return this.yieldReturn(resultSelector(enumerator.getCurrent(), nestLevel));
+                            buffer.push(enumerator.Current);
+                            return this.yieldReturn(resultSelector(enumerator.Current, nestLevel));
                         }
 
                         var next = Enumerable.from(buffer).selectMany(function (x) { return func(x); });
@@ -649,12 +668,12 @@
                         else {
                             nestLevel++;
                             buffer = [];
-                            Utils.dispose(enumerator);
-                            enumerator = next.getEnumerator();
+                            Utils.Dispose(enumerator);
+                            enumerator = next.GetEnumerator();
                         }
                     }
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -671,27 +690,27 @@
             var enumerator;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     while (true) {
                         if (enumerator.moveNext()) {
-                            var value = resultSelector(enumerator.getCurrent(), enumeratorStack.length);
+                            var value = resultSelector(enumerator.Current, enumeratorStack.length);
                             enumeratorStack.push(enumerator);
-                            enumerator = Enumerable.from(func(enumerator.getCurrent())).getEnumerator();
+                            enumerator = Enumerable.from(func(enumerator.Current)).GetEnumerator();
                             return this.yieldReturn(value);
                         }
 
                         if (enumeratorStack.length <= 0) return false;
-                        Utils.dispose(enumerator);
+                        Utils.Dispose(enumerator);
                         enumerator = enumeratorStack.pop();
                     }
                 },
                 function () {
                     try {
-                        Utils.dispose(enumerator);
+                        Utils.Dispose(enumerator);
                     }
                     finally {
-                        Enumerable.from(enumeratorStack).forEach(function (s) { s.dispose(); });
+                        Enumerable.from(enumeratorStack).forEach(function (s) { s.Dispose(); });
                     }
                 });
         });
@@ -705,12 +724,12 @@
             var middleEnumerator = null;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     while (true) {
                         if (middleEnumerator != null) {
                             if (middleEnumerator.moveNext()) {
-                                return this.yieldReturn(middleEnumerator.getCurrent());
+                                return this.yieldReturn(middleEnumerator.Current);
                             }
                             else {
                                 middleEnumerator = null;
@@ -718,16 +737,16 @@
                         }
 
                         if (enumerator.moveNext()) {
-                            if (enumerator.getCurrent() instanceof Array) {
-                                Utils.dispose(middleEnumerator);
-                                middleEnumerator = Enumerable.from(enumerator.getCurrent())
+                            if (enumerator.Current instanceof Array) {
+                                Utils.Dispose(middleEnumerator);
+                                middleEnumerator = Enumerable.from(enumerator.Current)
                                     .selectMany(Functions.Identity)
                                     .flatten()
-                                    .getEnumerator();
+                                    .GetEnumerator();
                                 continue;
                             }
                             else {
-                                return this.yieldReturn(enumerator.getCurrent());
+                                return this.yieldReturn(enumerator.Current);
                             }
                         }
 
@@ -736,10 +755,10 @@
                 },
                 function () {
                     try {
-                        Utils.dispose(enumerator);
+                        Utils.Dispose(enumerator);
                     }
                     finally {
-                        Utils.dispose(middleEnumerator);
+                        Utils.Dispose(middleEnumerator);
                     }
                 });
         });
@@ -754,16 +773,16 @@
 
             return new IEnumerator(
                 function () {
-                    enumerator = source.getEnumerator();
+                    enumerator = source.GetEnumerator();
                     enumerator.moveNext();
                 },
                 function () {
-                    var prev = enumerator.getCurrent();
+                    var prev = enumerator.Current;
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(selector(prev, enumerator.getCurrent()))
+                        ? this.yieldReturn(selector(prev, enumerator.Current))
                         : false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -786,13 +805,13 @@
             var isFirst = true;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     if (isFirst) {
                         isFirst = false;
                         if (!isUseSeed) {
                             if (enumerator.moveNext()) {
-                                return this.yieldReturn(value = enumerator.getCurrent());
+                                return this.yieldReturn(value = enumerator.Current);
                             }
                         }
                         else {
@@ -801,10 +820,10 @@
                     }
 
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(value = func(value, enumerator.getCurrent()))
+                        ? this.yieldReturn(value = func(value, enumerator.Current))
                         : false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -824,13 +843,13 @@
                 var index = 0;
 
                 return new IEnumerator(
-                    function () { enumerator = source.getEnumerator(); },
+                    function () { enumerator = source.GetEnumerator(); },
                     function () {
                         return (enumerator.moveNext())
-                            ? this.yieldReturn(selector(enumerator.getCurrent(), index++))
+                            ? this.yieldReturn(selector(enumerator.Current, index++))
                             : false;
                     },
-                    function () { Utils.dispose(enumerator); });
+                    function () { Utils.Dispose(enumerator); });
             });
         }
     };
@@ -851,30 +870,30 @@
             var index = 0;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     if (middleEnumerator === undefined) {
                         if (!enumerator.moveNext()) return false;
                     }
                     do {
                         if (middleEnumerator == null) {
-                            var middleSeq = collectionSelector(enumerator.getCurrent(), index++);
-                            middleEnumerator = Enumerable.from(middleSeq).getEnumerator();
+                            var middleSeq = collectionSelector(enumerator.Current, index++);
+                            middleEnumerator = Enumerable.from(middleSeq).GetEnumerator();
                         }
                         if (middleEnumerator.moveNext()) {
-                            return this.yieldReturn(resultSelector(enumerator.getCurrent(), middleEnumerator.getCurrent()));
+                            return this.yieldReturn(resultSelector(enumerator.Current, middleEnumerator.Current));
                         }
-                        Utils.dispose(middleEnumerator);
+                        Utils.Dispose(middleEnumerator);
                         middleEnumerator = null;
                     } while (enumerator.moveNext());
                     return false;
                 },
                 function () {
                     try {
-                        Utils.dispose(enumerator);
+                        Utils.Dispose(enumerator);
                     }
                     finally {
-                        Utils.dispose(middleEnumerator);
+                        Utils.Dispose(middleEnumerator);
                     }
                 });
         });
@@ -896,16 +915,16 @@
                 var index = 0;
 
                 return new IEnumerator(
-                    function () { enumerator = source.getEnumerator(); },
+                    function () { enumerator = source.GetEnumerator(); },
                     function () {
                         while (enumerator.moveNext()) {
-                            if (predicate(enumerator.getCurrent(), index++)) {
-                                return this.yieldReturn(enumerator.getCurrent());
+                            if (predicate(enumerator.Current, index++)) {
+                                return this.yieldReturn(enumerator.Current);
                             }
                         }
                         return false;
                     },
-                    function () { Utils.dispose(enumerator); });
+                    function () { Utils.Dispose(enumerator); });
             });
         }
     };
@@ -921,17 +940,17 @@
             var index = 0;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     while (enumerator.moveNext()) {
-                        var result = selector(enumerator.getCurrent(), index++);
+                        var result = selector(enumerator.Current, index++);
                         if (result != null) {
                             return this.yieldReturn(result);
                         }
                     }
                     return this.yieldBreak();
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -943,11 +962,11 @@
 
             return new IEnumerator(
                 function () {
-					enumerator = Bridge.getEnumerator(source);
-				},
+                    enumerator = Bridge.getEnumerator(source);
+                },
                 function () {
                     while (enumerator.moveNext()) {
-                        var v = Bridge.as(enumerator.getCurrent(), type);
+                        var v = Bridge.as(enumerator.Current, type);
                         if (Bridge.hasValue(v)) {
                             return this.yieldReturn(v);
                         }
@@ -955,8 +974,8 @@
                     return false;
                 },
                 function () {
-					Utils.dispose(enumerator);
-				});
+                    Utils.Dispose(enumerator);
+                });
         });
     };
 
@@ -977,20 +996,20 @@
 
                 return new IEnumerator(
                 function () {
-                    firstEnumerator = source.getEnumerator();
-                    secondEnumerator = Enumerable.from(second).getEnumerator();
+                    firstEnumerator = source.GetEnumerator();
+                    secondEnumerator = Enumerable.from(second).GetEnumerator();
                 },
                 function () {
                     if (firstEnumerator.moveNext() && secondEnumerator.moveNext()) {
-                        return this.yieldReturn(selector(firstEnumerator.getCurrent(), secondEnumerator.getCurrent(), index++));
+                        return this.yieldReturn(selector(firstEnumerator.Current, secondEnumerator.Current, index++));
                     }
                     return false;
                 },
                 function () {
                     try {
-                        Utils.dispose(firstEnumerator);
+                        Utils.Dispose(firstEnumerator);
                     } finally {
-                        Utils.dispose(secondEnumerator);
+                        Utils.Dispose(secondEnumerator);
                     }
                 });
             });
@@ -1004,15 +1023,15 @@
                 function () {
                     var array = Enumerable.make(source)
                         .concat(Enumerable.from(args).takeExceptLast().select(Enumerable.from))
-                        .select(function (x) { return x.getEnumerator() })
-                        .toArray();
+                        .select(function (x) { return x.GetEnumerator() })
+                        .ToArray();
                     enumerators = Enumerable.from(array);
                 },
                 function () {
                     if (enumerators.all(function (x) { return x.moveNext() })) {
                         var array = enumerators
-                            .select(function (x) { return x.getCurrent() })
-                            .toArray();
+                            .select(function (x) { return x.Current; })
+                            .ToArray();
                         array.push(index++);
                         return this.yieldReturn(selector.apply(null, array));
                     }
@@ -1021,7 +1040,7 @@
                     }
                 },
                 function () {
-                    Enumerable.from(enumerators).forEach(Utils.dispose);
+                    Enumerable.from(enumerators).forEach(Utils.Dispose);
                 });
             });
         }
@@ -1040,8 +1059,8 @@
                 function () {
                     enumerators = Enumerable.make(source)
                         .concat(Enumerable.from(args).select(Enumerable.from))
-                        .select(function (x) { return x.getEnumerator() })
-                        .toArray();
+                        .select(function (x) { return x.GetEnumerator() })
+                        .ToArray();
                 },
                 function () {
                     while (enumerators.length > 0) {
@@ -1049,17 +1068,17 @@
                         var enumerator = enumerators[index];
 
                         if (enumerator.moveNext()) {
-                            return this.yieldReturn(enumerator.getCurrent());
+                            return this.yieldReturn(enumerator.Current);
                         }
                         else {
-                            enumerator.dispose();
+                            enumerator.Dispose();
                             enumerators.splice(index--, 1);
                         }
                     }
                     return this.yieldBreak();
                 },
                 function () {
-                    Enumerable.from(enumerators).forEach(Utils.dispose);
+                    Enumerable.from(enumerators).forEach(Utils.Dispose);
                 });
         });
     };
@@ -1083,7 +1102,7 @@
 
             return new IEnumerator(
                 function () {
-                    outerEnumerator = source.getEnumerator();
+                    outerEnumerator = source.GetEnumerator();
                     lookup = Enumerable.from(inner).toLookup(innerKeySelector, Functions.Identity, comparer);
                 },
                 function () {
@@ -1091,7 +1110,7 @@
                         if (innerElements != null) {
                             var innerElement = innerElements[innerCount++];
                             if (innerElement !== undefined) {
-                                return this.yieldReturn(resultSelector(outerEnumerator.getCurrent(), innerElement));
+                                return this.yieldReturn(resultSelector(outerEnumerator.Current, innerElement));
                             }
 
                             innerElement = null;
@@ -1099,14 +1118,14 @@
                         }
 
                         if (outerEnumerator.moveNext()) {
-                            var key = outerKeySelector(outerEnumerator.getCurrent());
-                            innerElements = lookup.get(key).toArray();
+                            var key = outerKeySelector(outerEnumerator.Current);
+                            innerElements = lookup.get(key).ToArray();
                         } else {
                             return false;
                         }
                     }
                 },
-                function () { Utils.dispose(outerEnumerator); });
+                function () { Utils.Dispose(outerEnumerator); });
         });
     };
 
@@ -1119,22 +1138,22 @@
         var source = this;
 
         return new Enumerable(function () {
-            var enumerator = source.getEnumerator();
+            var enumerator = source.GetEnumerator();
             var lookup = null;
 
             return new IEnumerator(
                 function () {
-                    enumerator = source.getEnumerator();
+                    enumerator = source.GetEnumerator();
                     lookup = Enumerable.from(inner).toLookup(innerKeySelector, Functions.Identity, comparer);
                 },
                 function () {
                     if (enumerator.moveNext()) {
-                        var innerElement = lookup.get(outerKeySelector(enumerator.getCurrent()));
-                        return this.yieldReturn(resultSelector(enumerator.getCurrent(), innerElement));
+                        var innerElement = lookup.get(outerKeySelector(enumerator.Current));
+                        return this.yieldReturn(resultSelector(enumerator.Current, innerElement));
                     }
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1158,18 +1177,18 @@
     Enumerable.prototype.any = function (predicate) {
         predicate = Utils.createLambda(predicate);
 
-        var enumerator = this.getEnumerator();
+        var enumerator = this.GetEnumerator();
         try {
             if (arguments.length == 0) return enumerator.moveNext(); // case:function ()
 
             while (enumerator.moveNext()) // case:function (predicate)
             {
-                if (predicate(enumerator.getCurrent())) return true;
+                if (predicate(enumerator.Current)) return true;
             }
             return false;
         }
         finally {
-            Utils.dispose(enumerator);
+            Utils.Dispose(enumerator);
         }
     };
 
@@ -1189,21 +1208,21 @@
                 var secondEnumerator;
 
                 return new IEnumerator(
-                function () { firstEnumerator = source.getEnumerator(); },
+                function () { firstEnumerator = source.GetEnumerator(); },
                 function () {
                     if (secondEnumerator == null) {
-                        if (firstEnumerator.moveNext()) return this.yieldReturn(firstEnumerator.getCurrent());
-                        secondEnumerator = Enumerable.from(second).getEnumerator();
+                        if (firstEnumerator.moveNext()) return this.yieldReturn(firstEnumerator.Current);
+                        secondEnumerator = Enumerable.from(second).GetEnumerator();
                     }
-                    if (secondEnumerator.moveNext()) return this.yieldReturn(secondEnumerator.getCurrent());
+                    if (secondEnumerator.moveNext()) return this.yieldReturn(secondEnumerator.Current);
                     return false;
                 },
                 function () {
                     try {
-                        Utils.dispose(firstEnumerator);
+                        Utils.Dispose(firstEnumerator);
                     }
                     finally {
-                        Utils.dispose(secondEnumerator);
+                        Utils.Dispose(secondEnumerator);
                     }
                 });
             });
@@ -1218,25 +1237,25 @@
                     function () {
                         enumerators = Enumerable.make(source)
                             .concat(Enumerable.from(args).select(Enumerable.from))
-                            .select(function (x) { return x.getEnumerator() })
-                            .toArray();
+                            .select(function (x) { return x.GetEnumerator() })
+                            .ToArray();
                     },
                     function () {
                         while (enumerators.length > 0) {
                             var enumerator = enumerators[0];
 
                             if (enumerator.moveNext()) {
-                                return this.yieldReturn(enumerator.getCurrent());
+                                return this.yieldReturn(enumerator.Current);
                             }
                             else {
-                                enumerator.dispose();
+                                enumerator.Dispose();
                                 enumerators.splice(0, 1);
                             }
                         }
                         return this.yieldBreak();
                     },
                     function () {
-                        Enumerable.from(enumerators).forEach(Utils.dispose);
+                        Enumerable.from(enumerators).forEach(Utils.Dispose);
                     });
             });
         }
@@ -1253,29 +1272,29 @@
 
             return new IEnumerator(
                 function () {
-                    firstEnumerator = source.getEnumerator();
-                    secondEnumerator = Enumerable.from(second).getEnumerator();
+                    firstEnumerator = source.GetEnumerator();
+                    secondEnumerator = Enumerable.from(second).GetEnumerator();
                 },
                 function () {
                     if (count == index && secondEnumerator.moveNext()) {
                         isEnumerated = true;
-                        return this.yieldReturn(secondEnumerator.getCurrent());
+                        return this.yieldReturn(secondEnumerator.Current);
                     }
                     if (firstEnumerator.moveNext()) {
                         count++;
-                        return this.yieldReturn(firstEnumerator.getCurrent());
+                        return this.yieldReturn(firstEnumerator.Current);
                     }
                     if (!isEnumerated && secondEnumerator.moveNext()) {
-                        return this.yieldReturn(secondEnumerator.getCurrent());
+                        return this.yieldReturn(secondEnumerator.Current);
                     }
                     return false;
                 },
                 function () {
                     try {
-                        Utils.dispose(firstEnumerator);
+                        Utils.Dispose(firstEnumerator);
                     }
                     finally {
-                        Utils.dispose(secondEnumerator);
+                        Utils.Dispose(secondEnumerator);
                     }
                 });
         });
@@ -1292,20 +1311,20 @@
 
             return new IEnumerator(
                 function () {
-                    if (alternateValueOrSequence instanceof Array || alternateValueOrSequence.getEnumerator != null) {
-                        alternateSequence = Enumerable.from(Enumerable.from(alternateValueOrSequence).toArray()); // freeze
+                    if (alternateValueOrSequence instanceof Array || alternateValueOrSequence.GetEnumerator != null) {
+                        alternateSequence = Enumerable.from(Enumerable.from(alternateValueOrSequence).ToArray()); // freeze
                     }
                     else {
                         alternateSequence = Enumerable.make(alternateValueOrSequence);
                     }
-                    enumerator = source.getEnumerator();
-                    if (enumerator.moveNext()) buffer = enumerator.getCurrent();
+                    enumerator = source.GetEnumerator();
+                    if (enumerator.moveNext()) buffer = enumerator.Current;
                 },
                 function () {
                     while (true) {
                         if (alternateEnumerator != null) {
                             if (alternateEnumerator.moveNext()) {
-                                return this.yieldReturn(alternateEnumerator.getCurrent());
+                                return this.yieldReturn(alternateEnumerator.Current);
                             }
                             else {
                                 alternateEnumerator = null;
@@ -1313,8 +1332,8 @@
                         }
 
                         if (buffer == null && enumerator.moveNext()) {
-                            buffer = enumerator.getCurrent(); // hasNext
-                            alternateEnumerator = alternateSequence.getEnumerator();
+                            buffer = enumerator.Current; // hasNext
+                            alternateEnumerator = alternateSequence.GetEnumerator();
                             continue; // GOTO
                         }
                         else if (buffer != null) {
@@ -1328,10 +1347,10 @@
                 },
                 function () {
                     try {
-                        Utils.dispose(enumerator);
+                        Utils.Dispose(enumerator);
                     }
                     finally {
-                        Utils.dispose(alternateEnumerator);
+                        Utils.Dispose(alternateEnumerator);
                     }
                 });
         });
@@ -1341,15 +1360,15 @@
     // Overload:function (value, compareSelector)
     Enumerable.prototype.contains = function (value, comparer) {
         comparer = comparer || System.Collections.Generic.EqualityComparer$1.$default;
-        var enumerator = this.getEnumerator();
+        var enumerator = this.GetEnumerator();
         try {
             while (enumerator.moveNext()) {
-                if (comparer.equals2(enumerator.getCurrent(), value)) return true;
+                if (comparer.equals2(enumerator.Current, value)) return true;
             }
             return false;
         }
         finally {
-            Utils.dispose(enumerator);
+            Utils.Dispose(enumerator);
         }
     };
 
@@ -1362,11 +1381,11 @@
             var isFirst = true;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     if (enumerator.moveNext()) {
                         isFirst = false;
-                        return this.yieldReturn(enumerator.getCurrent());
+                        return this.yieldReturn(enumerator.Current);
                     }
                     else if (isFirst) {
                         isFirst = false;
@@ -1374,7 +1393,7 @@
                     }
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1395,16 +1414,16 @@
 
             return new IEnumerator(
                 function () {
-                    enumerator = source.getEnumerator();
+                    enumerator = source.GetEnumerator();
                 },
                 function () {
                     while (enumerator.moveNext()) {
-                        var key = compareSelector(enumerator.getCurrent());
+                        var key = compareSelector(enumerator.Current);
 
                         if (initial) {
                             initial = false;
                             compareKey = key;
-                            return this.yieldReturn(enumerator.getCurrent());
+                            return this.yieldReturn(enumerator.Current);
                         }
 
                         if (compareKey === key) {
@@ -1412,11 +1431,11 @@
                         }
 
                         compareKey = key;
-                        return this.yieldReturn(enumerator.getCurrent());
+                        return this.yieldReturn(enumerator.Current);
                     }
                     return this.yieldBreak();
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1426,26 +1445,41 @@
         var source = this;
 
         return new Enumerable(function () {
-            var enumerator;
-            var keys;
+            var enumerator,
+                keys,
+                hasNull = false;
 
             return new IEnumerator(
                 function () {
-                    enumerator = source.getEnumerator();
-                    keys = new (System.Collections.Generic.Dictionary$2(Object, Object))(null, comparer);
-                    Enumerable.from(second).forEach(function (key) { keys.add(key); });
+                    enumerator = source.GetEnumerator();
+                    keys = new (System.Collections.Generic.Dictionary$2(System.Object, System.Object)).$ctor3(comparer);
+
+                    Enumerable.from(second).forEach(function (key) {
+                        if (key == null) {
+                            hasNull = true;
+                        }
+                        else if (!keys.containsKey(key)) {
+                            keys.add(key);
+                        }
+                    });
                 },
                 function () {
                     while (enumerator.moveNext()) {
-                        var current = enumerator.getCurrent();
-                        if (!keys.containsKey(current)) {
+                        var current = enumerator.Current;
+                        if (current == null) {
+                            if (!hasNull) {
+                                hasNull = true;
+                                return this.yieldReturn(current);
+                            }
+                        }
+                        else if (!keys.containsKey(current)) {
                             keys.add(current);
                             return this.yieldReturn(current);
                         }
                     }
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1458,26 +1492,40 @@
             var enumerator;
             var keys;
             var outs;
+            var hasNull = false;
+            var hasOutsNull = false;
 
             return new IEnumerator(
                 function () {
-                    enumerator = source.getEnumerator();
+                    enumerator = source.GetEnumerator();
 
-                    keys = new (System.Collections.Generic.Dictionary$2(Object, Object))(null, comparer);
-                    Enumerable.from(second).forEach(function (key) { keys.add(key); });
-                    outs = new (System.Collections.Generic.Dictionary$2(Object, Object))(null, comparer);
+                    keys = new (System.Collections.Generic.Dictionary$2(System.Object, System.Object)).$ctor3(comparer);
+                    Enumerable.from(second).forEach(function (key) {
+                        if (key == null) {
+                            hasNull = true;
+                        }
+                        else if (!keys.containsKey(key)) {
+                            keys.add(key);
+                        }
+                    });
+                    outs = new (System.Collections.Generic.Dictionary$2(System.Object, System.Object)).$ctor3(comparer);
                 },
                 function () {
                     while (enumerator.moveNext()) {
-                        var current = enumerator.getCurrent();
-                        if (!outs.containsKey(current) && keys.containsKey(current)) {
+                        var current = enumerator.Current;
+                        if (current == null) {
+                            if (!hasOutsNull && hasNull) {
+                                hasOutsNull = true;
+                                return this.yieldReturn(current);
+                            }
+                        } else if (!outs.containsKey(current) && keys.containsKey(current)) {
                             outs.add(current);
                             return this.yieldReturn(current);
                         }
                     }
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1486,13 +1534,13 @@
     Enumerable.prototype.sequenceEqual = function (second, comparer) {
         comparer = comparer || System.Collections.Generic.EqualityComparer$1.$default;
 
-        var firstEnumerator = this.getEnumerator();
+        var firstEnumerator = this.GetEnumerator();
         try {
-            var secondEnumerator = Enumerable.from(second).getEnumerator();
+            var secondEnumerator = Enumerable.from(second).GetEnumerator();
             try {
                 while (firstEnumerator.moveNext()) {
                     if (!secondEnumerator.moveNext()
-                    || !comparer.equals2(firstEnumerator.getCurrent(), secondEnumerator.getCurrent())) {
+                    || !comparer.equals2(firstEnumerator.Current, secondEnumerator.Current)) {
                         return false;
                     }
                 }
@@ -1501,11 +1549,11 @@
                 return true;
             }
             finally {
-                Utils.dispose(secondEnumerator);
+                Utils.Dispose(secondEnumerator);
             }
         }
         finally {
-            Utils.dispose(firstEnumerator);
+            Utils.Dispose(firstEnumerator);
         }
     };
 
@@ -1516,27 +1564,40 @@
             var firstEnumerator;
             var secondEnumerator;
             var keys;
+            var hasNull = false;
 
             return new IEnumerator(
                 function () {
-                    firstEnumerator = source.getEnumerator();
-                    keys = new (System.Collections.Generic.Dictionary$2(Object, Object))(null, comparer);
+                    firstEnumerator = source.GetEnumerator();
+                    keys = new (System.Collections.Generic.Dictionary$2(System.Object, System.Object)).$ctor3(comparer);
                 },
                 function () {
                     var current;
                     if (secondEnumerator === undefined) {
                         while (firstEnumerator.moveNext()) {
-                            current = firstEnumerator.getCurrent();
-                            if (!keys.containsKey(current)) {
+                            current = firstEnumerator.Current;
+                            if (current == null) {
+                                if (!hasNull) {
+                                    hasNull = true;
+                                    return this.yieldReturn(current);
+                                }
+                            }
+                            else if (!keys.containsKey(current)) {
                                 keys.add(current);
                                 return this.yieldReturn(current);
                             }
                         }
-                        secondEnumerator = Enumerable.from(second).getEnumerator();
+                        secondEnumerator = Enumerable.from(second).GetEnumerator();
                     }
                     while (secondEnumerator.moveNext()) {
-                        current = secondEnumerator.getCurrent();
-                        if (!keys.containsKey(current)) {
+                        current = secondEnumerator.Current;
+                        if (current == null) {
+                            if (!hasNull) {
+                                hasNull = true;
+                                return this.yieldReturn(current);
+                            }
+                        }
+                        else if (!keys.containsKey(current)) {
                             keys.add(current);
                             return this.yieldReturn(current);
                         }
@@ -1545,10 +1606,10 @@
                 },
                 function () {
                     try {
-                        Utils.dispose(firstEnumerator);
+                        Utils.Dispose(firstEnumerator);
                     }
                     finally {
-                        Utils.dispose(secondEnumerator);
+                        Utils.Dispose(secondEnumerator);
                     }
                 });
         });
@@ -1573,7 +1634,7 @@
 
             return new IEnumerator(
                 function () {
-                    buffer = source.toArray();
+                    buffer = source.ToArray();
                     index = buffer.length;
                 },
                 function () {
@@ -1592,7 +1653,7 @@
             var buffer;
 
             return new IEnumerator(
-                function () { buffer = source.toArray(); },
+                function () { buffer = source.ToArray(); },
                 function () {
                     if (buffer.length > 0) {
                         var i = Math.floor(Math.random() * buffer.length);
@@ -1622,7 +1683,7 @@
                             totalWeight += weight;
                             return { value: x, bound: totalWeight };
                         })
-                        .toArray();
+                        .ToArray();
                 },
                 function () {
                     if (sortedByBound.length > 0) {
@@ -1668,17 +1729,17 @@
                 function () {
                     enumerator = source.toLookup(keySelector, elementSelector, comparer)
                         .toEnumerable()
-                        .getEnumerator();
+                        .GetEnumerator();
                 },
                 function () {
                     while (enumerator.moveNext()) {
                         return (resultSelector == null)
-                            ? this.yieldReturn(enumerator.getCurrent())
-                            : this.yieldReturn(resultSelector(enumerator.getCurrent().key(), enumerator.getCurrent()));
+                            ? this.yieldReturn(enumerator.Current)
+                            : this.yieldReturn(resultSelector(enumerator.Current.key(), enumerator.Current));
                     }
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1708,17 +1769,17 @@
 
             return new IEnumerator(
                 function () {
-                    enumerator = source.getEnumerator();
+                    enumerator = source.GetEnumerator();
                     if (enumerator.moveNext()) {
-                        key = keySelector(enumerator.getCurrent());
-                        group.push(elementSelector(enumerator.getCurrent()));
+                        key = keySelector(enumerator.Current);
+                        group.push(elementSelector(enumerator.Current));
                     }
                 },
                 function () {
                     var hasNext;
                     while ((hasNext = enumerator.moveNext()) == true) {
-                        if (comparer.equals2(key, keySelector(enumerator.getCurrent()))) {
-                            group.push(elementSelector(enumerator.getCurrent()));
+                        if (comparer.equals2(key, keySelector(enumerator.Current))) {
+                            group.push(elementSelector(enumerator.Current));
                         }
                         else break;
                     }
@@ -1728,8 +1789,8 @@
                             ? resultSelector(key, Enumerable.from(group))
                             : resultSelector(key, group);
                         if (hasNext) {
-                            key = keySelector(enumerator.getCurrent());
-                            group = [elementSelector(enumerator.getCurrent())];
+                            key = keySelector(enumerator.Current);
+                            group = [elementSelector(enumerator.Current)];
                         }
                         else group = [];
 
@@ -1738,7 +1799,7 @@
 
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1749,18 +1810,18 @@
             var enumerator;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     var array = [];
                     var index = 0;
                     while (enumerator.moveNext()) {
-                        array.push(enumerator.getCurrent());
+                        array.push(enumerator.Current);
                         if (++index >= count) return this.yieldReturn(array);
                     }
                     if (array.length > 0) return this.yieldReturn(array);
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -1802,7 +1863,7 @@
         });
 
         if (count === 0) {
-            throw new System.InvalidOperationException("Sequence contains no elements");
+            throw new System.InvalidOperationException.$ctor1("Sequence contains no elements");
         }
 
         return (sum instanceof System.Decimal || System.Int64.is64Bit(sum)) ? sum.div(count) : (sum / count);
@@ -2049,17 +2110,17 @@
 
             return new IEnumerator(
                 function () {
-                    enumerator = source.getEnumerator();
+                    enumerator = source.GetEnumerator();
                     while (index++ < count && enumerator.moveNext()) {
                     }
                     ;
                 },
                 function () {
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(enumerator.getCurrent())
+                        ? this.yieldReturn(enumerator.Current)
                         : false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2075,23 +2136,23 @@
             var isSkipEnd = false;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     while (!isSkipEnd) {
                         if (enumerator.moveNext()) {
-                            if (!predicate(enumerator.getCurrent(), index++)) {
+                            if (!predicate(enumerator.Current, index++)) {
                                 isSkipEnd = true;
-                                return this.yieldReturn(enumerator.getCurrent());
+                                return this.yieldReturn(enumerator.Current);
                             }
                             continue;
                         } else return false;
                     }
 
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(enumerator.getCurrent())
+                        ? this.yieldReturn(enumerator.Current)
                         : false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2103,13 +2164,13 @@
             var index = 0;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     return (index++ < count && enumerator.moveNext())
-                        ? this.yieldReturn(enumerator.getCurrent())
+                        ? this.yieldReturn(enumerator.Current)
                         : false;
                 },
-                function () { Utils.dispose(enumerator); }
+                function () { Utils.Dispose(enumerator); }
             );
         });
     };
@@ -2125,13 +2186,13 @@
             var index = 0;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
-                    return (enumerator.moveNext() && predicate(enumerator.getCurrent(), index++))
-                        ? this.yieldReturn(enumerator.getCurrent())
+                    return (enumerator.moveNext() && predicate(enumerator.Current, index++))
+                        ? this.yieldReturn(enumerator.Current)
                         : false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2142,24 +2203,24 @@
         var source = this;
 
         return new Enumerable(function () {
-            if (count <= 0) return source.getEnumerator(); // do nothing
+            if (count <= 0) return source.GetEnumerator(); // do nothing
 
             var enumerator;
             var q = [];
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     while (enumerator.moveNext()) {
                         if (q.length == count) {
-                            q.push(enumerator.getCurrent());
+                            q.push(enumerator.Current);
                             return this.yieldReturn(q.shift());
                         }
-                        q.push(enumerator.getCurrent());
+                        q.push(enumerator.Current);
                     }
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2173,20 +2234,20 @@
             var q = [];
 
             return new IEnumerator(
-                function () { sourceEnumerator = source.getEnumerator(); },
+                function () { sourceEnumerator = source.GetEnumerator(); },
                 function () {
                     if (enumerator == null) {
-	                    while (sourceEnumerator.moveNext()) {
-	                        if (q.length == count) q.shift();
-	                        q.push(sourceEnumerator.getCurrent());
-	                    }
-                        enumerator = Enumerable.from(q).getEnumerator();
+                        while (sourceEnumerator.moveNext()) {
+                            if (q.length == count) q.shift();
+                            q.push(sourceEnumerator.Current);
+                        }
+                        enumerator = Enumerable.from(q).GetEnumerator();
                     }
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(enumerator.getCurrent())
+                        ? this.yieldReturn(enumerator.Current)
                         : false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2244,8 +2305,8 @@
         return Enumerable.from(this);
     };
 
-    Enumerable.prototype.toArray = function () {
-        var array = [];
+    Enumerable.prototype.ToArray = function (T) {
+        var array = System.Array.init([], T || System.Object);
         this.forEach(function (x) { array.push(x); });
         return array;
     };
@@ -2253,7 +2314,7 @@
     Enumerable.prototype.toList = function (T) {
         var array = [];
         this.forEach(function (x) { array.push(x); });
-        return new (System.Collections.Generic.List$1(T || Object))(array);
+        return new (System.Collections.Generic.List$1(T || System.Object).$ctor1)(array);
     };
 
     // Overload:function (keySelector)
@@ -2263,14 +2324,23 @@
         keySelector = Utils.createLambda(keySelector);
         elementSelector = Utils.createLambda(elementSelector);
 
-        var dict = new (System.Collections.Generic.Dictionary$2(Object, Object))(null, comparer);
+        var dict = new (System.Collections.Generic.Dictionary$2(System.Object, System.Object)).$ctor3(comparer);
         var order = [];
+        var nullKey;
         this.forEach(function (x) {
             var key = keySelector(x);
             var element = elementSelector(x);
 
             var array = { v: null };
-            if (dict.tryGetValue(key, array)) {
+
+            if (key == null) {
+                if (!nullKey) {
+                    nullKey = [];
+                    order.push(key);
+                }
+                nullKey.push(element);
+            }
+            else if (dict.tryGetValue(key, array)) {
                 array.v.push(element);
             }
             else {
@@ -2278,7 +2348,7 @@
                 dict.add(key, [element]);
             }
         });
-        return new Lookup(dict, order);
+        return new Lookup(dict, order, nullKey);
     };
 
     Enumerable.prototype.toObject = function (keySelector, elementSelector) {
@@ -2298,7 +2368,7 @@
         keySelector = Utils.createLambda(keySelector);
         elementSelector = Utils.createLambda(elementSelector);
 
-        var dict = new (System.Collections.Generic.Dictionary$2(keyType, valueType))(null, comparer);
+        var dict = new (System.Collections.Generic.Dictionary$2(keyType, valueType)).$ctor3(comparer);
         this.forEach(function (x) {
             dict.add(keySelector(x), elementSelector(x));
         });
@@ -2312,7 +2382,7 @@
         if (typeof JSON === Types.Undefined || JSON.stringify == null) {
             throw new Error("toJSONString can't find JSON.stringify. This works native JSON support Browser or include json2.js");
         }
-        return JSON.stringify(this.toArray(), replacer, space);
+        return JSON.stringify(this.ToArray(), replacer, space);
     };
 
     // Overload:function ()
@@ -2322,7 +2392,7 @@
         if (separator == null) separator = "";
         if (selector == null) selector = Functions.Identity;
 
-        return this.select(selector).toArray().join(separator);
+        return this.select(selector).ToArray().join(separator);
     };
 
     /* Action Methods */
@@ -2338,15 +2408,15 @@
             var index = 0;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     if (enumerator.moveNext()) {
-                        action(enumerator.getCurrent(), index++);
-                        return this.yieldReturn(enumerator.getCurrent());
+                        action(enumerator.Current, index++);
+                        return this.yieldReturn(enumerator.Current);
                     }
                     return false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2358,13 +2428,13 @@
         action = Utils.createLambda(action);
 
         var index = 0;
-        var enumerator = this.getEnumerator();
+        var enumerator = this.GetEnumerator();
         try {
             while (enumerator.moveNext()) {
-                if (action(enumerator.getCurrent(), index++) === false) break;
+                if (action(enumerator.Current, index++) === false) break;
             }
         } finally {
-            Utils.dispose(enumerator);
+            Utils.Dispose(enumerator);
         }
     };
 
@@ -2394,14 +2464,14 @@
     };
 
     Enumerable.prototype.force = function () {
-        var enumerator = this.getEnumerator();
+        var enumerator = this.GetEnumerator();
 
         try {
             while (enumerator.moveNext()) {
             }
         }
         finally {
-            Utils.dispose(enumerator);
+            Utils.Dispose(enumerator);
         }
     };
 
@@ -2416,14 +2486,14 @@
 
             return new IEnumerator(
                 function () {
-                    enumerator = Enumerable.from(func(source)).getEnumerator();
+                    enumerator = Enumerable.from(func(source)).GetEnumerator();
                 },
                 function () {
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(enumerator.getCurrent())
+                        ? this.yieldReturn(enumerator.Current)
                         : false;
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2436,21 +2506,21 @@
             return new IEnumerator(
                 function () {
                     if (sharedEnumerator == null) {
-                        sharedEnumerator = source.getEnumerator();
+                        sharedEnumerator = source.GetEnumerator();
                     }
                 },
                 function () {
                     if (disposed) throw new Error("enumerator is disposed");
 
                     return (sharedEnumerator.moveNext())
-                        ? this.yieldReturn(sharedEnumerator.getCurrent())
+                        ? this.yieldReturn(sharedEnumerator.Current)
                         : false;
                 },
                 Functions.Blank
             );
         }, function () {
             disposed = true;
-            Utils.dispose(sharedEnumerator);
+            Utils.Dispose(sharedEnumerator);
         });
     };
 
@@ -2466,7 +2536,7 @@
             return new IEnumerator(
                 function () {
                     if (enumerator == null) {
-                        enumerator = source.getEnumerator();
+                        enumerator = source.GetEnumerator();
                         cache = [];
                     }
                 },
@@ -2476,7 +2546,7 @@
                     index++;
                     if (cache.length <= index) {
                         return (enumerator.moveNext())
-                            ? this.yieldReturn(cache[index] = enumerator.getCurrent())
+                            ? this.yieldReturn(cache[index] = enumerator.Current)
                             : false;
                     }
 
@@ -2486,7 +2556,7 @@
             );
         }, function () {
             disposed = true;
-            Utils.dispose(enumerator);
+            Utils.Dispose(enumerator);
             cache = null;
         });
     };
@@ -2501,18 +2571,18 @@
             var enumerator;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     try {
                         return (enumerator.moveNext())
-                            ? this.yieldReturn(enumerator.getCurrent())
+                            ? this.yieldReturn(enumerator.Current)
                             : false;
                     } catch (e) {
                         handler(e);
                         return false;
                     }
                 },
-                function () { Utils.dispose(enumerator); });
+                function () { Utils.Dispose(enumerator); });
         });
     };
 
@@ -2524,15 +2594,15 @@
             var enumerator;
 
             return new IEnumerator(
-                function () { enumerator = source.getEnumerator(); },
+                function () { enumerator = source.GetEnumerator(); },
                 function () {
                     return (enumerator.moveNext())
-                        ? this.yieldReturn(enumerator.getCurrent())
+                        ? this.yieldReturn(enumerator.Current)
                         : false;
                 },
                 function () {
                     try {
-                        Utils.dispose(enumerator);
+                        Utils.Dispose(enumerator);
                     } finally {
                         finallyAction();
                     }
@@ -2569,15 +2639,37 @@
     };
 
     // private
+    var defaultComparer = {
+        compare: function (x, y) {
+            if (!Bridge.hasValue(x)) {
+                return !Bridge.hasValue(y) ? 0 : -1;
+            } else if (!Bridge.hasValue(y)) {
+                return 1;
+            }
 
+            if (typeof x == "string" && typeof y == "string") {
+                var result = System.String.compare(x, y, true);
+
+                if (result !== 0) {
+                    return result;
+                }
+            }
+
+            return Bridge.compare(x, y);
+        }
+    };
     var OrderedEnumerable = function (source, keySelector, comparer, descending, parent) {
         this.source = source;
         this.keySelector = Utils.createLambda(keySelector);
-        this.comparer = comparer || System.Collections.Generic.Comparer$1.$default;
+        this.comparer = comparer || defaultComparer;
         this.descending = descending;
         this.parent = parent;
     };
     OrderedEnumerable.prototype = new Enumerable();
+    OrderedEnumerable.prototype.constructor = OrderedEnumerable;
+    Bridge.definei("System.Linq.IOrderedEnumerable$1");
+    OrderedEnumerable.$$inherits = [];
+    Bridge.Class.addExtend(OrderedEnumerable, [System.Collections.IEnumerable, System.Linq.IOrderedEnumerable$1]);
 
     OrderedEnumerable.prototype.createOrderedEnumerable = function (keySelector, comparer, descending) {
         return new OrderedEnumerable(this.source, keySelector, comparer, descending, this);
@@ -2591,7 +2683,7 @@
         return this.createOrderedEnumerable(keySelector, comparer, true);
     };
 
-    OrderedEnumerable.prototype.getEnumerator = function () {
+    OrderedEnumerable.prototype.GetEnumerator = function () {
         var self = this;
         var buffer;
         var indexes;
@@ -2654,9 +2746,9 @@
         return (this.descending) ? -comparison : comparison;
     };
 
-    var DisposableEnumerable = function (getEnumerator, dispose) {
-        this.dispose = dispose;
-        Enumerable.call(this, getEnumerator);
+    var DisposableEnumerable = function (GetEnumerator, dispose) {
+        this.Dispose = dispose;
+        Enumerable.call(this, GetEnumerator);
     };
     DisposableEnumerable.prototype = new Enumerable();
 
@@ -2793,7 +2885,7 @@
         return source.join(separator);
     };
 
-    ArrayEnumerable.prototype.getEnumerator = function () {
+    ArrayEnumerable.prototype.GetEnumerator = function () {
         return new Bridge.ArrayEnumerator(this.getSource());
     };
 
@@ -2827,22 +2919,22 @@
             : Enumerable.prototype.select.call(this, selector);
     };
 
-    WhereEnumerable.prototype.getEnumerator = function () {
+    WhereEnumerable.prototype.GetEnumerator = function () {
         var predicate = this.prevPredicate;
         var source = this.prevSource;
         var enumerator;
 
         return new IEnumerator(
-            function () { enumerator = source.getEnumerator(); },
+            function () { enumerator = source.GetEnumerator(); },
             function () {
                 while (enumerator.moveNext()) {
-                    if (predicate(enumerator.getCurrent())) {
-                        return this.yieldReturn(enumerator.getCurrent());
+                    if (predicate(enumerator.Current)) {
+                        return this.yieldReturn(enumerator.Current);
                     }
                 }
                 return false;
             },
-            function () { Utils.dispose(enumerator); });
+            function () { Utils.Dispose(enumerator); });
     };
 
     var WhereSelectEnumerable = function (source, predicate, selector) {
@@ -2874,52 +2966,63 @@
         }
     };
 
-    WhereSelectEnumerable.prototype.getEnumerator = function () {
+    WhereSelectEnumerable.prototype.GetEnumerator = function () {
         var predicate = this.prevPredicate;
         var selector = this.prevSelector;
         var source = this.prevSource;
         var enumerator;
 
         return new IEnumerator(
-            function () { enumerator = source.getEnumerator(); },
+            function () { enumerator = source.GetEnumerator(); },
             function () {
                 while (enumerator.moveNext()) {
-                    if (predicate == null || predicate(enumerator.getCurrent())) {
-                        return this.yieldReturn(selector(enumerator.getCurrent()));
+                    if (predicate == null || predicate(enumerator.Current)) {
+                        return this.yieldReturn(selector(enumerator.Current));
                     }
                 }
                 return false;
             },
-            function () { Utils.dispose(enumerator); });
+            function () { Utils.Dispose(enumerator); });
     };
 
     // Collections
 
     // dictionary = Dictionary<TKey, TValue[]>
-    var Lookup = function (dictionary, order) {
+    var Lookup = function (dictionary, order, nullKey) {
         this.count = function () {
-            return dictionary.getCount();
+            return dictionary.Count;
         };
         this.get = function (key) {
+            if (key == null) {
+                return Enumerable.from(nullKey ? nullKey : []);
+            }
+
             var value = { v: null };
             var success = dictionary.tryGetValue(key, value);
             return Enumerable.from(success ? value.v : []);
         };
         this.contains = function (key) {
+            if (key == null) {
+                return !!nullKey;
+            }
             return dictionary.containsKey(key);
         };
         this.toEnumerable = function () {
             return Enumerable.from(order).select(function (key) {
-                return new Grouping(key, dictionary.get(key));
+                if (key == null) {
+                    return new Grouping(key, nullKey);
+                }
+                return new Grouping(key, dictionary.getItem(key));
             });
         };
-        this.getEnumerator = function () {
-            return this.toEnumerable().getEnumerator();
+        this.GetEnumerator = function () {
+            return this.toEnumerable().GetEnumerator();
         };
     };
 
+    Bridge.definei("System.Linq.ILookup$2");
     Lookup.$$inherits = [];
-    Bridge.Class.addExtend(Lookup, [System.Collections.IEnumerable]);
+    Bridge.Class.addExtend(Lookup, [System.Collections.IEnumerable, System.Linq.ILookup$2]);
 
     var Grouping = function (groupKey, elements) {
         this.key = function () {
@@ -2928,19 +3031,27 @@
         ArrayEnumerable.call(this, elements);
     };
     Grouping.prototype = new ArrayEnumerable();
+    Bridge.definei("System.Linq.IGrouping$2");
+    Grouping.prototype.constructor = Grouping;
+
+    Grouping.$$inherits = [];
+    Bridge.Class.addExtend(Grouping, [System.Collections.IEnumerable, System.Linq.IGrouping$2]);
 
     // module export
-    if (typeof define === Types.Function && define.amd) { // AMD
+    /*if (typeof define === Types.Function && define.amd) { // AMD
         define("linqjs", [], function () { return Enumerable; });
     } else if (typeof module !== Types.Undefined && module.exports) { // Node
         module.exports = Enumerable;
     } else {
         root.Enumerable = Enumerable;
-    }
+    }*/
 
     Bridge.Linq = {};
     Bridge.Linq.Enumerable = Enumerable;
 
-    System.Linq = {};
+    System.Linq = System.Linq || {};
     System.Linq.Enumerable = Enumerable;
+    System.Linq.Grouping$2 = Grouping;
+    System.Linq.Lookup$2 = Lookup;
+    System.Linq.OrderedEnumerable$1 = OrderedEnumerable;
 })(Bridge.global);

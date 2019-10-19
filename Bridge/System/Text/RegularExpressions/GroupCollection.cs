@@ -1,4 +1,3 @@
-using Bridge;
 using System.Collections;
 
 namespace System.Text.RegularExpressions
@@ -6,7 +5,9 @@ namespace System.Text.RegularExpressions
     /// <summary>
     /// Returns the set of captured groups in a single match.
     /// </summary>
-    [External]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Reflectable]
     public class GroupCollection : ICollection
     {
         internal extern GroupCollection();
@@ -14,29 +15,45 @@ namespace System.Text.RegularExpressions
         /// <summary>
         /// Gets an object that can be used to synchronize access to the GroupCollection.
         /// </summary>
-        public extern object SyncRoot { get; }
+        public extern object SyncRoot
+        {
+            [Bridge.Template("getSyncRoot()")]
+            get;
+        }
 
         /// <summary>
         /// Gets a value that indicates whether access to the GroupCollection is synchronized (thread-safe).
         /// </summary>
-        public extern bool IsSynchronized { get; }
+        public extern bool IsSynchronized
+        {
+            [Bridge.Template("getIsSynchronized()")]
+            get;
+        }
 
         /// <summary>
         /// Gets a value that indicates whether the collection is read-only.
         /// </summary>
-        public extern bool IsReadOnly { get; }
+        public extern bool IsReadOnly
+        {
+            [Bridge.Template("getIsReadOnly()")]
+            get;
+        }
 
         /// <summary>
         /// Returns the number of groups in the collection.
         /// </summary>
-        public extern int Count { get; }
+        public extern int Count
+        {
+            [Bridge.Template("getCount()")]
+            get;
+        }
 
         /// <summary>
         /// Enables access to a member of the collection by integer index.
         /// </summary>
         public extern Group this[int groupnum]
         {
-            [Template("get({0})")]
+            [Bridge.Template("get({0})")]
             get;
         }
 
@@ -45,7 +62,7 @@ namespace System.Text.RegularExpressions
         /// </summary>
         public extern new Group this[string groupname]
         {
-            [Template("getByName({0})")]
+            [Bridge.Template("getByName({0})")]
             get;
         }
 
@@ -57,6 +74,7 @@ namespace System.Text.RegularExpressions
         /// <summary>
         /// Provides an enumerator that iterates through the collection.
         /// </summary>
+        [Bridge.Convention(Bridge.Notation.None)]
         public extern IEnumerator GetEnumerator();
     }
 }

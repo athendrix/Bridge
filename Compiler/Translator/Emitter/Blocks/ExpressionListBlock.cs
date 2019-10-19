@@ -11,7 +11,7 @@ namespace Bridge.Translator
 {
     public class ExpressionListBlock : AbstractEmitterBlock
     {
-        public ExpressionListBlock(IEmitter emitter, IEnumerable<Expression> expressions, Expression paramArg, AstNode invocation, int openBracketPosition)
+        public ExpressionListBlock(IEmitter emitter, IEnumerable<Expression> expressions, Expression paramArg, AstNode invocation, int openBracketPosition, bool newLine = false)
             : base(emitter, null)
         {
             this.Emitter = emitter;
@@ -19,6 +19,13 @@ namespace Bridge.Translator
             this.ParamExpression = paramArg;
             this.InvocationExpression = invocation;
             this.OpenBracketPosition = openBracketPosition;
+            this.NewLine = newLine;
+        }
+
+        public bool NewLine
+        {
+            get;
+            set;
         }
 
         public int OpenBracketPosition
@@ -45,6 +52,12 @@ namespace Bridge.Translator
             set;
         }
 
+        public bool IgnoreExpandParams
+        {
+            get;
+            set;
+        }
+
         protected override void DoEmit()
         {
             var oldIsAssignment = this.Emitter.IsAssignment;
@@ -60,11 +73,11 @@ namespace Bridge.Translator
         {
             bool needComma = false;
             int count = this.Emitter.Writers.Count;
-            bool wrapByBrackets = true;
+            bool wrapByBrackets = !this.IgnoreExpandParams;
             bool expandParams = false;
             bool isApply = false;
 
-            if (paramArg != null && this.InvocationExpression != null)
+            if (paramArg != null && this.InvocationExpression != null && !this.IgnoreExpandParams)
             {
                 var rr = this.Emitter.Resolver.ResolveNode(this.InvocationExpression, this.Emitter) as CSharpInvocationResolveResult;
                 if (rr != null)
@@ -119,14 +132,24 @@ namespace Bridge.Translator
                         }
 
                         var pos = this.OpenBracketPosition;
-                        this.Emitter.Output.Insert(pos, "." + JS.Funcs.APPLY);
-                        pos += 7;
 
-                        this.Emitter.Output.Insert(pos, scope + ", " + (needConcat ? "[" : ""));
+                        if (pos > -1)
+                        {
+                            this.Emitter.Output.Insert(pos, "." + JS.Funcs.APPLY);
+                            pos += 7;
+
+                            this.Emitter.Output.Insert(pos, scope + ", " + (needConcat ? "[" : ""));
+                        }
                     }
 
                     isApply = needConcat;
                 }
+            }
+
+            if (this.NewLine)
+            {
+                this.WriteNewLine();
+                this.Indent();
             }
 
             foreach (var expr in expressions)
@@ -142,6 +165,11 @@ namespace Bridge.Translator
                 if (needComma && !(isParamsArg && isApply))
                 {
                     this.WriteComma();
+                    if (this.NewLine)
+                    {
+                        this.WriteNewLine();
+                        this.WriteIndent();
+                    }
                 }
 
                 needComma = true;
@@ -154,19 +182,26 @@ namespace Bridge.Translator
 
                     if (byReferenceResolveResult != null && !(byReferenceResolveResult.ElementResult is LocalResolveResult))
                     {
-                        this.Write(JS.Funcs.BRIDGE_REF + "(");
-
-                        this.Emitter.IsRefArg = true;
-                        expr.AcceptVisitor(this.Emitter);
-                        this.Emitter.IsRefArg = false;
-
-                        if (this.Emitter.Writers.Count != count)
+                        if (byReferenceResolveResult.ElementResult is MemberResolveResult mr && mr.Member.FullName == "Bridge.Ref.Value" && directExpr.Expression is MemberReferenceExpression mre)
                         {
-                            this.PopWriter();
-                            count = this.Emitter.Writers.Count;
+                            mre.Target.AcceptVisitor(this.Emitter);
                         }
+                        else
+                        {
+                            this.Write(JS.Funcs.BRIDGE_REF + "(");
 
-                        this.Write(")");
+                            this.Emitter.IsRefArg = true;
+                            expr.AcceptVisitor(this.Emitter);
+                            this.Emitter.IsRefArg = false;
+
+                            if (this.Emitter.Writers.Count != count)
+                            {
+                                this.PopWriter();
+                                count = this.Emitter.Writers.Count;
+                            }
+
+                            this.Write(")");
+                        }
 
                         continue;
                     }
@@ -210,6 +245,12 @@ namespace Bridge.Translator
                 {
                     Helpers.CheckValueTypeClone(this.Emitter.Resolver.ResolveNode(expr, this.Emitter), expr, this, pos);
                 }
+            }
+
+            if (this.NewLine)
+            {
+                this.WriteNewLine();
+                this.Outdent();
             }
 
             if (wrapByBrackets && paramArg != null)

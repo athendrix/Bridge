@@ -1,13 +1,14 @@
-﻿using Bridge;
-
-namespace System
+﻿namespace System
 {
     /// <summary>
     /// Delimits a section of a one-dimensional array.
     /// </summary>
-    [External]
-    [IgnoreGeneric]
-    public class ArraySegment<T>
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.IgnoreGeneric]
+    [Bridge.Name("System.ArraySegment")]
+    [Bridge.Reflectable]
+    public struct ArraySegment<T>
     {
         public extern ArraySegment(T[] array);
 
@@ -18,6 +19,7 @@ namespace System
         /// </summary>
         public extern T[] Array
         {
+            [Bridge.Template("getArray()")]
             get;
         }
 
@@ -26,6 +28,7 @@ namespace System
         /// </summary>
         public extern int Count
         {
+            [Bridge.Template("getCount()")]
             get;
         }
 
@@ -35,6 +38,7 @@ namespace System
         /// </summary>
         public extern int Offset
         {
+            [Bridge.Template("getOffset()")]
             get;
         }
     }

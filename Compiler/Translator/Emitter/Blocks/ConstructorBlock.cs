@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using ICSharpCode.NRefactory.TypeSystem;
+using Object.Net.Utilities;
 
 namespace Bridge.Translator
 {
@@ -58,32 +60,6 @@ namespace Bridge.Translator
 
         protected virtual void EmitCtorForStaticClass()
         {
-            var ctor = this.TypeInfo.StaticCtor;
-
-            if (ctor != null && ctor.Body.HasChildren)
-            {
-                this.ResetLocals();
-                var prevNamesMap = this.BuildLocalsNamesMap();
-                this.Write(JS.Funcs.CONSTRUCTOR);
-                this.WriteColon();
-                this.WriteFunction();
-                this.WriteOpenCloseParentheses(true);
-
-                this.BeginBlock();
-                var beginPosition = this.Emitter.Output.Length;
-
-                ctor.Body.AcceptChildren(this.Emitter);
-
-                if (!this.Emitter.IsAsync)
-                {
-                    this.EmitTempVars(beginPosition, true);
-                }
-
-                this.EndBlock();
-                this.ClearLocalsNamesMap(prevNamesMap);
-                this.Emitter.Comma = true;
-            }
-
             var injectors = this.GetInjectors();
             IEnumerable<string> fieldsInjectors = null;
 
@@ -97,24 +73,15 @@ namespace Bridge.Translator
                 this.Emitter.Comma = true;
             }
 
+            bool ctorHeader = false;
             if (this.TypeInfo.StaticConfig.HasConfigMembers || injectors.Any() || fieldsInjectors.Any())
             {
                 this.EnsureComma();
 
-                if (this.TypeInfo.StaticMethods.Any(m => m.Value.Any(subm => this.Emitter.GetEntityName(subm) == JS.Fields.CONFIG)) ||
-                    this.TypeInfo.StaticConfig.Fields.Any(m => m.GetName(this.Emitter) == JS.Fields.CONFIG))
-                {
-                    this.Write(JS.Vars.D);
-                }
-
-                this.Write(JS.Fields.CONFIG);
-
-                this.WriteColon();
-                this.BeginBlock();
-
                 if (this.TypeInfo.StaticConfig.HasConfigMembers)
                 {
                     var configBlock = new FieldBlock(this.Emitter, this.TypeInfo, true, false);
+                    configBlock.ClearTempVariables = false;
                     configBlock.Emit();
 
                     if (configBlock.Injectors.Count > 0)
@@ -137,6 +104,11 @@ namespace Bridge.Translator
                 {
                     this.EnsureComma();
 
+                    ctorHeader = true;
+                    this.Write(JS.Fields.CTORS);
+                    this.WriteColon();
+                    this.BeginBlock();
+
                     this.Write(JS.Funcs.INIT);
                     this.WriteColon();
                     this.WriteFunction();
@@ -153,17 +125,72 @@ namespace Bridge.Translator
 
                     foreach (var fn in injectors)
                     {
-                        this.Write(fn);
+                        this.Write(WriteIndentToString(fn, this.Level - 1));
                         this.WriteNewLine();
                     }
                     this.EndBlock();
                     this.Emitter.Comma = true;
                 }
+            }
+
+            var ctor = this.TypeInfo.StaticCtor;
+
+            if (ctor != null && ctor.Body.HasChildren)
+            {
+                this.EnsureComma();
+
+                if (!ctorHeader)
+                {
+                    ctorHeader = true;
+                    this.Write(JS.Fields.CTORS);
+                    this.WriteColon();
+                    this.BeginBlock();
+                }
+
+                this.ResetLocals();
+                var prevNamesMap = this.BuildLocalsNamesMap();
+                this.Write(JS.Funcs.CONSTRUCTOR);
+                this.WriteColon();
+                this.WriteFunction();
+                this.WriteOpenCloseParentheses(true);
+
+                this.BeginBlock();
+                var beginPosition = this.Emitter.Output.Length;
+
+                var oldRules = this.Emitter.Rules;
+                var rr = this.Emitter.Resolver.ResolveNode(ctor, this.Emitter) as MemberResolveResult;
+                if (rr != null)
+                {
+                    this.Emitter.Rules = Rules.Get(this.Emitter, rr.Member);
+                }
+
+                ctor.Body.AcceptChildren(this.Emitter);
+
+                if (!this.Emitter.IsAsync)
+                {
+                    var indent = this.Emitter.TempVariables.Count > 0;
+                    this.EmitTempVars(beginPosition, true);
+
+                    if (indent)
+                    {
+                        this.Indent();
+                    }
+                }
+
+                this.Emitter.Rules = oldRules;
+                this.EndBlock();
+                this.ClearLocalsNamesMap(prevNamesMap);
+                this.Emitter.Comma = true;
+            }
+
+            if (ctorHeader)
+            {
                 this.WriteNewLine();
                 this.EndBlock();
             }
         }
 
+        private bool ctorHeader = false;
         protected virtual IEnumerable<string> EmitInitMembers()
         {
             var injectors = this.GetInjectors();
@@ -190,25 +217,10 @@ namespace Bridge.Translator
                 return ctorWrappers;
             }
 
-            int pos = this.Emitter.Output.Length;
-            bool oldComma = this.Emitter.Comma;
-            bool oldNewLine = this.Emitter.IsNewLine;
-
-            if (this.TypeInfo.InstanceMethods.Any(m => m.Value.Any(subm => this.Emitter.GetEntityName(subm) == JS.Fields.CONFIG)) ||
-                this.TypeInfo.InstanceConfig.Fields.Any(m => m.GetName(this.Emitter) == JS.Fields.CONFIG))
-            {
-                this.Write(JS.Vars.D);
-            }
-
-            this.EnsureComma();
-            this.Write(JS.Fields.CONFIG);
-
-            this.WriteColon();
-            this.BeginBlock();
-
             if (this.TypeInfo.InstanceConfig.HasConfigMembers)
             {
                 var configBlock = new FieldBlock(this.Emitter, this.TypeInfo, false, false);
+                configBlock.ClearTempVariables = false;
                 configBlock.Emit();
 
                 if (configBlock.Injectors.Count > 0)
@@ -230,6 +242,11 @@ namespace Bridge.Translator
             if (injectors.Count() > 0)
             {
                 this.EnsureComma();
+                this.ctorHeader = true;
+                this.Write(JS.Fields.CTORS);
+                this.WriteColon();
+                this.BeginBlock();
+
                 this.Write(JS.Funcs.INIT);
                 this.WriteColon();
                 this.WriteFunction();
@@ -246,25 +263,13 @@ namespace Bridge.Translator
 
                 foreach (var fn in injectors)
                 {
-                    this.Write(fn);
+                    this.Write(WriteIndentToString(fn, this.Level - 1));
                     this.WriteNewLine();
                 }
 
                 this.EndBlock();
 
                 this.Emitter.Comma = true;
-            }
-
-            this.WriteNewLine();
-            this.EndBlock();
-
-            var str = this.Emitter.Output.ToString().Substring(pos);
-
-            if (Regex.IsMatch(str, "^\\s*\\$?" + JS.Fields.CONFIG + "\\s*:\\s*\\{\\s*\\}\\s*$", RegexOptions.Multiline))
-            {
-                this.Emitter.Output.Length = pos;
-                this.Emitter.Comma = oldComma;
-                this.Emitter.IsNewLine = oldNewLine;
             }
 
             return ctorWrappers;
@@ -275,11 +280,17 @@ namespace Bridge.Translator
             var baseType = this.Emitter.GetBaseTypeDefinition();
             var typeDef = this.Emitter.GetTypeDefinition();
             var isObjectLiteral = this.Emitter.Validator.IsObjectLiteral(typeDef);
+            var isPlainMode = this.Emitter.Validator.GetObjectCreateMode(typeDef) == 0;
 
             var ctorWrappers = isObjectLiteral ? new string[0] : this.EmitInitMembers().ToArray();
 
-            if (!this.TypeInfo.HasRealInstantiable(this.Emitter) && ctorWrappers.Length == 0)
+            if (!this.TypeInfo.HasRealInstantiable(this.Emitter) && ctorWrappers.Length == 0 || isObjectLiteral && isPlainMode)
             {
+                if (this.ctorHeader)
+                {
+                    this.WriteNewLine();
+                    this.EndBlock();
+                }
                 return;
             }
 
@@ -294,8 +305,29 @@ namespace Bridge.Translator
                 });
             }
 
+            if (!this.ctorHeader && this.TypeInfo.Ctors.Count > 0)
+            {
+                this.EnsureComma();
+                this.ctorHeader = true;
+                this.Write(JS.Fields.CTORS);
+                this.WriteColon();
+                this.BeginBlock();
+            }
+
+            this.Emitter.InConstructor = true;
             foreach (var ctor in this.TypeInfo.Ctors)
             {
+                var oldRules = this.Emitter.Rules;
+
+                if (ctor.Body.HasChildren)
+                {
+                    var rr = this.Emitter.Resolver.ResolveNode(ctor, this.Emitter) as MemberResolveResult;
+                    if (rr != null)
+                    {
+                        this.Emitter.Rules = Rules.Get(this.Emitter, rr.Member);
+                    }
+                }
+
                 this.EnsureComma();
                 this.ResetLocals();
                 var prevMap = this.BuildLocalsMap();
@@ -350,7 +382,7 @@ namespace Bridge.Translator
                     this.Write("var " + JS.Vars.D_THIS + " = ");
 
                     var isBaseObjectLiteral = baseType != null && this.Emitter.Validator.IsObjectLiteral(baseType);
-                    if (isBaseObjectLiteral && baseType != null && (!this.Emitter.Validator.IsIgnoreType(baseType) || this.Emitter.Validator.IsBridgeClass(baseType)) ||
+                    if (isBaseObjectLiteral && baseType != null && (!this.Emitter.Validator.IsExternalType(baseType) || this.Emitter.Validator.IsBridgeClass(baseType)) ||
                     (ctor.Initializer != null && ctor.Initializer.ConstructorInitializerType == ConstructorInitializerType.This))
                     {
                         this.EmitBaseConstructor(ctor, ctorName, true);
@@ -358,18 +390,30 @@ namespace Bridge.Translator
                     else if (isBaseObjectLiteral && baseType != null && ctor.Initializer != null &&
                              ctor.Initializer.ConstructorInitializerType == ConstructorInitializerType.Base)
                     {
-                        this.CheckBaseCtorTemplate(ctor, ref requireNewLine);
+                        this.EmitExternalBaseCtor(ctor, ref requireNewLine);
                     }
                     else
                     {
-                        this.Write("{};");
+                        this.Write("{ };");
                     }
 
                     this.WriteNewLine();
-                    this.Write("(function()");
+
+                    string name = this.Emitter.Validator.GetCustomTypeName(typeDef, this.Emitter, false);
+                    if (name.IsEmpty())
+                    {
+                        name = BridgeTypes.ToJsName(this.TypeInfo.Type, this.Emitter);
+                    }
+
+                    this.Write(JS.Vars.D_THIS + "." + JS.Funcs.GET_TYPE + " = function () { return " + name + "; };");
+
+                    this.WriteNewLine();
+                    this.Write("(function ()");
                     this.BeginBlock();
                     requireNewLine = false;
                 }
+
+                var beginPosition = this.Emitter.Output.Length;
 
                 if (noThisInvocation)
                 {
@@ -408,9 +452,10 @@ namespace Bridge.Translator
                                     this.WriteComma();
                                     this.Emitter.Comma = false;
                                     this.BeginBlock();
+                                    var memberResult = this.Emitter.Resolver.ResolveNode(p, this.Emitter) as MemberResolveResult;
                                     var block = new VisitorPropertyBlock(this.Emitter, p);
-                                    block.EmitPropertyMethod(p, p.Getter, false, true);
-                                    block.EmitPropertyMethod(p, p.Setter, true, true);
+                                    block.EmitPropertyMethod(p, p.Getter, ((IProperty)memberResult.Member).Getter, false, true);
+                                    block.EmitPropertyMethod(p, p.Setter, ((IProperty)memberResult.Member).Setter, true, true);
                                     this.EnsureComma(true);
                                     this.Write(JS.Fields.ENUMERABLE + ": true");
                                     this.WriteNewLine();
@@ -431,7 +476,7 @@ namespace Bridge.Translator
 
                 if (!isObjectLiteral)
                 {
-                    if (baseType != null && (!this.Emitter.Validator.IsIgnoreType(baseType) || this.Emitter.Validator.IsBridgeClass(baseType)) ||
+                    if (baseType != null && (!this.Emitter.Validator.IsExternalType(baseType) || this.Emitter.Validator.IsBridgeClass(baseType)) ||
                     (ctor.Initializer != null && ctor.Initializer.ConstructorInitializerType == ConstructorInitializerType.This))
                     {
                         if (requireNewLine)
@@ -441,20 +486,19 @@ namespace Bridge.Translator
                         }
                         this.EmitBaseConstructor(ctor, ctorName, false);
                     }
-                    else if (baseType != null && ctor.Initializer != null &&
-                             ctor.Initializer.ConstructorInitializerType == ConstructorInitializerType.Base)
+                    else if (baseType != null && (ctor.Initializer == null || ctor.Initializer.IsNull || ctor.Initializer.ConstructorInitializerType == ConstructorInitializerType.Base))
                     {
-                        this.CheckBaseCtorTemplate(ctor, ref requireNewLine);
+                        this.EmitExternalBaseCtor(ctor, ref requireNewLine);
                     }
                 }
 
                 var script = this.Emitter.GetScript(ctor);
+                var hasAdditionalIndent = false;
 
                 if (script == null)
                 {
                     if (ctor.Body.HasChildren)
                     {
-                        var beginPosition = this.Emitter.Output.Length;
                         if (requireNewLine)
                         {
                             this.WriteNewLine();
@@ -464,6 +508,7 @@ namespace Bridge.Translator
 
                         if (!this.Emitter.IsAsync)
                         {
+                            hasAdditionalIndent = this.Emitter.TempVariables.Count > 0;
                             this.EmitTempVars(beginPosition, true);
                         }
                     }
@@ -494,25 +539,47 @@ namespace Bridge.Translator
                         this.WriteNewLine();
                     }
                     this.EndBlock();
-                    this.Write(").call(" + JS.Vars.D_THIS + ");");
+                    this.Write(")." + JS.Funcs.CALL + "(" + JS.Vars.D_THIS + ");");
                     this.WriteNewLine();
                     this.Write("return " + JS.Vars.D_THIS + ";");
                     this.WriteNewLine();
+                }
+
+                if (hasAdditionalIndent)
+                {
+                    this.Indent();
                 }
 
                 this.EndBlock();
                 this.Emitter.Comma = true;
                 this.ClearLocalsMap(prevMap);
                 this.ClearLocalsNamesMap(prevNamesMap);
+
+                this.Emitter.Rules = oldRules;
+            }
+
+            this.Emitter.InConstructor = false;
+
+            if (this.ctorHeader)
+            {
+                this.WriteNewLine();
+                this.EndBlock();
             }
         }
 
-        private void CheckBaseCtorTemplate(ConstructorDeclaration ctor, ref bool requireNewLine)
+        private void EmitExternalBaseCtor(ConstructorDeclaration ctor, ref bool requireNewLine)
         {
-            if (ctor.Initializer != null && !ctor.Initializer.IsNull)
-            {
-                var member = ((InvocationResolveResult)this.Emitter.Resolver.ResolveNode(ctor.Initializer, this.Emitter)).Member;
+            IMember member = null;
+            var hasInitializer = ctor.Initializer != null && !ctor.Initializer.IsNull;
+            var baseType = this.Emitter.GetBaseTypeDefinition();
 
+            if (hasInitializer)
+            {
+                member = ((InvocationResolveResult)this.Emitter.Resolver.ResolveNode(ctor.Initializer, this.Emitter)).Member;
+            }
+
+            if (member != null)
+            {
                 var inlineCode = this.Emitter.GetInline(member);
 
                 if (!string.IsNullOrEmpty(inlineCode))
@@ -523,7 +590,7 @@ namespace Bridge.Translator
                         requireNewLine = false;
                     }
 
-                    this.Write(JS.Funcs.BRIDGE_MERGE);
+                    this.Write(JS.Types.Bridge.APPLY);
                     this.WriteOpenParentheses();
 
                     this.Write("this, ");
@@ -532,7 +599,49 @@ namespace Bridge.Translator
                     this.WriteCloseParentheses();
                     this.WriteSemiColon();
                     this.WriteNewLine();
+
+                    return;
                 }
+            }
+
+            if (hasInitializer || (baseType.FullName != "System.Object" && baseType.FullName != "System.ValueType" && baseType.FullName != "System.Enum" && !baseType.CustomAttributes.Any(a => a.AttributeType.FullName == "Bridge.NonScriptableAttribute") && !baseType.IsInterface))
+            {
+                if (requireNewLine)
+                {
+                    this.WriteNewLine();
+                    requireNewLine = false;
+                }
+
+
+                string name = null;
+                if (this.TypeInfo.GetBaseTypes(this.Emitter).Any())
+                {
+                    name = BridgeTypes.ToJsName(this.TypeInfo.GetBaseClass(this.Emitter), this.Emitter);
+                }
+                else
+                {
+                    name = BridgeTypes.ToJsName(baseType, this.Emitter);
+                }
+
+                this.Write(name);
+                this.WriteCall();
+                int openPos = this.Emitter.Output.Length;
+                this.WriteOpenParentheses();
+                this.Write("this");
+
+                if (hasInitializer && ctor.Initializer.Arguments.Count > 0)
+                {
+                    this.Write(", ");
+                    var argsInfo = new ArgumentsInfo(this.Emitter, ctor.Initializer);
+                    var argsExpressions = argsInfo.ArgumentsExpressions;
+                    var paramsArg = argsInfo.ParamsExpression;
+
+                    new ExpressionListBlock(this.Emitter, argsExpressions, paramsArg, ctor.Initializer, openPos).Emit();
+                }
+
+                this.WriteCloseParentheses();
+                this.WriteSemiColon();
+                this.WriteNewLine();
             }
         }
 
@@ -610,11 +719,15 @@ namespace Bridge.Translator
             };
 
             bool appendScope = false;
+            bool isBaseObjectLiteral = false;
 
             if (initializer.ConstructorInitializerType == ConstructorInitializerType.Base)
             {
                 var baseType = this.Emitter.GetBaseTypeDefinition();
-                var baseName = JS.Funcs.CONSTRUCTOR;
+                //var baseName = JS.Funcs.CONSTRUCTOR;
+                string baseName = null;
+                isBaseObjectLiteral = this.Emitter.Validator.IsObjectLiteral(baseType);
+
                 if (ctor.Initializer != null && !ctor.Initializer.IsNull)
                 {
                     var member = ((InvocationResolveResult)this.Emitter.Resolver.ResolveNode(ctor.Initializer, this.Emitter)).Member;
@@ -636,7 +749,41 @@ namespace Bridge.Translator
                     name = BridgeTypes.ToJsName(baseType, this.Emitter);
                 }
 
+                if (!isObjectLiteral && isBaseObjectLiteral)
+                {
+                    this.Write(JS.Types.Bridge.COPY_PROPERTIES);
+                    this.WriteOpenParentheses();
+
+                    this.Write("this, ");
+                }
+
                 this.Write(name, ".");
+
+                if (baseName == null)
+                {
+                    var baseIType = this.Emitter.BridgeTypes.Get(baseType).Type;
+
+                    var baseCtor = baseIType.GetConstructors().SingleOrDefault(c => c.Parameters.Count == 0);
+                    if (baseCtor == null)
+                    {
+                        baseCtor = baseIType.GetConstructors().SingleOrDefault(c => c.Parameters.All(p => p.IsOptional));
+                    }
+
+                    if (baseCtor == null)
+                    {
+                        baseCtor = baseIType.GetConstructors().SingleOrDefault(c => c.Parameters.Count == 1 && c.Parameters.First().IsParams);
+                    }
+
+                    if (baseCtor != null)
+                    {
+                        baseName = OverloadsCollection.Create(this.Emitter, baseCtor).GetOverloadName();
+                    }
+                    else
+                    {
+                        baseName = JS.Funcs.CONSTRUCTOR;
+                    }
+                }
+
                 this.Write(baseName);
 
                 if (!isObjectLiteral)
@@ -688,6 +835,11 @@ namespace Bridge.Translator
                 var paramsArg = argsInfo.ParamsExpression;
 
                 new ExpressionListBlock(this.Emitter, argsExpressions, paramsArg, ctor.Initializer, openPos).Emit();
+            }
+
+            if (!isObjectLiteral && isBaseObjectLiteral)
+            {
+                this.WriteCloseParentheses();
             }
 
             this.WriteCloseParentheses();

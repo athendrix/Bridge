@@ -1,6 +1,5 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
@@ -8,6 +7,8 @@ using ICSharpCode.NRefactory.TypeSystem.Implementation;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using ICSharpCode.NRefactory.CSharp.Resolver;
+using Object.Net.Utilities;
 
 namespace Bridge.Translator
 {
@@ -21,14 +22,22 @@ namespace Bridge.Translator
         protected sealed override void DoEmit()
         {
             this.AfterOutput = "";
-            this.AfterExpressionOutput = "";
+            this.AfterOutput2 = "";
             var expression = this.GetExpression();
 
             if (expressionInWork.Contains(expression))
             {
                 if (!ConversionBlock.expressionIgnoreUserDefine.Contains(expression))
                 {
-                    this.EmitConversionExpression();
+                    if (ConversionBlock.expressionMap.ContainsKey(expression))
+                    {
+                        this.Write(ConversionBlock.expressionMap[expression]);
+                    }
+                    else
+                    {
+                        this.EmitConversionExpression();
+                    }
+
                     return;
                 }
             }
@@ -54,7 +63,14 @@ namespace Bridge.Translator
                 return;
             }
 
-            this.EmitConversionExpression();
+            if (expression != null && ConversionBlock.expressionMap.ContainsKey(expression))
+            {
+                this.Write(ConversionBlock.expressionMap[expression]);
+            }
+            else
+            {
+                this.EmitConversionExpression();
+            }
 
             if (expressionInWork.Contains(expression) && !ConversionBlock.expressionIgnoreUserDefine.Contains(expression))
             {
@@ -73,6 +89,11 @@ namespace Bridge.Translator
             {
                 this.Write(this.AfterOutput);
             }
+
+            if (this.AfterOutput2.Length > 0)
+            {
+                this.Write(this.AfterOutput2);
+            }
         }
 
         protected virtual string AfterOutput
@@ -81,14 +102,15 @@ namespace Bridge.Translator
             set;
         }
 
-        protected virtual string AfterExpressionOutput
+        protected virtual string AfterOutput2
         {
             get;
             set;
         }
 
-        private static List<Expression> expressionInWork = new List<Expression>();
-        private static List<Expression> expressionIgnoreUserDefine = new List<Expression>();
+        internal static List<Expression> expressionInWork = new List<Expression>();
+        internal static List<Expression> expressionIgnoreUserDefine = new List<Expression>();
+        internal static Dictionary<Expression, string> expressionMap = new Dictionary<Expression, string>();
 
         protected virtual bool DisableEmitConversionExpression
         {
@@ -134,6 +156,44 @@ namespace Bridge.Translator
                 var expectedType = block.Emitter.Resolver.Resolver.GetExpectedType(expression);
                 int level = 0;
 
+                if (expression.Parent is ConstructorInitializer ci && expectedType.Equals(rr.Type))
+                {
+                    var prr = block.Emitter.Resolver.ResolveNode(expression.Parent, block.Emitter);
+
+                    if (prr is InvocationResolveResult irr)
+                    {
+                        var args = irr.GetArgumentsForCall();
+
+                        for (int i = 0; i < ci.Arguments.Count; i++)
+                        {
+                            var item = ci.Arguments.ElementAt(i);
+                            if (item.Equals(expression))
+                            {
+                                if(args.Count > i)
+                                {
+                                    expectedType = args[i].Type;
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (expression.Parent is ParenthesizedExpression && expression.Parent.Parent is CastExpression)
+                {
+                    var prr = block.Emitter.Resolver.ResolveNode(expression.Parent, block.Emitter);
+                    var pconversion = block.Emitter.Resolver.Resolver.GetConversion((Expression)expression.Parent);
+                    var pexpectedType = block.Emitter.Resolver.Resolver.GetExpectedType((Expression)expression.Parent);
+
+                    if (pconversion.IsBoxingConversion)
+                    {
+                        rr = prr;
+                        conversion = pconversion;
+                        expectedType = pexpectedType;
+                        expression = (Expression)expression.Parent;
+                    }
+                }
+
                 return ConversionBlock.DoConversion(block, expression, conversion, expectedType, level, rr);
             }
             catch
@@ -143,9 +203,156 @@ namespace Bridge.Translator
             return 0;
         }
 
-        private static int DoConversion(ConversionBlock block, Expression expression, Conversion conversion, IType expectedType,
-            int level, ResolveResult rr, bool ignoreConversionResolveResult = false)
+        internal static string GetBoxedType(IType itype, IEmitter emitter)
         {
+            if (NullableType.IsNullable(itype))
+            {
+                itype = NullableType.GetUnderlyingType(itype);
+            }
+
+            return BridgeTypes.ToJsName(itype, emitter);
+        }
+
+        internal static string GetInlineMethod(IEmitter emitter, string name, IType returnType, IType type, Expression expression)
+        {
+            var methodDef = ConversionBlock.GetBoxedMethod(name, returnType, type);
+
+            if (methodDef != null)
+            {
+                var inline = emitter.GetInline(methodDef);
+
+                if (inline != null)
+                {
+                    bool isNullable = NullableType.IsNullable(type);
+
+                    if (isNullable)
+                    {
+                        string template = "System.Nullable.{1}Fn({0})";
+                        var methodRef = ConversionBlock.GetInlineMethod(emitter, name, returnType,
+                            NullableType.GetUnderlyingType(type), expression);
+
+                        return methodRef == null ? $"System.Nullable.{name.ToLowerCamelCase()}" : string.Format(template, methodRef, name.ToLowerCamelCase());
+                    }
+
+                    var attr = methodDef.Attributes.First(a => a.AttributeType.FullName == "Bridge.TemplateAttribute");
+                    bool delegated = false;
+                    if (attr != null && attr.NamedArguments.Count > 0)
+                    {
+                        var namedArg = attr.NamedArguments.FirstOrDefault(arg => arg.Key.Name == CS.Attributes.Template.PROPERTY_FN);
+
+                        if (namedArg.Key != null)
+                        {
+                            inline = namedArg.Value.ConstantValue.ToString();
+                            delegated = true;
+                        }
+                    }
+
+                    var writer = new Writer
+                    {
+                        InlineCode = inline,
+                        Output = emitter.Output,
+                        IsNewLine = emitter.IsNewLine
+                    };
+                    emitter.IsNewLine = false;
+                    emitter.Output = new StringBuilder();
+
+                    var argsInfo = new ArgumentsInfo(emitter, expression, (IMethod)methodDef);
+                    argsInfo.ArgumentsExpressions = new Expression[] {expression};
+                    argsInfo.ArgumentsNames = new string[] {"this"};
+                    argsInfo.ThisArgument = "obj";
+                    argsInfo.ThisType = type;
+                    new InlineArgumentsBlock(emitter, argsInfo, writer.InlineCode).Emit();
+
+                    var result = emitter.Output.ToString();
+                    emitter.Output = writer.Output;
+                    emitter.IsNewLine = writer.IsNewLine;
+
+                    result = delegated ? result : string.Format("function (obj) {{ return {0}; }}", result);
+                    return result;
+                }
+
+            }
+
+            return null;
+        }
+
+        internal static IMember GetBoxedMethod(string name, IType returnType, IType type)
+        {
+            return type.GetMembers().FirstOrDefault(m =>
+            {
+                if (m.Name == name && !m.IsStatic && m.ReturnType.Equals(returnType) && m.IsOverride)
+                {
+                    var method = m as IMethod;
+
+                    if (method != null && method.Parameters.Count == 0 && method.TypeParameters.Count == 0)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+        }
+
+        private static bool IsUnpackGenericInterfaceObject(IType interfaceType)
+        {
+            return interfaceType.Kind == TypeKind.Interface && interfaceType.Namespace == "System" && (interfaceType.Name == "IComparable" || interfaceType.Name == "IEquatable" || interfaceType.Name == "IFormattable");
+        }
+
+        private static bool IsUnpackGenericArrayInterfaceObject(IType interfaceType)
+        {
+            ParameterizedType pt = interfaceType as ParameterizedType;
+            if (pt != null)
+            {
+                KnownTypeCode tc = pt.GetDefinition().KnownTypeCode;
+                if (tc == KnownTypeCode.IListOfT || tc == KnownTypeCode.ICollectionOfT || tc == KnownTypeCode.IEnumerableOfT || tc == KnownTypeCode.IReadOnlyListOfT)
+                {
+                    var type = pt.GetTypeArgument(0);
+                    return type.IsKnownType(KnownTypeCode.Object) || ConversionBlock.IsUnpackGenericInterfaceObject(type);
+                }
+            }
+
+            if (interfaceType is TypeWithElementType)
+            {
+                var type = ((TypeWithElementType) interfaceType).ElementType;
+                return type.IsKnownType(KnownTypeCode.Object) || ConversionBlock.IsUnpackGenericInterfaceObject(type);
+            }
+
+            return false;
+        }
+
+        private static bool IsUnpackArrayObject(IType type)
+        {
+            if (type is TypeWithElementType)
+            {
+                var elementType = ((TypeWithElementType)type).ElementType;
+                return elementType.IsKnownType(KnownTypeCode.Object);
+            }
+
+            return false;
+        }
+
+        private static int DoConversion(ConversionBlock block, Expression expression, Conversion conversion, IType expectedType,
+            int level, ResolveResult rr, bool ignoreConversionResolveResult = false, bool ignoreBoxing = false)
+        {
+            bool isExtensionMethodArgument = false;
+            bool isBoxing = conversion.IsBoxingConversion;
+            if (expression.Parent is MemberReferenceExpression && expression.Parent.Parent is InvocationExpression)
+            {
+                var inv_rr = block.Emitter.Resolver.ResolveNode(expression.Parent.Parent, block.Emitter) as CSharpInvocationResolveResult;
+
+                if (inv_rr != null && inv_rr.IsExtensionMethodInvocation)
+                {
+                    conversion = block.Emitter.Resolver.Resolver.GetConversion((Expression)expression.Parent);
+                    isExtensionMethodArgument = true;
+
+                    if (expression.Parent.Parent is InvocationExpression ie && ie.Target is MemberReferenceExpression mre && expression.Equals(mre.Target))
+                    {
+                        isBoxing = conversion.IsBoxingConversion;
+                    }
+                }
+            }
+
             if (ConversionBlock.expressionIgnoreUserDefine.Contains(expression) && conversion.IsUserDefined)
             {
                 expectedType = conversion.Method.Parameters.First().Type;
@@ -156,7 +363,166 @@ namespace Bridge.Translator
                 return level;
             }
 
-            if (expression is ParenthesizedExpression && ((ParenthesizedExpression) expression).Expression is CastExpression)
+            if (!ignoreBoxing && expectedType.Kind != TypeKind.Dynamic)
+            {
+                var isArgument = isExtensionMethodArgument;
+
+                if (!isArgument)
+                {
+                    var inv = expression.Parent as InvocationExpression;
+                    isArgument = inv != null && inv.Arguments.Contains(expression);
+                }
+
+                if (!isArgument)
+                {
+                    var idx = expression.Parent as IndexerExpression;
+                    isArgument = idx != null && idx.Arguments.Contains(expression);
+                }
+
+                if (!isArgument)
+                {
+                    var ae = expression.Parent as AssignmentExpression;
+                    isArgument = ae != null && ae.Right == expression;
+                }
+
+                if (isArgument)
+                {
+                    var inv_rr = block.Emitter.Resolver.ResolveNode(expression.Parent, block.Emitter);
+                    var parent_rr = inv_rr as MemberResolveResult;
+
+                    if (parent_rr == null && inv_rr is OperatorResolveResult)
+                    {
+                        var orr = (OperatorResolveResult)inv_rr;
+                        if (orr.Operands[0] is LocalResolveResult)
+                        {
+                            isArgument = false;
+                        }
+                        else if (orr.Operands[0] is ArrayAccessResolveResult)
+                        {
+                            isArgument = false;
+                        }
+                        else if (orr.Operands[0] is MemberResolveResult)
+                        {
+                            parent_rr = (MemberResolveResult)orr.Operands[0];
+                        }
+                    }
+
+                    if (parent_rr != null)
+                    {
+                        var memberDeclaringTypeDefinition = parent_rr.Member.DeclaringTypeDefinition;
+                        isArgument = (block.Emitter.Validator.IsExternalType(memberDeclaringTypeDefinition) || block.Emitter.Validator.IsExternalType(parent_rr.Member))
+                                     && !(memberDeclaringTypeDefinition.Namespace == CS.NS.SYSTEM || memberDeclaringTypeDefinition.Namespace.StartsWith(CS.NS.SYSTEM + "."));
+
+                        var attr = parent_rr.Member.Attributes.FirstOrDefault(a => a.AttributeType.FullName == "Bridge.UnboxAttribute");
+
+                        if (attr != null)
+                        {
+                            isArgument = (bool)attr.PositionalArguments.First().ConstantValue;
+                        }
+                        else
+                        {
+                            attr = memberDeclaringTypeDefinition.Attributes.FirstOrDefault(a => a.AttributeType.FullName == "Bridge.UnboxAttribute");
+
+                            if (attr != null)
+                            {
+                                isArgument = (bool)attr.PositionalArguments.First().ConstantValue;
+                            }
+                        }
+                    }
+                }
+
+                var nobox = block.Emitter.TemplateModifier == "nobox";
+                var isStringConcat = false;
+                var binaryOperatorExpression = expression.Parent as BinaryOperatorExpression;
+                if (binaryOperatorExpression != null)
+                {
+                    var resolveOperator = block.Emitter.Resolver.ResolveNode(binaryOperatorExpression, block.Emitter);
+                    var expectedParentType = block.Emitter.Resolver.Resolver.GetExpectedType(binaryOperatorExpression);
+                    var resultIsString = expectedParentType.IsKnownType(KnownTypeCode.String) || resolveOperator.Type.IsKnownType(KnownTypeCode.String);
+                    isStringConcat = resultIsString && binaryOperatorExpression.Operator == BinaryOperatorType.Add;
+                }
+
+                bool needBox = ConversionBlock.IsBoxable(rr.Type, block.Emitter)
+                    || rr.Type.IsKnownType(KnownTypeCode.NullableOfT) && ConversionBlock.IsBoxable(NullableType.GetUnderlyingType(rr.Type), block.Emitter);
+                var nullable = rr.Type.IsKnownType(KnownTypeCode.NullableOfT);
+
+                if (isBoxing && !isStringConcat && block.Emitter.Rules.Boxing == BoxingRule.Managed)
+                {
+                    if (!nobox && needBox && !isArgument)
+                    {
+                        block.Write(JS.Types.Bridge.BOX);
+                        block.WriteOpenParentheses();
+                        block.AfterOutput2 += ", " + ConversionBlock.GetBoxedType(rr.Type, block.Emitter);
+
+                        var inlineMethod = ConversionBlock.GetInlineMethod(block.Emitter, CS.Methods.TOSTRING,
+                            block.Emitter.Resolver.Compilation.FindType(KnownTypeCode.String), rr.Type, expression);
+
+                        if (inlineMethod != null)
+                        {
+                            block.AfterOutput2 += ", " + inlineMethod;
+                        }
+
+                        inlineMethod = ConversionBlock.GetInlineMethod(block.Emitter, CS.Methods.GETHASHCODE,
+                            block.Emitter.Resolver.Compilation.FindType(KnownTypeCode.Int32), rr.Type, expression);
+
+                        if (inlineMethod != null)
+                        {
+                            block.AfterOutput2 += ", " + inlineMethod;
+                        }
+
+                        block.AfterOutput2 += ")";
+
+                        if (rr.Type.Kind == TypeKind.TypeParameter)
+                        {
+                            block.Emitter.ForbidLifting = true;
+                        }
+                    }
+                    else  if (!Helpers.IsImmutableStruct(block.Emitter, NullableType.GetUnderlyingType(rr.Type)))
+                    {
+                        if (nullable)
+                        {
+                            block.Write(JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT1 + "(\"" + JS.Funcs.CLONE + "\", ");
+                            block.AfterOutput2 += ")";
+                        }
+                        else
+                        {
+                            block.AfterOutput2 += "." + JS.Funcs.CLONE + "()";
+                        }
+                    }
+                }
+
+                if (conversion.IsUnboxingConversion || isArgument && (expectedType.IsKnownType(KnownTypeCode.Object) || ConversionBlock.IsUnpackArrayObject(expectedType)) && (rr.Type.IsKnownType(KnownTypeCode.Object) || ConversionBlock.IsUnpackGenericInterfaceObject(rr.Type) || ConversionBlock.IsUnpackGenericArrayInterfaceObject(rr.Type)))
+                {
+                    if (!nobox && block.Emitter.Rules.Boxing == BoxingRule.Managed)
+                    {
+                        block.Write(JS.Types.Bridge.UNBOX);
+                        block.WriteOpenParentheses();
+                        if (conversion.IsUnboxingConversion)
+                        {
+                            block.AfterOutput2 += string.Format(", {0})", ConversionBlock.GetBoxedType(expectedType, block.Emitter));
+                        }
+                        else
+                        {
+                            block.AfterOutput2 += ")";
+                        }
+
+                    }
+                }
+                else if (conversion.IsUnboxingConversion && !Helpers.IsImmutableStruct(block.Emitter, NullableType.GetUnderlyingType(rr.Type)))
+                {
+                    if (nullable)
+                    {
+                        block.Write(JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT1 + "(\"" + JS.Funcs.CLONE + "\", ");
+                        block.AfterOutput2 += ")";
+                    }
+                    else
+                    {
+                        block.AfterOutput2 += "." + JS.Funcs.CLONE + "()";
+                    }
+                }
+            }
+
+            if (expression is ParenthesizedExpression && ((ParenthesizedExpression)expression).Expression is CastExpression)
             {
                 return level;
             }
@@ -197,14 +563,14 @@ namespace Bridge.Translator
 
                         if (parentrr != null && parentrr.Type != expectedType || parentrr == null && expectedType != parentExpectedType)
                         {
-                            level = ConversionBlock.DoConversion(block, expression, conversion, expectedType, level, rr, true);
+                            level = ConversionBlock.DoConversion(block, expression, conversion, expectedType, level, rr, true, true);
                             afterUserDefined = block.AfterOutput;
                             block.AfterOutput = "";
                         }
                     }
                     else
                     {
-                        level = ConversionBlock.DoConversion(block, expression, conversion, expectedType, level, rr, true);
+                        level = ConversionBlock.DoConversion(block, expression, conversion, expectedType, level, rr, true, true);
                         afterUserDefined = block.AfterOutput;
                         block.AfterOutput = "";
                     }
@@ -316,6 +682,32 @@ namespace Bridge.Translator
             return level;
         }
 
+        public static bool IsBoxable(IType type, IEmitter emitter)
+        {
+            if (type.Kind == TypeKind.Enum && emitter.Validator.IsExternalType(type.GetDefinition()))
+            {
+                var enumMode = Helpers.EnumEmitMode(type);
+                if (enumMode >= 3 && enumMode < 7 || enumMode == 2)
+                {
+                    return false;
+                }
+            }
+
+            return type.Kind == TypeKind.Enum
+                   || type.IsKnownType(KnownTypeCode.Enum)
+                   || type.IsKnownType(KnownTypeCode.Boolean)
+                   || type.IsKnownType(KnownTypeCode.DateTime)
+                   || type.IsKnownType(KnownTypeCode.Char)
+                   || type.IsKnownType(KnownTypeCode.Byte)
+                   || type.IsKnownType(KnownTypeCode.Double)
+                   || type.IsKnownType(KnownTypeCode.Single)
+                   || type.IsKnownType(KnownTypeCode.Int16)
+                   || type.IsKnownType(KnownTypeCode.Int32)
+                   || type.IsKnownType(KnownTypeCode.SByte)
+                   || type.IsKnownType(KnownTypeCode.UInt16)
+                   || type.IsKnownType(KnownTypeCode.UInt32);
+        }
+
         private static int CheckUserDefinedConversion(ConversionBlock block, Expression expression, Conversion conversion, int level, ResolveResult rr, IType expectedType)
         {
             if (conversion.IsUserDefined && !ConversionBlock.expressionIgnoreUserDefine.Contains(expression))
@@ -336,19 +728,27 @@ namespace Bridge.Translator
 
                     if (expression is InvocationExpression)
                     {
-                        new InlineArgumentsBlock(block.Emitter, new ArgumentsInfo(block.Emitter, (InvocationExpression)expression), inline).Emit();
+                        new InlineArgumentsBlock(block.Emitter, new ArgumentsInfo(block.Emitter, (InvocationExpression)expression, method), inline, method).Emit();
                     }
                     else if (expression is ObjectCreateExpression)
                     {
-                        new InlineArgumentsBlock(block.Emitter, new ArgumentsInfo(block.Emitter, (ObjectCreateExpression)expression), inline).Emit();
+                        new InlineArgumentsBlock(block.Emitter, new ArgumentsInfo(block.Emitter, (ObjectCreateExpression)expression, method), inline).Emit();
                     }
-                    else if (expression is UnaryOperatorExpression)
+                    /*else if (expression is UnaryOperatorExpression)
                     {
                         var unaryExpression = (UnaryOperatorExpression)expression;
                         var resolveOperator = block.Emitter.Resolver.ResolveNode(unaryExpression, block.Emitter);
                         OperatorResolveResult orr = resolveOperator as OperatorResolveResult;
-                        new InlineArgumentsBlock(block.Emitter, new ArgumentsInfo(block.Emitter, unaryExpression, orr, method), inline).Emit();
-                    }
+                        if (orr != null)
+                        {
+                            new InlineArgumentsBlock(block.Emitter,
+                                new ArgumentsInfo(block.Emitter, unaryExpression, orr, method), inline).Emit();
+                        }
+                        else
+                        {
+                            new InlineArgumentsBlock(block.Emitter, new ArgumentsInfo(block.Emitter, expression, method), inline, method).Emit();
+                        }
+                    }*/
                     else
                     {
                         new InlineArgumentsBlock(block.Emitter, new ArgumentsInfo(block.Emitter, expression, method), inline, method).Emit();
@@ -362,7 +762,7 @@ namespace Bridge.Translator
                 }
                 else
                 {
-                    if (method.DeclaringTypeDefinition != null && (block.Emitter.Validator.IsIgnoreType(method.DeclaringTypeDefinition) || Helpers.IsIgnoreCast(method.DeclaringTypeDefinition, block.Emitter)))
+                    if (method.DeclaringTypeDefinition != null && (block.Emitter.Validator.IsExternalType(method.DeclaringTypeDefinition) || Helpers.IsIgnoreCast(method.DeclaringTypeDefinition, block.Emitter)))
                     {
                         // Still returns true if Nullable.lift( was written.
                         return level;
@@ -445,6 +845,12 @@ namespace Bridge.Translator
             {
                 var index = invocationExpression.Arguments.ToList().IndexOf(expression);
                 var methodResolveResult = block.Emitter.Resolver.ResolveNode(invocationExpression, block.Emitter) as MemberResolveResult;
+                var invocationResolveResult = methodResolveResult as CSharpInvocationResolveResult;
+
+                if (invocationResolveResult != null && invocationResolveResult.IsExtensionMethodInvocation)
+                {
+                    index++;
+                }
 
                 if (methodResolveResult != null)
                 {

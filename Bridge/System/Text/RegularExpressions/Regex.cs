@@ -1,5 +1,6 @@
 ﻿namespace System.Text.RegularExpressions
 {
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
     public sealed class Regex
     {
         public extern Regex(string pattern);
@@ -13,17 +14,29 @@
         /// <summary>
         /// Gets the time-out interval of the current instance.
         /// </summary>
-        public extern TimeSpan MatchTimeout { get; }
+        public extern TimeSpan MatchTimeout
+        {
+            [Bridge.Template("getMatchTimeout()")]
+            get;
+        }
 
         /// <summary>
         /// Gets the options that were passed into the Regex constructor.
         /// </summary>
-        public extern RegexOptions Options { get; }
+        public extern RegexOptions Options
+        {
+            [Bridge.Template("getOptions()")]
+            get;
+        }
 
         /// <summary>
         /// Gets a value that indicates whether the regular expression searches from right to left.
         /// </summary>
-        public extern bool RightToLeft { get; }
+        public extern bool RightToLeft
+        {
+            [Bridge.Template("getRightToLeft()")]
+            get;
+        }
 
         /// <summary>
         /// Returns an array of capturing group names for the regular expression.
@@ -253,5 +266,64 @@
         public static extern string[] Split(string input, string pattern, RegexOptions options, TimeSpan matchTimeout);
 
         #endregion Static members
+    }
+
+    [Bridge.External]
+    [Bridge.Name("RegExp")]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method | Bridge.ConventionMember.Property, Notation = Bridge.Notation.CamelCase)]
+    internal class RegExp
+    {
+        public extern RegExp(string pattern);
+
+        public extern RegExp(string pattern, string flags);
+
+
+        public extern int LastIndex
+        {
+            get;
+            set;
+        }
+
+        public extern bool Global
+        {
+            get;
+        }
+
+        public extern bool IgnoreCase
+        {
+            get;
+        }
+
+        public extern bool Multiline
+        {
+            get;
+        }
+
+        public extern string Source
+        {
+            get;
+        }
+
+        public extern RegexMatch Exec(string s);
+
+        public extern bool Test(string s);
+    }
+
+    [Bridge.External]
+    [Bridge.Name("RegexMatch")]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method | Bridge.ConventionMember.Property, Notation = Bridge.Notation.CamelCase)]
+    internal class RegexMatch
+    {
+        public int Index { get; set; }
+
+        public int Length { get; set; }
+
+        public string Input { get; set; }
+
+        public string this[int index] { get { return null; } set { } }
+
+        public static extern implicit operator string[] (RegexMatch rm);
+
+        public static extern explicit operator RegexMatch(string[] a);
     }
 }

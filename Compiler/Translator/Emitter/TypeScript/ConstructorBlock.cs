@@ -1,11 +1,10 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using Object.Net.Utilities;
-
 using System.Collections.Generic;
 using System.Linq;
+using ICSharpCode.NRefactory.TypeSystem;
 
 namespace Bridge.Translator.TypeScript
 {
@@ -32,7 +31,7 @@ namespace Bridge.Translator.TypeScript
         protected virtual void EmitCtorForInstantiableClass()
         {
             var typeDef = this.Emitter.GetTypeDefinition();
-            string name = this.Emitter.Validator.GetCustomTypeName(typeDef, this.Emitter);
+            string name = this.Emitter.Validator.GetCustomTypeName(typeDef, this.Emitter, true, false);
 
             if (name.IsEmpty())
             {
@@ -73,6 +72,17 @@ namespace Bridge.Translator.TypeScript
                     {
                         continue;
                     }
+
+                    if (ctor.Parameters.Count == 0)
+                    {
+                        XmlToJsDoc.EmitComment(this, ctor);
+                        this.Write("new ()");
+                        this.WriteColon();
+                        this.Write(name);
+                        this.WriteSemiColon();
+                        this.WriteNewLine();
+                    }
+
                     XmlToJsDoc.EmitComment(this, ctor);
                     var ctorName = JS.Funcs.CONSTRUCTOR;
 
@@ -107,7 +117,7 @@ namespace Bridge.Translator.TypeScript
 
             foreach (var p in declarations)
             {
-                var name = this.Emitter.GetEntityName(p);
+                var name = this.Emitter.GetParameterName(p);
 
                 if (needComma)
                 {
@@ -119,6 +129,12 @@ namespace Bridge.Translator.TypeScript
                 this.WriteColon();
                 name = BridgeTypes.ToTypeScriptName(p.Type, this.Emitter);
                 this.Write(name);
+
+                var resolveResult = this.Emitter.Resolver.ResolveNode(p.Type, this.Emitter);
+                if (resolveResult != null && (resolveResult.Type.IsReferenceType.HasValue && resolveResult.Type.IsReferenceType.Value || resolveResult.Type.IsKnownType(KnownTypeCode.NullableOfT)))
+                {
+                    this.Write(" | null");
+                }
             }
 
             this.WriteCloseParentheses();

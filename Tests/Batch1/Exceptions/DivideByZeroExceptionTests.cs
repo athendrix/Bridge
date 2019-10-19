@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.Exceptions
@@ -11,9 +11,14 @@ namespace Bridge.ClientTest.Exceptions
         public void TypePropertiesAreCorrect()
         {
             Assert.AreEqual("System.DivideByZeroException", typeof(DivideByZeroException).FullName, "Name");
+            Assert.True(typeof(DivideByZeroException).IsClass, "IsClass");
+            Assert.AreEqual(typeof(ArithmeticException), typeof(DivideByZeroException).BaseType, "BaseType");
             object d = new DivideByZeroException();
             Assert.True(d is DivideByZeroException, "is DivideByZeroException");
             Assert.True(d is Exception, "is Exception");
+
+            var interfaces = typeof(DivideByZeroException).GetInterfaces();
+            Assert.AreEqual(0, interfaces.Length, "Interfaces length");
         }
 
         [Test]
@@ -22,7 +27,7 @@ namespace Bridge.ClientTest.Exceptions
             var ex = new DivideByZeroException();
             Assert.True((object)ex is DivideByZeroException, "is DivideByZeroException");
             Assert.AreEqual(null, ex.InnerException, "InnerException");
-            Assert.AreEqual("Division by 0.", ex.Message);
+            Assert.AreEqual("Attempted to divide by zero.", ex.Message);
         }
 
         [Test]

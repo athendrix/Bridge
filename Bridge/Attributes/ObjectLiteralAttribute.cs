@@ -2,17 +2,11 @@
 
 namespace Bridge
 {
-    [External]
-    [AttributeUsage(AttributeTargets.Enum | AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface)]
     [NonScriptable]
+    [AttributeUsage(AttributeTargets.Enum | AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface)]
     public sealed class ObjectLiteralAttribute : Attribute
     {
         public ObjectLiteralAttribute()
-        {
-        }
-
-        [Obsolete]
-        public ObjectLiteralAttribute(DefaultValueMode mode)
         {
         }
 
@@ -29,17 +23,7 @@ namespace Bridge
         }
     }
 
-    [External]
-    [Enum(Bridge.Emit.Value)]
-    [Obsolete("Use ObjectInitializationMode")]
-    public enum DefaultValueMode
-    {
-        Ignore = 0,
-        Initializer = 1,
-        DefaultValue = 2
-    }
-
-    [External]
+    [NonScriptable]
     [Enum(Bridge.Emit.Value)]
     public enum ObjectInitializationMode
     {
@@ -59,7 +43,7 @@ namespace Bridge
         Ignore = 0
     }
 
-    [External]
+    [NonScriptable]
     [Enum(Bridge.Emit.Value)]
     public enum ObjectCreateMode
     {

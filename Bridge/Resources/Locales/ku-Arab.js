@@ -1,9 +1,9 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("ku-Arab", true), {
+Bridge.merge(new System.Globalization.CultureInfo("ku-Arab", true), {
     englishName: "Central Kurdish",
     nativeName: "کوردیی ناوەڕاست",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "ناژمارە",
+        nanSymbol: "NaN",
         negativeSign: "-",
         positiveSign: "+",
         negativeInfinitySymbol: "-∞",
@@ -13,8 +13,8 @@
         percentDecimalDigits: 2,
         percentDecimalSeparator: ".",
         percentGroupSeparator: ",",
-        percentPositivePattern: 2,
-        percentNegativePattern: 2,
+        percentPositivePattern: 1,
+        percentNegativePattern: 1,
         currencySymbol: "د.ع.‏",
         currencyGroupSizes: [3],
         currencyDecimalDigits: 2,
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "MMMM, yyyy",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 1256,
+        CultureName: "ku-Arab-IQ",
+        EBCDICCodePage: 20420,
+        IsRightToLeft: true,
+        LCID: 1170,
+        listSeparator: "؛",
+        MacCodePage: 10004,
+        OEMCodePage: 720,
+        IsReadOnly: true
     })
 });

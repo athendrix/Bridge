@@ -48,6 +48,11 @@ namespace Bridge.Contract
             get; set;
         }
 
+        public bool IsPropertyInitializer
+        {
+            get; set;
+        }
+
         public string GetName(IEmitter emitter, bool withoutTypeParams = false)
         {
             string fieldName = this.Name;
@@ -59,11 +64,10 @@ namespace Bridge.Contract
             }
             else if (this.Entity is PropertyDeclaration)
             {
-                fieldName = OverloadsCollection.Create(emitter, (PropertyDeclaration)this.Entity).GetOverloadName(false, null, withoutTypeParams);
+                fieldName = OverloadsCollection.Create(emitter, (PropertyDeclaration)this.Entity, isField: true).GetOverloadName(false, null, withoutTypeParams);
             }
             else
             {
-                bool done = false;
                 if (this.Entity != null)
                 {
                     var rr = emitter.Resolver.ResolveNode(this.Entity, emitter) as MemberResolveResult;
@@ -71,26 +75,10 @@ namespace Bridge.Contract
                     if (rr != null)
                     {
                         fieldName = OverloadsCollection.Create(emitter, rr.Member).GetOverloadName(false, null, withoutTypeParams);
-                        done = true;
                     }
-                }
-
-                if (!done)
-                {
-                    fieldName = emitter.AssemblyInfo.PreserveMemberCase ? fieldName : TypeConfigItem.ToLowerCamelCase(fieldName);
-
-                    /*if (Helpers.IsReservedWord(fieldName))
-                    {
-                        fieldName = Helpers.ChangeReservedWord(fieldName);
-                    }*/
                 }
             }
             return fieldName;
-        }
-
-        public static string ToLowerCamelCase(string text)
-        {
-            return text.Substring(0, 1).ToLower(CultureInfo.InvariantCulture) + text.Substring(1);
         }
     }
 

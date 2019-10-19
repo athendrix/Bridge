@@ -1,8 +1,9 @@
 using System;
 using Bridge;
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 [assembly: Reflectable("System.Console")]
+
 namespace Bridge.ClientTest.Batch3.BridgeIssues
 {
     [Category(Constants.MODULE_ISSUES)]
@@ -32,6 +33,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         public static void ResetOutput()
         {
             Output = null;
+            Bridge.Utils.Console.Hide();
         }
 
         [Test(ExpectedCount = 14)]
@@ -46,7 +48,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             Assert.True(t.IsStatic, "IsStatic");
             Assert.AreEqual("WriteLine", t.Name, "Name");
             Assert.NotNull(t.ReturnType, "ReturnType not null");
-            Assert.AreEqual("Object", t.ReturnType.Name, "ReturnType");
+            Assert.AreEqual("System.Void", t.ReturnType.FullName, "ReturnType");
 
             var parameters = t.GetParameters();
             Assert.NotNull(parameters, "parameters not null");

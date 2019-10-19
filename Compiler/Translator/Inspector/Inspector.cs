@@ -4,17 +4,22 @@ using Bridge.Contract.Constants;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.TypeSystem;
 using System.Collections.Generic;
+using System.Linq;
 using NRAttribute = ICSharpCode.NRefactory.CSharp.Attribute;
 
 namespace Bridge.Translator
 {
     public partial class Inspector : Visitor
     {
-        public Inspector()
+        internal IEmitter Emitter { get; private set; }
+
+        public Inspector(IAssemblyInfo config = null)
         {
             this.Types = new List<ITypeInfo>();
             this.IgnoredTypes = new List<string>();
-            this.AssemblyInfo = new AssemblyInfo();
+            this.AssemblyInfo = config ?? new AssemblyInfo();
+
+            this.Emitter = new TempEmitter { AssemblyInfo = this.AssemblyInfo };
         }
 
         protected virtual bool HasAttribute(EntityDeclaration type, string name)
@@ -70,12 +75,26 @@ namespace Bridge.Translator
             return this.HasAttribute(declaration, Translator.Bridge_ASSEMBLY + ".NonScriptable");
         }
 
-        protected virtual bool HasIgnore(EntityDeclaration declaration)
+        protected virtual bool HasExternal(EntityDeclaration declaration)
         {
-            return this.HasAttribute(declaration, Translator.Bridge_ASSEMBLY + ".External") || this.HasAttribute(declaration, Translator.Bridge_ASSEMBLY + ".Ignore");
+            return this.HasAttribute(declaration, Translator.Bridge_ASSEMBLY + ".External") ||
+                   this.HasAttribute(declaration, Translator.Bridge_ASSEMBLY + ".Ignore") ||
+                   this.IsVirtual(declaration as TypeDeclaration);
         }
 
-        protected virtual bool HasInline(EntityDeclaration declaration)
+        protected virtual bool IsVirtual(TypeDeclaration typeDeclaration)
+        {
+            if (typeDeclaration == null)
+            {
+                return false;
+            }
+
+            var resolveResult = this.Resolver.ResolveNode(typeDeclaration, null);
+            var typeDef = resolveResult?.Type?.GetDefinition();
+            return typeDef != null && Validator.IsVirtualTypeStatic(typeDef);
+        }
+
+        protected virtual bool HasTemplate(EntityDeclaration declaration)
         {
             return this.HasAttribute(declaration, Translator.Bridge_ASSEMBLY + ".Template");
         }
@@ -153,7 +172,14 @@ namespace Bridge.Translator
         {
             if (type.Kind == TypeKind.TypeParameter && astType != null)
             {
-                return new RawValue(JS.Funcs.BRIDGE_GETDEFAULTVALUE + "(" + astType.ToString() + ")");
+                var parameter = type as ITypeParameter;
+                if (parameter != null && (
+                    parameter.Owner.Attributes.Any(a => a.AttributeType.FullName == "Bridge.IgnoreGenericAttribute") ||
+                    parameter.Owner.DeclaringTypeDefinition != null && parameter.Owner.DeclaringTypeDefinition.Attributes.Any(a => a.AttributeType.FullName == "Bridge.IgnoreGenericAttribute")))
+                {
+                    return null;
+                }
+                return new RawValue(JS.Funcs.BRIDGE_GETDEFAULTVALUE + "(" + type.Name + ")");
             }
 
             if (type.IsKnownType(KnownTypeCode.Decimal))
@@ -171,7 +197,8 @@ namespace Bridge.Translator
                 return 0UL;
             }
 
-            if (type.IsKnownType(KnownTypeCode.Int16) ||
+            if (type.IsKnownType(KnownTypeCode.Char) ||
+                type.IsKnownType(KnownTypeCode.Int16) ||
                 type.IsKnownType(KnownTypeCode.Int32) ||
                 type.IsKnownType(KnownTypeCode.UInt16) ||
                 type.IsKnownType(KnownTypeCode.UInt32) ||
@@ -217,10 +244,15 @@ namespace Bridge.Translator
         {
             if (type.IsKnownType(KnownTypeCode.DateTime))
             {
-                return "new Date(-864e13)";
+                return string.Format("{0}()", JS.Types.System.DateTime.GET_DEFAULT_VALUE);
             }
 
             var isGeneric = type.TypeArguments.Count > 0 && !Helpers.IsIgnoreGeneric(type, emitter);
+
+            if (emitter.Validator.IsObjectLiteral(emitter.GetTypeDefinition(type)))
+            {
+                return "{}";
+            }
 
             return string.Concat("new ", isGeneric ? "(" : "", BridgeTypes.ToJsName(type, emitter), isGeneric ? ")" : "", "()");
         }
@@ -300,7 +332,7 @@ namespace Bridge.Translator
                 {
                     throw new EmitterException(nsAt, "Custom attribute '[" + nsAt.ToString() +
                         "]' uses reserved namespace name 'Bridge'."
-                        + Emitter.NEW_LINE
+                        + Bridge.Translator.Emitter.NEW_LINE
                         + "This name is reserved for Bridge.NET core.");
                 }
             }
@@ -316,7 +348,7 @@ namespace Bridge.Translator
             {
                 throw new EmitterException(nsDecl, "Namespace '" + nsDecl.FullName +
                     "' uses reserved name 'Bridge'."
-                    + Emitter.NEW_LINE
+                    + Bridge.Translator.Emitter.NEW_LINE
                     + "This name is reserved for Bridge.NET core.");
             }
         }

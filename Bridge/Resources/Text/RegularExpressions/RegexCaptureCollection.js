@@ -1,12 +1,22 @@
-﻿    Bridge.define("System.Text.RegularExpressions.CaptureCollection", {
+    Bridge.define("System.Text.RegularExpressions.CaptureCollection", {
         inherits: function () {
             return [System.Collections.ICollection];
         },
 
         config: {
+            properties: {
+                Count: {
+                    get: function () {
+                        return this._capcount;
+                    }
+                }
+            },
+
             alias: [
-            "getEnumerator", "System$Collections$IEnumerable$getEnumerator",
-            "getCount", "System$Collections$ICollection$getCount"
+            "GetEnumerator", "System$Collections$IEnumerable$GetEnumerator",
+            "getCount", "System$Collections$ICollection$getCount",
+            "Count", "System$Collections$ICollection$Count",
+            "copyTo", "System$Collections$ICollection$copyTo"
             ]
         },
 
@@ -42,7 +52,7 @@
             }
 
             if (i >= this._capcount || i < 0) {
-                throw new System.ArgumentOutOfRangeException("i");
+                throw new System.ArgumentOutOfRangeException.$ctor1("i");
             }
 
             this._ensureCapturesInited();
@@ -52,7 +62,7 @@
 
         copyTo: function (array, arrayIndex) {
             if (array == null) {
-                throw new System.ArgumentNullException("array");
+                throw new System.ArgumentNullException.$ctor1("array");
             }
 
             if (array.length < arrayIndex + this._capcount) {
@@ -69,7 +79,7 @@
             }
         },
 
-        getEnumerator: function () {
+        GetEnumerator: function () {
             return new System.Text.RegularExpressions.CaptureEnumerator(this);
         },
 
@@ -80,6 +90,7 @@
                 var j;
 
                 captures.length = this._capcount;
+
                 for (j = 0; j < this._capcount - 1; j++) {
                     var index = this._group._caps[j * 2];
                     var length = this._group._caps[j * 2 + 1];
@@ -102,10 +113,18 @@
         },
 
         config: {
+            properties: {
+                Current: {
+                    get: function () {
+                        return this.getCurrent();
+                    }
+                }
+            },
             alias: [
                 "getCurrent", "System$Collections$IEnumerator$getCurrent",
                 "moveNext", "System$Collections$IEnumerator$moveNext",
-                "reset", "System$Collections$IEnumerator$reset"
+                "reset", "System$Collections$IEnumerator$reset",
+                "Current", "System$Collections$IEnumerator$Current"
             ]
         },
 
@@ -135,7 +154,7 @@
 
         getCapture: function () {
             if (this._curindex < 0 || this._curindex >= this._captureColl.getCount()) {
-                throw new System.InvalidOperationException("Enumeration has either not started or has already finished.");
+                throw new System.InvalidOperationException.$ctor1("Enumeration has either not started or has already finished.");
             }
 
             return this._captureColl.get(this._curindex);

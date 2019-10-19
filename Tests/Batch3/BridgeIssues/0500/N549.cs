@@ -1,6 +1,6 @@
 ﻿using Bridge.ClientTest.Batch3.Utilities;
 using Bridge.Html5;
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
 {
@@ -15,7 +15,8 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         [Test(ExpectedCount = 153)]
         public static void TestUseCase()
         {
-            var isToStringToTypeNameLogic = !BrowserHelper.IsChrome();
+            // After FF some v.43 version it also outputs content instead of type name for TypeArrays.toString()
+            var isToStringToTypeNameLogic = !(BrowserHelper.IsChrome() || BrowserHelper.IsFirefox());
 
             var v1 = new Float32Array(10);
             Assert.True(v1 != null, "Float32Array created");

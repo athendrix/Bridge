@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.Exceptions
@@ -11,10 +11,15 @@ namespace Bridge.ClientTest.Exceptions
         public void TypePropertiesAreCorrect()
         {
             Assert.AreEqual("System.ArgumentNullException", typeof(ArgumentNullException).FullName, "Name");
+            Assert.True(typeof(ArgumentNullException).IsClass, "IsClass");
+            Assert.AreEqual(typeof(ArgumentException), typeof(ArgumentNullException).BaseType, "BaseType");
             object d = new ArgumentNullException();
             Assert.True(d is ArgumentNullException, "is ArgumentNullException");
             Assert.True(d is ArgumentException, "is ArgumentException");
             Assert.True(d is Exception, "is Exception");
+
+            var interfaces = typeof(ArgumentNullException).GetInterfaces();
+            Assert.AreEqual(0, interfaces.Length, "Interfaces length");
         }
 
         [Test]
@@ -44,7 +49,8 @@ namespace Bridge.ClientTest.Exceptions
             Assert.True((object)ex is ArgumentNullException, "is ArgumentNullException");
             Assert.AreEqual("someParam", ex.ParamName, "ParamName");
             Assert.AreEqual(null, ex.InnerException, "InnerException");
-            Assert.AreEqual("The message", ex.Message);
+            //Assert.AreEqual("The message", ex.Message);
+            Assert.AreEqual("The message\nParameter name: someParam", ex.Message);
         }
 
         [Test]

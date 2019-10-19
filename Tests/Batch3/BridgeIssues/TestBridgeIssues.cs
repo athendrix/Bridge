@@ -1,5 +1,6 @@
 using Bridge.Html5;
-using Bridge.Test;
+using Bridge.Test.NUnit;
+using Bridge.ClientTestHelper;
 
 using System;
 using System.Collections;
@@ -264,7 +265,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             }
         }
 
-        public new ICollection<int> Keys
+        public ICollection<int> Keys
         {
             get
             {
@@ -286,6 +287,23 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             {
                 return _backingDictionary.Count;
             }
+        }
+
+        public bool IsReadOnly
+        {
+            // This is always false: http://referencesource.microsoft.com/#mscorlib/system/collections/generic/dictionary.cs,604
+            // And Dictionary.IsReadOnly is private.
+            get { return false; }
+        }
+
+        public void Add(KeyValuePair<int, string> item)
+        {
+            ((ICollection<KeyValuePair<int, string>>)this._backingDictionary).Add(item);
+        }
+
+        public void CopyTo(KeyValuePair<int, string>[] array, int arrayIndex)
+        {
+            ((ICollection<KeyValuePair<int, string>>)this._backingDictionary).CopyTo(array, arrayIndex);
         }
 
         public void Add(int key, string value)
@@ -311,6 +329,16 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         public void Clear()
         {
             _backingDictionary.Clear();
+        }
+
+        public bool Contains(KeyValuePair<int, string> item)
+        {
+            return ((ICollection<KeyValuePair<int, string>>)this._backingDictionary).Contains(item);
+        }
+
+        public bool Remove(KeyValuePair<int, string> item)
+        {
+            return ((ICollection<KeyValuePair<int, string>>)this._backingDictionary).Remove(item);
         }
     }
 
@@ -544,26 +572,6 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             Assert.AreEqual(4, Bridge272.Test(4), "Casted MyEnum.Abc");
         }
 
-        // Bridge[#273]
-        [Test(Name = "#273", ExpectedCount = 4)]
-        public static void N273()
-        {
-            // TEST
-            var items = new List<int>() { 0, 1, 2, 3, 4 };
-
-            var r = items.Slice(-1).ToArray();
-            Assert.AreEqual(new[] { 4 }, r, "Slices start = -1");
-
-            r = items.Slice(1).ToArray();
-            Assert.AreEqual(new[] { 1, 2, 3, 4 }, r, "Slices start = 1");
-
-            r = items.Slice(-3, 4).ToArray();
-            Assert.AreEqual(new[] { 2, 3 }, r, "Slices start = -3, end = 3");
-
-            r = items.Slice(1, 3).ToArray();
-            Assert.AreEqual(new[] { 1, 2 }, r, "Slices start = 1, end = 2");
-        }
-
         // Bridge[#277]
         [Test(Name = "#277", ExpectedCount = 1)]
         public static void N277()
@@ -618,28 +626,29 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             {
                 Name = "B"
             });
-            Assert.AreEqual("Bridge.ClientTest.Batch3.BridgeIssues.Bridge306B.Props:B", b, "Bridge306B.New() works");
+            Assert.AreEqual("Bridge.ClientTest.Batch3.BridgeIssues.Bridge306B+Props:B", b, "Bridge306B.New() works");
 
             var a = Bridge306A.New(new Bridge306A.Props()
             {
                 Name = "A"
             });
-            Assert.AreEqual("Bridge.ClientTest.Batch3.BridgeIssues.Bridge306A.Props:A", a, "Bridge306A.New() works");
+            Assert.AreEqual("Bridge.ClientTest.Batch3.BridgeIssues.Bridge306A+Props:A", a, "Bridge306A.New() works");
         }
 
-        [Test(Name = "#329", ExpectedCount = 5)]
-        public static void N329()
-        {
-            DateTime d1;
-            var b1 = DateTime.TryParse("2001-01-01", out d1, true);
-            Assert.True(b1, "TryParse parsed '2001 - 01 - 01'");
-            Assert.AreEqual(2001, d1.GetUtcFullYear(), "TryParse works Year");
-            Assert.AreEqual(1, d1.GetUtcMonth(), "TryParse works Month");
-            Assert.AreEqual(1, d1.GetUtcDay(), "TryParse works Day");
+        // Not C# API
+        //[Test(Name = "#329", ExpectedCount = 5)]
+        //public static void N329()
+        //{
+        //    DateTime d1;
+        //    var b1 = DateTime.TryParse("2001-01-01", out d1, true);
+        //    Assert.True(b1, "TryParse parsed '2001-01-01'");
+        //    Assert.AreEqual(2001, d1.Year, "TryParse works Year");
+        //    Assert.AreEqual(1, d1.Month, "TryParse works Month");
+        //    Assert.AreEqual(1, d1.Day, "TryParse works Day");
 
-            var d2 = DateTime.Parse("2001-01-01", true);
-            Assert.AreEqual(d1.ToString(), d2.ToString(), "TryParse And Parse give the same result");
-        }
+        //    var d2 = DateTime.Parse("2001-01-01", true);
+        //    Assert.AreEqual(d1.ToString(), d2.ToString(), "TryParse And Parse give the same result");
+        //}
 
         // Bridge[#335]
         [Test(Name = "#335", ExpectedCount = 1)]
@@ -772,21 +781,22 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             }, "IDictionary getter throws exception when incorrect key used");
         }
 
-        // Bridge[#349]
-        [Test(Name = "#349", ExpectedCount = 5)]
-        public static void N349()
-        {
-            DateTime date;
-            var culture = new System.Globalization.CultureInfo("ru-RU");
+        // Not C# API
+        //// Bridge[#349]
+        //[Test(Name = "#349", ExpectedCount = 5)]
+        //public static void N349()
+        //{
+        //    DateTime date;
+        //    var culture = new System.Globalization.CultureInfo("ru-RU");
 
-            Assert.True(culture != null, "Created CultureInfo(\"ru-RU\")");
+        //    Assert.True(culture != null, "Created CultureInfo(\"ru-RU\")");
 
-            var parsed = DateTime.TryParse("22.08.2015", culture, out date);
-            Assert.True(parsed, "Parsed \"22.08.2015\"");
-            Assert.AreEqual(2015, date.Year, "TryParse works Year");
-            Assert.AreEqual(8, date.Month, "TryParse works Month");
-            Assert.AreEqual(22, date.Day, "TryParse works Day");
-        }
+        //    var parsed = DateTime.TryParse("22.08.2015", culture, out date);
+        //    Assert.True(parsed, "Parsed \"22.08.2015\"");
+        //    Assert.AreEqual(2015, date.Year, "TryParse works Year");
+        //    Assert.AreEqual(8, date.Month, "TryParse works Month");
+        //    Assert.AreEqual(22, date.Day, "TryParse works Day");
+        //}
 
         // Bridge[#377]
         [Test(Name = "#377", ExpectedCount = 6)]
@@ -942,34 +952,18 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         }
 
         // Bridge[#409]
-        [Test(Name = "#409", ExpectedCount = 2)]
+        [Test(Name = "#409", ExpectedCount = 4)]
         public static void N409()
         {
             decimal a = Math.Round(3.5M);
-            EnsureNumber(a, "4", "Math.Round(3.5M)");
+            NumberHelper.AssertDecimal("4", a, "Math.Round(3.5M)");
 
             decimal b = Math.Round(4.5M);
-            EnsureNumber(b, "4", "Math.Round(4.5M)");
-        }
-
-        private static void EnsureNumber(object actual, string expected, string message)
-        {
-            Assert.AreEqual(expected, actual.ToString(), message);
-        }
-
-        private static void AssertAlmostEqual(double actual, double expected, string message)
-        {
-            var diff = expected - actual;
-            if (diff < 0)
-            {
-                diff = -diff;
-            }
-
-            Assert.True(diff < 1e-8, message + "actual: " + actual + "expeted:" + expected);
+            NumberHelper.AssertDecimal("4", b, "Math.Round(4.5M)");
         }
 
         // Bridge[#410]
-        [Test(Name = "#410", ExpectedCount = 50)]
+        [Test(Name = "#410", ExpectedCount = 64)]
         public static void N410()
         {
             // Decimal consts
@@ -979,29 +973,25 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             var DecimalMaxValue = decimal.MaxValue;
             var DecimalMinValue = decimal.MinValue;
 
-            EnsureNumber(DecimalZero, "0", "DecimalZero");
-            EnsureNumber(DecimalOne, "1", "DecimalOne");
-            EnsureNumber(DecimalMinusOne, "-1", "DecimalMinusOne");
-            EnsureNumber(DecimalMaxValue, "7.9228162514264337593543950335e+28", "DecimalMaxValue");
-            EnsureNumber(DecimalMinValue, "-7.9228162514264337593543950335e+28", "DecimalMinValue");
+            NumberHelper.AssertDecimal("0", DecimalZero, "DecimalZero");
+            NumberHelper.AssertDecimal("1", DecimalOne, "DecimalOne");
+            NumberHelper.AssertDecimal("-1", DecimalMinusOne, "DecimalMinusOne");
+            NumberHelper.AssertDecimal("79228162514264337593543950335", DecimalMaxValue, "DecimalMaxValue");
+            NumberHelper.AssertDecimal("-79228162514264337593543950335", DecimalMinValue, "DecimalMinValue");
 
             // Decimal consts in expressions
             decimal dz = 0m;
             DecimalZero = decimal.Zero + dz;
             DecimalOne = decimal.One + dz;
-            ;
             DecimalMinusOne = decimal.MinusOne + dz;
-            ;
             DecimalMaxValue = decimal.MaxValue + dz;
-            ;
             DecimalMinValue = decimal.MinValue + dz;
-            ;
 
-            EnsureNumber(DecimalZero, "0", "DecimalZeroin expression");
-            EnsureNumber(DecimalOne, "1", "DecimalOnein expression");
-            EnsureNumber(DecimalMinusOne, "-1", "DecimalMinusOnein expression");
-            EnsureNumber(DecimalMaxValue, "7.9228162514264337593543950335e+28", "DecimalMaxValuein expression");
-            EnsureNumber(DecimalMinValue, "-7.9228162514264337593543950335e+28", "DecimalMinValuein expression");
+            NumberHelper.AssertDecimal("0", DecimalZero, "DecimalZeroin expression");
+            NumberHelper.AssertDecimal("1", DecimalOne, "DecimalOnein expression");
+            NumberHelper.AssertDecimal("-1", DecimalMinusOne, "DecimalMinusOnein expression");
+            NumberHelper.AssertDecimal("79228162514264337593543950335", DecimalMaxValue, "DecimalMaxValuein expression");
+            NumberHelper.AssertDecimal("-79228162514264337593543950335", DecimalMinValue, "DecimalMinValuein expression");
 
             var numberPositiveInfinity = Script.Get<object>("Number.POSITIVE_INFINITY");
             var numberNegativeInfinity = Script.Get<object>("Number.NEGATIVE_INFINITY");
@@ -1015,9 +1005,9 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             var DoublePositiveInfinity = double.PositiveInfinity;
             var DoubleNaN = double.NaN;
 
-            EnsureNumber(DoubleMaxValue, "1.7976931348623157e+308", "DoubleMaxValue");
-            EnsureNumber(DoubleMinValue, "-1.7976931348623157e+308", "DoubleMinValue");
-            EnsureNumber(DoubleEpsilon, "5e-324", "DoubleEpsilon");
+            NumberHelper.AssertDouble("1.79769313486232E+308", DoubleMaxValue, "DoubleMaxValue");
+            NumberHelper.AssertDouble("-1.79769313486232E+308", DoubleMinValue, "DoubleMinValue");
+            NumberHelper.AssertDouble("4.94065645841247E-324", DoubleEpsilon, "DoubleEpsilon");
             Assert.AreEqual(numberNegativeInfinity, DoubleNegativeInfinity, "DoubleNegativeInfinity");
             Assert.AreEqual(numberPositiveInfinity, DoublePositiveInfinity, "DoublePositiveInfinity");
             Assert.AreEqual(numberNaN, DoubleNaN, "DoubleNaN");
@@ -1031,52 +1021,28 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             DoublePositiveInfinity = double.PositiveInfinity + dblz;
             DoubleNaN = double.NaN + dblz;
 
-            EnsureNumber(DoubleMaxValue, "1.7976931348623157e+308", "DoubleMaxValuein expression");
-            EnsureNumber(DoubleMinValue, "-1.7976931348623157e+308", "DoubleMinValuein expression");
-            EnsureNumber(DoubleEpsilon, "5e-324", "DoubleEpsilonin expression");
+            NumberHelper.AssertDouble("1.79769313486232E+308", DoubleMaxValue, "DoubleMaxValuein expression");
+            NumberHelper.AssertDouble("-1.79769313486232E+308", DoubleMinValue, "DoubleMinValuein expression");
+            NumberHelper.AssertDouble("4.94065645841247E-324", DoubleEpsilon, "DoubleEpsilonin expression");
             Assert.AreEqual(numberNegativeInfinity, DoubleNegativeInfinity, "DoubleNegativeInfinityin expression");
             Assert.AreEqual(numberPositiveInfinity, DoublePositiveInfinity, "DoublePositiveInfinityin expression");
             Assert.AreEqual(numberNaN, DoubleNaN, "DoubleNaNin expression");
 
             // Math consts
             var MathE = Math.E;
-            var MathLN10 = Math.LN10;
-            var MathLN2 = Math.LN2;
-            var MathLOG2E = Math.LOG2E;
-            var MathLOG10E = Math.LOG10E;
             var MathPI = Math.PI;
-            var MathSQRT1_2 = Math.SQRT1_2;
-            var MathSQRT2 = Math.SQRT2;
 
-            EnsureNumber(MathE, "2.718281828459045", "MathE");
-            EnsureNumber(MathLN10, "2.302585092994046", "MathLN10");
-            EnsureNumber(MathLN2, "0.6931471805599453", "MathLN2");
+            NumberHelper.AssertDouble("2.71828182845905", MathE, "MathE");
             //IE has Math.LOG2E defined as 1.4426950408889633 instead of standard 1.4426950408889634
-            AssertAlmostEqual(MathLOG2E, 1.4426950408889634, "MathLOG2E");
-            EnsureNumber(MathLOG10E, "0.4342944819032518", "MathLOG10E");
-            EnsureNumber(MathPI, "3.141592653589793", "MathPI");
-            EnsureNumber(MathSQRT1_2, "0.7071067811865476", "MathSQRT1_2");
-            EnsureNumber(MathSQRT2, "1.4142135623730951", "MathSQRT2");
+            NumberHelper.AssertDouble("3.14159265358979", MathPI, "MathPI");
 
             // Math consts in expression
             MathE = Math.E + 0;
-            MathLN10 = Math.LN10 + 0;
-            MathLN2 = Math.LN2 + 0;
-            MathLOG2E = Math.LOG2E + 0;
-            MathLOG10E = Math.LOG10E + 0;
             MathPI = Math.PI + 0;
-            MathSQRT1_2 = Math.SQRT1_2 + 0;
-            MathSQRT2 = Math.SQRT2 + 0;
 
-            EnsureNumber(MathE, "2.718281828459045", "MathEin expression");
-            EnsureNumber(MathLN10, "2.302585092994046", "MathLN10in expression");
-            EnsureNumber(MathLN2, "0.6931471805599453", "MathLN2in expression");
+            NumberHelper.AssertDouble("2.71828182845905", MathE, "MathEin expression");
             //IE has Math.LOG2E defined as 1.4426950408889633 instead of standard 1.4426950408889634
-            AssertAlmostEqual(MathLOG2E, 1.4426950408889634, "MathLOG2Ein expression");
-            EnsureNumber(MathLOG10E, "0.4342944819032518", "MathLOG10Ein expression");
-            EnsureNumber(MathPI, "3.141592653589793", "MathPIin expression");
-            EnsureNumber(MathSQRT1_2, "0.7071067811865476", "MathSQRT1_2in expression");
-            EnsureNumber(MathSQRT2, "1.4142135623730951", "MathSQRT2in expression");
+            NumberHelper.AssertDouble("3.14159265358979", MathPI, "MathPIin expression");
 
             // Single consts
             var SingleMaxValue = float.MaxValue;
@@ -1086,9 +1052,9 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             var SingleNegativeInfinity = float.NegativeInfinity;
             var SinglePositiveInfinity = float.PositiveInfinity;
 
-            EnsureNumber(SingleMaxValue, "3.40282347e+38", "SingleMaxValue");
-            EnsureNumber(SingleMinValue, "-3.40282347e+38", "SingleMinValue");
-            EnsureNumber(SingleEpsilon, "1.401298e-45", "SingleEpsilon");
+            NumberHelper.AssertFloat("3.402823E+38", SingleMaxValue, "SingleMaxValue");
+            NumberHelper.AssertFloat("-3.402823E+38", SingleMinValue, "SingleMinValue");
+            NumberHelper.AssertFloat("1.401298E-45", SingleEpsilon, "SingleEpsilon");
             Assert.AreEqual(numberNaN, SingleNaN, "SingleNaN");
             Assert.AreEqual(numberNegativeInfinity, SingleNegativeInfinity, "SingleNegativeInfinity");
             Assert.AreEqual(numberPositiveInfinity, SinglePositiveInfinity, "SinglePositiveInfinity");
@@ -1102,9 +1068,9 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             SingleNegativeInfinity = float.NegativeInfinity + fz;
             SinglePositiveInfinity = float.PositiveInfinity + fz;
 
-            EnsureNumber(SingleMaxValue, "3.40282347e+38", "SingleMaxValuein expression");
-            EnsureNumber(SingleMinValue, "-3.40282347e+38", "SingleMinValuein expression");
-            EnsureNumber(SingleEpsilon, "1.401298e-45", "SingleEpsilonin expression");
+            NumberHelper.AssertFloat("3.402823E+38", SingleMaxValue, "SingleMaxValuein expression");
+            NumberHelper.AssertFloat("-3.402823E+38", SingleMinValue, "SingleMinValuein expression");
+            NumberHelper.AssertFloat("1.401298E-45", SingleEpsilon, "SingleEpsilonin expression");
             Assert.AreEqual(numberNaN, SingleNaN, "SingleNaNin expression");
             Assert.AreEqual(numberNegativeInfinity, SingleNegativeInfinity, "SingleNegativeInfinityin expression");
             Assert.AreEqual(numberPositiveInfinity, SinglePositiveInfinity, "SinglePositiveInfinityin expression");
@@ -1173,7 +1139,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         {
             List<int> magic = new List<int>() { 0, 1, 2, 3, 4 };
             List<int> epic = magic.GetRange(0, 3);
-            Assert.AreEqual("System.Collections.Generic.List$1[[System.Int32, mscorlib]]", epic.GetType().FullName, "epic.GetType().FullName");
+            Assert.AreEqual("System.Collections.Generic.List`1[[System.Int32, mscorlib]]", epic.GetType().FullName, "epic.GetType().FullName");
         }
 
         // Bridge[#439]
@@ -1195,14 +1161,14 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         }
 
         // Bridge[#442]
-        [Test(Name = "#442", ExpectedCount = 2)]
+        [Test(Name = "#442", ExpectedCount = 4)]
         public static void N442()
         {
             decimal a = 3.5M;
-            EnsureNumber(a.Round(), "4", "a.Round(3.5M)");
+            NumberHelper.AssertDecimal("4", a.Round(), "a.Round(3.5M)");
 
             decimal b = 4.5M;
-            EnsureNumber(b.Round(), "4", "b.Round(4.5M)");
+            NumberHelper.AssertDecimal("4", b.Round(), "b.Round(4.5M)");
         }
 
         // Bridge[#460]

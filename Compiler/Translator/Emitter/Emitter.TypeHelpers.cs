@@ -20,12 +20,12 @@ namespace Bridge.Translator
                 return 0;
             }
 
-            if (x.Key == CS.NS.ROOT)
+            if (x.Key == CS.NS.BRIDGE)
             {
                 return -1;
             }
 
-            if (y.Key == CS.NS.ROOT)
+            if (y.Key == CS.NS.BRIDGE)
             {
                 return 1;
             }
@@ -53,12 +53,12 @@ namespace Bridge.Translator
                 return 0;
             }
 
-            if (x.Key == CS.NS.ROOT)
+            if (x.Key == CS.NS.BRIDGE)
             {
                 return -1;
             }
 
-            if (y.Key == CS.NS.ROOT)
+            if (y.Key == CS.NS.BRIDGE)
             {
                 return 1;
             }
@@ -111,7 +111,7 @@ namespace Bridge.Translator
                 }
             }
 
-            var zeroPlaceholder = new TypeInfo() {Key = "0"};
+            var zeroPlaceholder = new TypeInfo() { Key = "0" };
             sortable.Add(zeroPlaceholder);
             sortable.Sort(this.CompareTypeInfosByPriority);
 
@@ -147,10 +147,20 @@ namespace Bridge.Translator
         }
 
         private Stack<IType> activeTypes;
+        private Dictionary<IType, IList<ITypeInfo>> cacheParents = new Dictionary<IType, IList<ITypeInfo>>();
 
-        public IList<ITypeInfo> GetParents(IType type, IList<ITypeInfo> list = null, bool includeSelf = false)
+        public IList<ITypeInfo> GetParents(IType type, List<ITypeInfo> list = null)
         {
-            if (list == null)
+            IList<ITypeInfo> result;
+
+            if (this.cacheParents.TryGetValue(type, out result))
+            {
+                list?.AddRange(result);
+                return result;
+            }
+
+            bool endPoint = list == null;
+            if (endPoint)
             {
                 activeTypes = new Stack<IType>();
                 list = new List<ITypeInfo>();
@@ -166,28 +176,53 @@ namespace Bridge.Translator
             activeTypes.Push(typeDef);
 
             var types = type.GetAllBaseTypes();
+            var thisTypelist = new List<ITypeInfo>();
             foreach (var t in types)
             {
                 var bType = BridgeTypes.Get(t, true);
 
-                if (bType != null && bType.TypeInfo != null && (includeSelf || bType.Type != typeDef))
+                if (bType?.TypeInfo != null && !bType.Type.Equals(typeDef))
                 {
-                    list.Add(bType.TypeInfo);
+                    thisTypelist.Add(bType.TypeInfo);
                 }
 
                 if (t.TypeArguments.Count > 0)
                 {
                     foreach (var typeArgument in t.TypeArguments)
                     {
-                        this.GetParents(typeArgument, list, true);
+                        bType = BridgeTypes.Get(typeArgument, true);
+                        if (bType?.TypeInfo != null && !bType.Type.Equals(typeDef))
+                        {
+                            thisTypelist.Add(bType.TypeInfo);
+                        }
+
+                        this.GetParents(typeArgument, thisTypelist);
                     }
                 }
             }
-
+            list.AddRange(thisTypelist);
             activeTypes.Pop();
-            return includeSelf ? list : list.Distinct().ToList();
+            list = list.Distinct().ToList();
+            cacheParents[type] = list;
+
+            return list;
         }
 
+        public string GetReflectionName(IType type)
+        {
+            string name = null;
+            if (this.nameCache.TryGetValue(type, out name))
+            {
+                return name;
+            }
+
+            name = type.ReflectionName;
+            this.nameCache[type] = name;
+
+            return name;
+        }
+
+        private Dictionary<IType, string> nameCache = new Dictionary<IType, string>();
         public virtual void TopologicalSort()
         {
             this.Log.Trace("Topological sorting...");
@@ -202,32 +237,31 @@ namespace Bridge.Translator
             {
                 hitCounters[0]++;
                 var parents = this.GetParents(t.Type);
-
-                var tProcess = graph.Processes.FirstOrDefault(p => p.Name == t.Type.ReflectionName);
+                var reflectionName = GetReflectionName(t.Type);
+                var tProcess = graph.Processes.FirstOrDefault(p => p.Name == reflectionName);
                 if (tProcess == null)
                 {
                     hitCounters[1]++;
-                    tProcess = new TopologicalSorting.OrderedProcess(graph, t.Type.ReflectionName);
+                    tProcess = new TopologicalSorting.OrderedProcess(graph, reflectionName);
                 }
 
                 for (int i = parents.Count - 1; i > -1; i--)
                 {
                     hitCounters[2]++;
                     var x = parents[i];
-
-                    if (tProcess.Predecessors.All(p => p.Name != x.Type.ReflectionName))
+                    reflectionName = GetReflectionName(x.Type);
+                    if (tProcess.Predecessors.All(p => p.Name != reflectionName))
                     {
                         hitCounters[3]++;
 
-                        var dProcess = graph.Processes.FirstOrDefault(p => p.Name == x.Type.ReflectionName);
+                        var dProcess = graph.Processes.FirstOrDefault(p => p.Name == reflectionName);
                         if (dProcess == null)
                         {
                             hitCounters[4]++;
-                            dProcess = new TopologicalSorting.OrderedProcess(graph, x.Type.ReflectionName);
+                            dProcess = new TopologicalSorting.OrderedProcess(graph, reflectionName);
                         }
-                        //var dProcess = new TopologicalSorting.OrderedProcess(graph, dependency.Type.FullName);
 
-                        if (dProcess.Predecessors.All(p => p.Name != tProcess.Name))
+                        if (tProcess != dProcess && dProcess.Predecessors.All(p => p.Name != tProcess.Name))
                         {
                             hitCounters[4]++;
                             tProcess.After(dProcess);
@@ -243,67 +277,10 @@ namespace Bridge.Translator
 
             this.Log.Trace("\tTopological sorting first iteration done");
 
-            /*this.Log.Trace("\tTopological sorting second iteration...");
-
-            System.Array.Clear(hitCounters, 0, hitCounters.Length);
-
-            foreach (var t in this.Types)
-            {
-                hitCounters[0]++;
-
-                var finder = new DependencyFinderVisitor(this, t);
-                t.TypeDeclaration.AcceptVisitor(finder);
-
-                var tProcess = graph.Processes.FirstOrDefault(p => p.Name == t.Type.ReflectionName);
-                if (tProcess == null)
-                {
-                    hitCounters[1]++;
-                    tProcess = new TopologicalSorting.OrderedProcess(graph, t.Type.ReflectionName);
-                }
-
-                if (finder.Dependencies.Count > 0)
-                {
-                    hitCounters[2]++;
-
-                    foreach (var dependency in finder.Dependencies)
-                    {
-                        hitCounters[3]++;
-
-                        if (tProcess.Predecessors.All(p => p.Name != dependency.Type.ReflectionName))
-                        {
-                            hitCounters[4]++;
-
-                            var dProcess = graph.Processes.FirstOrDefault(p => p.Name == dependency.Type.ReflectionName);
-                            if (dProcess == null)
-                            {
-                                hitCounters[5]++;
-                                dProcess = new TopologicalSorting.OrderedProcess(graph, dependency.Type.ReflectionName);
-                            }
-                            //var dProcess = new TopologicalSorting.OrderedProcess(graph, dependency.Type.FullName);
-
-                            if (dProcess.Predecessors.All(p => p.Name != tProcess.Name))
-                            {
-                                hitCounters[6]++;
-                                tProcess.After(dProcess);
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (int i = 0; i < hitCounters.Length; i++)
-            {
-                this.Log.Trace("\t\tHitCounter" + i + " = " + hitCounters[i]);
-            }
-
-            this.Log.Trace("\t\tgraph.ProcessCount = " + graph.ProcessCount);
-
-            this.Log.Trace("\tTopological sorting second iteration done");*/
-
             if (graph.ProcessCount > 0)
             {
                 ITypeInfo tInfo = null;
-
+                OrderedProcess handlingProcess = null;
                 try
                 {
                     this.Log.Trace("\tTopological sorting third iteration...");
@@ -311,27 +288,46 @@ namespace Bridge.Translator
                     System.Array.Clear(hitCounters, 0, hitCounters.Length);
 
                     this.Log.Trace("\t\tCalculate sorting...");
-                    IEnumerable<IEnumerable<OrderedProcess>> sorted = graph.CalculateSort();
+                    TopologicalSort sorted = graph.CalculateSort();
                     this.Log.Trace("\t\tCalculate sorting done");
 
+                    this.Log.Trace("\t\tGetting Reflection names for " + this.Types.Count + " types...");
+
                     var list = new List<ITypeInfo>(this.Types.Count);
-                    foreach (var processes in sorted)
+                    // The fix required for Mono 5.0.0.94
+                    // It does not "understand" TopologicalSort's Enumerator in foreach
+                    // foreach (var processes in sorted)
+                    // The code is modified to get it "directly" and "typed"
+                    var sortedISetEnumerable = sorted as IEnumerable<ISet<OrderedProcess>>;
+                    this.Log.Trace("\t\tGot Enumerable<ISet<OrderedProcess>>");
+
+                    var sortedISetEnumerator = sortedISetEnumerable.GetEnumerator();
+                    this.Log.Trace("\t\tGot Enumerator<ISet<OrderedProcess>>");
+
+                    while (sortedISetEnumerator.MoveNext())
                     {
+                        var processes = sortedISetEnumerator.Current;
+
                         hitCounters[0]++;
 
                         foreach (var process in processes)
                         {
+                            handlingProcess = process;
                             hitCounters[1]++;
 
-                            tInfo = this.Types.First(ti => ti.Type.ReflectionName == process.Name);
+                            tInfo = this.Types.First(ti => GetReflectionName(ti.Type) == process.Name);
 
-                            if (list.All(t => t.Type.ReflectionName != tInfo.Type.ReflectionName))
+                            var reflectionName = GetReflectionName(tInfo.Type);
+
+                            if (list.All(t => GetReflectionName(t.Type) != reflectionName))
                             {
                                 hitCounters[2]++;
                                 list.Add(tInfo);
                             }
                         }
                     }
+
+                    this.Log.Trace("\t\tGetting Reflection names done");
 
                     this.Types.Clear();
                     this.Types.AddRange(list);
@@ -345,10 +341,11 @@ namespace Bridge.Translator
                 }
                 catch (System.Exception ex)
                 {
-                    this.LogWarning(string.Format("Topological sort failed {0} with error {1}", tInfo != null ? "at type " + tInfo.Type.ReflectionName : string.Empty, ex));
+                    this.LogWarning($"Topological sort failed {(tInfo != null || handlingProcess != null ? "at type " + (tInfo != null ? tInfo.Type.ReflectionName : handlingProcess.Name) : string.Empty)} with error {ex}");
                 }
             }
-
+            cacheParents = null;
+            activeTypes = null;
             this.Log.Trace("Topological sorting done");
         }
 
@@ -420,7 +417,7 @@ namespace Bridge.Translator
                 list.Add(name);
             }
 
-            if (list.Count > 0 && list[0] == JS.Types.Object.NAME)
+            if (list.Count > 0 && list[0] == JS.Types.System.Object.NAME)
             {
                 list.RemoveAt(0);
             }
@@ -448,7 +445,7 @@ namespace Bridge.Translator
             return sb.ToString();
         }
 
-        private Dictionary<TypeDefinition, int> priorityMap = new Dictionary<TypeDefinition, int>(); 
+        private Dictionary<TypeDefinition, int> priorityMap = new Dictionary<TypeDefinition, int>();
         public virtual int GetPriority(TypeDefinition type)
         {
             if (this.priorityMap.ContainsKey(type))

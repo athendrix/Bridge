@@ -1,4 +1,4 @@
-﻿    Bridge.define('System.Collections.Generic.EqualityComparer$1', function (T) {
+    Bridge.define("System.Collections.Generic.EqualityComparer$1", function (T) {
         return {
             inherits: [System.Collections.Generic.IEqualityComparer$1(T)],
 
@@ -12,8 +12,8 @@
 
             config: {
                 alias: [
-                    "equals2", "System$Collections$Generic$IEqualityComparer$1$" + Bridge.getTypeAlias(T) + "$equals2",
-                    "getHashCode2", "System$Collections$Generic$IEqualityComparer$1$" + Bridge.getTypeAlias(T) + "$getHashCode2"
+                    "equals2", ["System$Collections$Generic$IEqualityComparer$1$" + Bridge.getTypeAlias(T) + "$equals2", "System$Collections$Generic$IEqualityComparer$1$equals2"],
+                    "getHashCode2", ["System$Collections$Generic$IEqualityComparer$1$" + Bridge.getTypeAlias(T) + "$getHashCode2", "System$Collections$Generic$IEqualityComparer$1$getHashCode2"]
                 ]
             },
 
@@ -23,13 +23,13 @@
                 } else if (Bridge.isDefined(y, true)) {
                     var isBridge = x && x.$$name;
 
-                    if (!isBridge) {
+                    if (Bridge.isFunction(x) && Bridge.isFunction(y)) {
+                        return Bridge.fn.equals.call(x, y);
+                    } else if (!isBridge || x && x.$boxed || y && y.$boxed) {
                         return Bridge.equals(x, y);
-                    }
-                    else if (Bridge.isFunction(x.equalsT)) {
+                    } else if (Bridge.isFunction(x.equalsT)) {
                         return Bridge.equalsT(x, y);
-                    }
-                    else if (Bridge.isFunction(x.equals)) {
+                    } else if (Bridge.isFunction(x.equals)) {
                         return Bridge.equals(x, y);
                     }
 
@@ -45,4 +45,4 @@
         };
     });
 
-    System.Collections.Generic.EqualityComparer$1.$default = new (System.Collections.Generic.EqualityComparer$1(Object))();
+    System.Collections.Generic.EqualityComparer$1.$default = new (System.Collections.Generic.EqualityComparer$1(System.Object))();

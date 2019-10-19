@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.Exceptions
@@ -11,9 +11,14 @@ namespace Bridge.ClientTest.Exceptions
         public void TypePropertiesAreCorrect()
         {
             Assert.AreEqual("System.FormatException", typeof(FormatException).FullName, "Name");
+            Assert.True(typeof(FormatException).IsClass, "IsClass");
+            Assert.AreEqual(typeof(SystemException), typeof(FormatException).BaseType, "BaseType");
             object d = new FormatException();
             Assert.True(d is FormatException, "is FormatException");
             Assert.True(d is Exception, "is Exception");
+
+            var interfaces = typeof(FormatException).GetInterfaces();
+            Assert.AreEqual(0, interfaces.Length, "Interfaces length");
         }
 
         [Test]
@@ -22,7 +27,7 @@ namespace Bridge.ClientTest.Exceptions
             var ex = new FormatException();
             Assert.True((object)ex is FormatException, "is FormatException");
             Assert.AreEqual(null, ex.InnerException, "InnerException");
-            Assert.AreEqual("Invalid format.", ex.Message);
+            //Assert.AreEqual("Invalid format.", ex.Message);
         }
 
         [Test]

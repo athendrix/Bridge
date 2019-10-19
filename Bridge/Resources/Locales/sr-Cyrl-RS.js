@@ -1,13 +1,13 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("sr-Cyrl-RS", true), {
+Bridge.merge(new System.Globalization.CultureInfo("sr-Cyrl-RS", true), {
     englishName: "Serbian (Cyrillic, Serbia)",
     nativeName: "српски (Србија)",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "NaN",
+        nanSymbol: "NaN",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "-бесконачност",
-        positiveInfinitySymbol: "+бесконачност",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
         percentGroupSizes: [3],
         percentDecimalDigits: 2,
@@ -45,7 +45,7 @@
         monthNames: ["јануар","фебруар","март","април","мај","јун","јул","август","септембар","октобар","новембар","децембар",""],
         pmDesignator: "",
         rfc1123: "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'",
-        shortDatePattern: "d.M.yyyy.",
+        shortDatePattern: "dd.MM.yyyy.",
         shortestDayNames: ["не","по","ут","ср","че","пе","су"],
         shortTimePattern: "H:mm",
         sortableDateTimePattern: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "MMMM yyyy.",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 1251,
+        CultureName: "sr-Cyrl-RS",
+        EBCDICCodePage: 21025,
+        IsRightToLeft: false,
+        LCID: 10266,
+        listSeparator: ";",
+        MacCodePage: 10007,
+        OEMCodePage: 855,
+        IsReadOnly: true
     })
 });

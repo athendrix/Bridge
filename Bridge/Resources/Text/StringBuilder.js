@@ -9,8 +9,11 @@
             } else if (arguments.length === 2) {
                 this.append(arguments[0]);
                 this.setCapacity(arguments[1]);
-            } else if (arguments.length === 3) {
+            } else if (arguments.length >= 3) {
                 this.append(arguments[0], arguments[1], arguments[2]);
+                if (arguments.length === 4) {
+                    this.setCapacity(arguments[3]);
+                }
             }
         },
 
@@ -19,12 +22,31 @@
                 return this.buffer[0] ? this.buffer[0].length : 0;
             }
 
-            var s = this.buffer.join("");
-
-            this.buffer = [];
-            this.buffer[0] = s;
+            var s = this.getString();
 
             return s.length;
+        },
+
+        setLength: function (value) {
+            if (value === 0) {
+                this.clear();
+            } else if (value < 0) {
+                throw new System.ArgumentOutOfRangeException.$ctor4("value", "Length cannot be less than zero");
+            } else {
+                var l = this.getLength();
+
+                if (value === l) {
+                    return;
+                }
+
+                var delta = value - l;
+
+                if (delta > 0) {
+                    this.append("\0", delta);
+                } else {
+                    this.remove(l + delta, -delta);
+                }
+            }
         },
 
         getCapacity: function () {
@@ -42,10 +64,7 @@
         },
 
         toString: function () {
-            var s = this.buffer.join("");
-
-            this.buffer = [];
-            this.buffer[0] = s;
+            var s = this.getString();
 
             if (arguments.length === 2) {
                 var startIndex = arguments[0],
@@ -71,7 +90,7 @@
                 if (count === 0) {
                     return this;
                 } else if (count < 0) {
-                    throw new System.ArgumentOutOfRangeException("count", "cannot be less than zero");
+                    throw new System.ArgumentOutOfRangeException.$ctor4("count", "cannot be less than zero");
                 }
 
                 value = Array(count + 1).join(value).toString();
@@ -89,6 +108,7 @@
             }
 
             this.buffer[this.buffer.length] = value;
+            this.clearString();
 
             return this;
         },
@@ -99,6 +119,7 @@
 
         clear: function () {
             this.buffer = [];
+            this.clearString();
 
             return this;
         },
@@ -124,7 +145,7 @@
         },
 
         remove: function (startIndex, length) {
-            var s = this.buffer.join("");
+            var s = this.getString();
 
             this.checkLimits(s, startIndex, length);
 
@@ -137,6 +158,7 @@
                 this.buffer = [];
                 this.buffer[0] = s.substring(0, startIndex);
                 this.buffer[1] = s.substring(startIndex + length, s.length);
+                this.clearString();
             }
 
             return this;
@@ -154,13 +176,14 @@
                 if (count === 0) {
                     return this;
                 } else if (count < 0) {
-                    throw new System.ArgumentOutOfRangeException("count", "cannot be less than zero");
+                    throw new System.ArgumentOutOfRangeException.$ctor4("count", "cannot be less than zero");
                 }
 
                 value = Array(count + 1).join(value).toString();
             }
 
-            var s = this.buffer.join("");
+            var s = this.getString();
+
             this.buffer = [];
 
             if (index < 1) {
@@ -174,6 +197,8 @@
                 this.buffer[1] = value;
                 this.buffer[2] = s.substring(index, s.length);
             }
+
+            this.clearString();
 
             return this;
         },
@@ -198,20 +223,60 @@
                 this.buffer[0] = s.replace(r, newValue);
             }
 
+            this.clearString();
             return this;
         },
 
         checkLimits: function (value, startIndex, length) {
             if (length < 0) {
-                throw new System.ArgumentOutOfRangeException("length", "must be non-negative");
+                throw new System.ArgumentOutOfRangeException.$ctor4("length", "must be non-negative");
             }
 
             if (startIndex < 0) {
-                throw new System.ArgumentOutOfRangeException("startIndex", "startIndex cannot be less than zero");
+                throw new System.ArgumentOutOfRangeException.$ctor4("startIndex", "startIndex cannot be less than zero");
             }
 
             if (length > value.length - startIndex) {
-                throw new System.ArgumentOutOfRangeException("Index and length must refer to a location within the string");
+                throw new System.ArgumentOutOfRangeException.$ctor4("Index and length must refer to a location within the string");
             }
+        },
+
+        clearString: function () {
+            this.$str = null;
+        },
+
+        getString: function () {
+            if (!this.$str) {
+                this.$str = this.buffer.join("");
+                this.buffer = [];
+                this.buffer[0] = this.$str;
+            }
+
+            return this.$str;
+        },
+
+        getChar: function (index) {
+            var str = this.getString();
+
+            if (index < 0 || index >= str.length) {
+                throw new System.IndexOutOfRangeException();
+            }
+
+            return str.charCodeAt(index);
+        },
+
+        setChar: function (index, value) {
+            var str = this.getString();
+
+            if (index < 0 || index >= str.length) {
+                throw new System.ArgumentOutOfRangeException();
+            }
+
+            value = String.fromCharCode(value);
+            this.buffer = [];
+            this.buffer[0] = str.substring(0, index);
+            this.buffer[1] = value;
+            this.buffer[2] = str.substring(index + 1, str.length);
+            this.clearString();
         }
     });

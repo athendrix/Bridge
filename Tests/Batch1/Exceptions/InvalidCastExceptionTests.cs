@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.Exceptions
@@ -11,9 +11,14 @@ namespace Bridge.ClientTest.Exceptions
         public void TypePropertiesAreCorrect()
         {
             Assert.AreEqual("System.InvalidCastException", typeof(InvalidCastException).FullName, "Name");
+            Assert.True(typeof(InvalidCastException).IsClass, "IsClass");
+            Assert.AreEqual(typeof(SystemException), typeof(InvalidCastException).BaseType, "BaseType");
             object d = new InvalidCastException();
             Assert.True(d is InvalidCastException, "is InvalidCastException");
             Assert.True(d is Exception, "is Exception");
+
+            var interfaces = typeof(InvalidCastException).GetInterfaces();
+            Assert.AreEqual(0, interfaces.Length, "Interfaces length");
         }
 
         [Test]
@@ -22,7 +27,7 @@ namespace Bridge.ClientTest.Exceptions
             var ex = new InvalidCastException();
             Assert.True((object)ex is InvalidCastException, "is InvalidCastException");
             Assert.AreEqual(null, ex.InnerException, "InnerException");
-            Assert.AreEqual("The cast is not valid.", ex.Message);
+            Assert.AreEqual("Specified cast is not valid.", ex.Message);
         }
 
         [Test]

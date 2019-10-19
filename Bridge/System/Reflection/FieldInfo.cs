@@ -1,44 +1,46 @@
-using Bridge;
 using System.ComponentModel;
 
 namespace System.Reflection
 {
-    [External]
-    public class FieldInfo : MemberInfo
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Unbox(true)]
+    public abstract partial class FieldInfo : MemberInfo
     {
-        [Name("returnType")]
-        [FieldProperty]
+        [Bridge.Name("rt")]
         public extern Type FieldType
         {
             get;
             private set;
         }
 
-        [FieldProperty]
-        [Name("isReadOnly")]
-        public extern bool IsInitOnly { get; }
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
+        public extern bool IsInitOnly
+        {
+            [Bridge.Template("({this}.ro || false)")]
+            get;
+        }
 
-        [Template("Bridge.Reflection.fieldAccess({this}, {obj})")]
+        [Bridge.Template("Bridge.Reflection.fieldAccess({this}, {obj})")]
         public extern object GetValue(object obj);
 
-        [Template("Bridge.Reflection.fieldAccess({this}, {obj}, {value})")]
+        [Bridge.Template("Bridge.Reflection.fieldAccess({this}, {obj}, {value})")]
         public extern void SetValue(object obj, object value);
 
         /// <summary>
         /// Script name of the field
         /// </summary>
-        [Name("sname")]
-        [FieldProperty]
+        [Bridge.Name("sn")]
         public extern string ScriptName
         {
             get;
             private set;
         }
 
-        [NonScriptable, EditorBrowsable(EditorBrowsableState.Never)]
+        [Bridge.NonScriptable, EditorBrowsable(EditorBrowsableState.Never)]
         public static extern FieldInfo GetFieldFromHandle(RuntimeFieldHandle h);
 
-        [NonScriptable, EditorBrowsable(EditorBrowsableState.Never)]
+        [Bridge.NonScriptable, EditorBrowsable(EditorBrowsableState.Never)]
         public static extern FieldInfo GetFieldFromHandle(RuntimeFieldHandle h, RuntimeTypeHandle x);
 
         internal extern FieldInfo();

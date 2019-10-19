@@ -23,12 +23,13 @@ namespace Bridge.Contract
             get;
         }
 
-        string AssemblyName
+        string BridgeLocation
         {
             get;
+            set;
         }
 
-        string BridgeLocation
+        ProjectProperties ProjectProperties
         {
             get;
             set;
@@ -39,8 +40,6 @@ namespace Bridge.Contract
             get;
             set;
         }
-
-        string GetCode();
 
         string Location
         {
@@ -59,7 +58,7 @@ namespace Bridge.Contract
             set;
         }
 
-        System.Collections.Generic.Dictionary<string, string> Outputs
+        TranslatorOutput Outputs
         {
             get;
         }
@@ -70,14 +69,14 @@ namespace Bridge.Contract
             set;
         }
 
-        Dictionary<string, string> SaveTo(string path, string defaultFileName);
+        void Save(string path, string defaultFileName);
 
         System.Collections.Generic.IList<string> SourceFiles
         {
             get;
         }
 
-        System.Collections.Generic.Dictionary<string, string> Translate();
+        void Translate();
 
         System.Collections.Generic.Dictionary<string, ITypeInfo> TypeInfoDefinitions
         {
@@ -133,12 +132,6 @@ namespace Bridge.Contract
             set;
         }
 
-        string Configuration
-        {
-            get;
-            set;
-        }
-
         List<string> DefineConstants
         {
             get;
@@ -150,8 +143,6 @@ namespace Bridge.Contract
             get;
             set;
         }
-
-        void Flush(string outputPath, string fileName);
 
         /// <summary>
         /// Indicates whether strict mode will be added to generated script files

@@ -1,8 +1,9 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using System.Collections.Generic;
+using ICSharpCode.NRefactory.Semantics;
+using ICSharpCode.NRefactory.TypeSystem;
 
 namespace Bridge.Translator.TypeScript
 {
@@ -30,16 +31,26 @@ namespace Bridge.Translator.TypeScript
         {
             XmlToJsDoc.EmitComment(this, this.MethodDeclaration);
             var overloads = OverloadsCollection.Create(this.Emitter, methodDeclaration);
+            var memberResult = this.Emitter.Resolver.ResolveNode(methodDeclaration, this.Emitter) as MemberResolveResult;
+            var isInterface = memberResult.Member.DeclaringType.Kind == TypeKind.Interface;
+            var ignoreInterface = isInterface &&
+                                      memberResult.Member.DeclaringType.TypeParameterCount > 0;
+            this.WriteSignature(methodDeclaration, overloads, ignoreInterface, isInterface);
+            if (!ignoreInterface && isInterface)
+            {
+                this.WriteSignature(methodDeclaration, overloads, true, isInterface);
+            }
+        }
 
-            if (overloads.HasOverloads)
+        private void WriteSignature(MethodDeclaration methodDeclaration, OverloadsCollection overloads, bool ignoreInterface, bool isInterface)
+        {
+            if (!isInterface && !methodDeclaration.HasModifier(Modifiers.Public))
             {
-                string name = overloads.GetOverloadName();
-                this.Write(name);
+                return;
             }
-            else
-            {
-                this.Write(this.Emitter.GetEntityName(methodDeclaration));
-            }
+
+            string name = overloads.GetOverloadName(ignoreInterface);
+            this.Write(name);
 
             bool needComma = false;
             var isGeneric = methodDeclaration.TypeParameters.Count > 0;
@@ -97,6 +108,12 @@ namespace Bridge.Translator.TypeScript
             var retType = BridgeTypes.ToTypeScriptName(methodDeclaration.ReturnType, this.Emitter);
             this.Write(retType);
 
+            var resolveResult = this.Emitter.Resolver.ResolveNode(methodDeclaration.ReturnType, this.Emitter);
+            if (resolveResult != null && (resolveResult.Type.IsReferenceType.HasValue && resolveResult.Type.IsReferenceType.Value || resolveResult.Type.IsKnownType(KnownTypeCode.NullableOfT)))
+            {
+                this.Write(" | null");
+            }
+
             this.WriteSemiColon();
             this.WriteNewLine();
         }
@@ -107,7 +124,7 @@ namespace Bridge.Translator.TypeScript
 
             foreach (var p in declarations)
             {
-                var name = this.Emitter.GetEntityName(p);
+                var name = this.Emitter.GetParameterName(p);
                 bool optional = p.DefaultExpression != null && !p.DefaultExpression.IsNull;
 
                 if (needComma)
@@ -125,6 +142,13 @@ namespace Bridge.Translator.TypeScript
 
                 this.WriteColon();
                 name = BridgeTypes.ToTypeScriptName(p.Type, this.Emitter);
+
+                var resolveResult = this.Emitter.Resolver.ResolveNode(p.Type, this.Emitter);
+                if (resolveResult != null && (resolveResult.Type.IsReferenceType.HasValue && resolveResult.Type.IsReferenceType.Value || resolveResult.Type.IsKnownType(KnownTypeCode.NullableOfT)))
+                {
+                    name += " | null";
+                }
+
                 if (p.ParameterModifier == ParameterModifier.Out || p.ParameterModifier == ParameterModifier.Ref)
                 {
                     name = "{v: " + name + "}";

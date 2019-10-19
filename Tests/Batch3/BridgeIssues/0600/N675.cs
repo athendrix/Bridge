@@ -1,5 +1,5 @@
 using Bridge.Html5;
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
 {
@@ -16,7 +16,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             me.i1 = 1;
             me.i2 = 2;
 
-            Assert.AreEqual("str1", me.dynMethod(me.id), "Bridge675 DynMethod");
+            Assert.AreEqual("str1", me.DynMethod(me.id), "Bridge675 DynMethod");
             Assert.AreEqual("str1", Method1(me.id), "Bridge675 Method1 id");
             Assert.AreEqual(3, Method1(me.i1, me.i2), "Bridge675 Method1 i1 i2");
         }

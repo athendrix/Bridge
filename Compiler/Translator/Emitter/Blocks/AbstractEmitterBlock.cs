@@ -1,6 +1,6 @@
+using System.Text;
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.CSharp.Resolver;
 using ICSharpCode.NRefactory.Semantics;
@@ -41,13 +41,47 @@ namespace Bridge.Translator
             this.EndEmit();
         }
 
+        private int startPos;
+        private int checkPos;
+        private StringBuilder checkedOutput;
+
         protected virtual void BeginEmit()
         {
+            if (this.NeedSequencePoint())
+            {
+                this.startPos = this.Emitter.Output.Length;
+                this.WriteSequencePoint(this.Emitter.Translator.EmitNode.Region);
+                this.checkPos = this.Emitter.Output.Length;
+                this.checkedOutput = this.Emitter.Output;
+            }
         }
 
         protected virtual void EndEmit()
         {
+            if (this.NeedSequencePoint() && this.checkPos == this.Emitter.Output.Length && this.checkedOutput == this.Emitter.Output)
+            {
+                this.Emitter.Output.Length = this.startPos;
+            }
             this.Emitter.Translator.EmitNode = this.previousNode;
+        }
+
+        protected bool NeedSequencePoint()
+        {
+            if (this.Emitter.Translator.EmitNode != null && !this.Emitter.Translator.EmitNode.Region.IsEmpty)
+            {
+                if (this.Emitter.Translator.EmitNode is EntityDeclaration ||
+                    this.Emitter.Translator.EmitNode is BlockStatement ||
+                    this.Emitter.Translator.EmitNode is ArrayInitializerExpression ||
+                    this.Emitter.Translator.EmitNode is PrimitiveExpression ||
+                    this.Emitter.Translator.EmitNode is Comment)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         public virtual void EmitBlockOrIndentedLine(AstNode node)
@@ -97,9 +131,9 @@ namespace Bridge.Translator
             return true;
         }
 
-        protected Expression[] GetAwaiters(AstNode node)
+        protected AstNode[] GetAwaiters(AstNode node)
         {
-            var awaitSearch = new AwaitSearchVisitor();
+            var awaitSearch = new AwaitSearchVisitor(this.Emitter);
             node.AcceptVisitor(awaitSearch);
 
             return awaitSearch.GetAwaitExpressions().ToArray();
@@ -119,6 +153,27 @@ namespace Bridge.Translator
 
         protected IAsyncStep WriteAwaiter(AstNode node)
         {
+            var index = System.Array.IndexOf(this.Emitter.AsyncBlock.AwaitExpressions, node) + 1;
+
+            if (node is ConditionalExpression)
+            {
+                new ConditionalBlock(this.Emitter, (ConditionalExpression)node).WriteAsyncConditionalExpression(index);
+                return null;
+            }
+
+            if (node is BinaryOperatorExpression)
+            {
+                var binaryOperatorExpression = (BinaryOperatorExpression)node;
+                if (binaryOperatorExpression.Operator == BinaryOperatorType.BitwiseAnd ||
+                    binaryOperatorExpression.Operator == BinaryOperatorType.BitwiseOr ||
+                    binaryOperatorExpression.Operator == BinaryOperatorType.ConditionalOr ||
+                    binaryOperatorExpression.Operator == BinaryOperatorType.ConditionalAnd)
+                {
+                    new BinaryOperatorBlock(this.Emitter, binaryOperatorExpression).WriteAsyncBinaryExpression(index);
+                    return null;
+                }
+            }
+
             if (this.Emitter.AsyncBlock.WrittenAwaitExpressions.Contains(node))
             {
                 return null;
@@ -126,7 +181,6 @@ namespace Bridge.Translator
 
             this.Emitter.AsyncBlock.WrittenAwaitExpressions.Add(node);
 
-            var index = System.Array.IndexOf(this.Emitter.AsyncBlock.AwaitExpressions, node) + 1;
             this.Write(JS.Vars.ASYNC_TASK + index + " = ");
             bool customAwaiter = false;
             var oldValue = this.Emitter.ReplaceAwaiterByVar;
@@ -161,16 +215,29 @@ namespace Bridge.Translator
             this.Write(JS.Vars.ASYNC_STEP + " = " + this.Emitter.AsyncBlock.Step + ";");
             this.WriteNewLine();
 
-            if (this.Emitter.AsyncBlock.IsTaskReturn)
-            {
-                this.Write(JS.Vars.ASYNC_TASK + index + "." + JS.Funcs.CONTINUE_WITH + "(" + JS.Funcs.ASYNC_BODY + ");");
-            }
-            else
-            {
-                this.Write(JS.Vars.ASYNC_TASK + index + "." + JS.Funcs.CONTINUE_WITH + "(" + JS.Funcs.ASYNC_BODY + ", true);");
-            }
+            this.WriteIf();
+            this.WriteOpenParentheses();
+
+            this.Write(JS.Vars.ASYNC_TASK + index + ".isCompleted()");
+
+            this.WriteCloseParentheses();
+
+            this.WriteSpace();
+
+            this.WriteBlock("continue;");
+
+            this.Write(JS.Vars.ASYNC_TASK + index + "." + JS.Funcs.CONTINUE_WITH + "(" + JS.Funcs.ASYNC_BODY + ");");
 
             this.WriteNewLine();
+
+            if (this.Emitter.WrapRestCounter > 0)
+            {
+                this.EndBlock();
+                this.Write("));");
+                this.WriteNewLine();
+                this.Emitter.WrapRestCounter--;
+            }
+
             this.Write("return;");
 
             var asyncStep = this.Emitter.AsyncBlock.AddAsyncStep(index);
@@ -259,6 +326,65 @@ namespace Bridge.Translator
             });
 
             return insideTryFinally ? ((TryCatchStatement)target).FinallyBlock : null;
+        }
+
+        public CatchClause GetParentCatchBlock(AstNode node, bool stopOnLoops)
+        {
+            var insideCatch = false;
+            var target = node.GetParent(n =>
+            {
+                if (n is LambdaExpression || n is AnonymousMethodExpression || n is MethodDeclaration)
+                {
+                    return true;
+                }
+
+                if (stopOnLoops && (n is WhileStatement || n is ForeachStatement || n is ForStatement || n is DoWhileStatement))
+                {
+                    return true;
+                }
+
+                if (n is CatchClause)
+                {
+                    insideCatch = true;
+                    return true;
+                }
+
+                return false;
+            });
+
+            return insideCatch ? (CatchClause)target : null;
+        }
+
+        public void WriteIdentifier(string name, bool script = true, bool colon = false)
+        {
+            var isValid = Helpers.IsValidIdentifier(name);
+
+            if (isValid)
+            {
+                this.Write(name);
+            }
+            else
+            {
+                if (colon)
+                {
+                    this.WriteScript(name);
+                }
+                else if (this.Emitter.Output[this.Emitter.Output.Length - 1] == '.')
+                {
+                    --this.Emitter.Output.Length;
+                    this.Write("[");
+                    if (script)
+                    {
+                        this.WriteScript(name);
+                    }
+                    else
+                    {
+                        this.Write(name);
+                    }
+
+                    this.Write("]");
+                }
+            }
         }
     }
 }

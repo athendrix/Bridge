@@ -1,4 +1,5 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
+using Bridge.ClientTestHelper;
 
 using System;
 using System.Text;
@@ -94,10 +95,10 @@ namespace Bridge.ClientTest
                 { HasDotNetDiff, "0.0000000000000002", 443534569034876.12345678901235m, 47.000000000001m, 9436905724146.099713852443963m },
                 { NoDotNetDiff, null, 443534569034876.12345678901235m, 9436905724146.297872340425532m, 47.000000000000013082337857467m },
                 { NoDotNetDiff, null, 4435345690348766678656790453m, 17m, 260902687667574510509222967.82m },
-                { HasDotNetDiff, "0.0000000000000000000000000000142752779107986686908967873", 17.2345324m, 4435345690348766678656790453m, 0.0000000000000000000000000039m },
+                { HasDotNetDiff, "0.0000000000000000000000000000142752779107982686908967873", 17.2345324m, 4435345690348766678656790453m, 0.0000000000000000000000000039m },
                 { NoDotNetDiff, null, -943456769034871.4234m, 47.00000000003455m, -20073548277322.933666106776439m },
                 { NoDotNetDiff, null, 6999545690348766678656790453m, -13m, -538426591565289744512060804.08m },
-                { HasDotNetDiff, "0.0000000000000000000000000000093098847039324132480985641", 11m, -6435345690348766678656790453m, -0.0000000000000000000000000017m },
+                { HasDotNetDiff, "0.0000000000000000000000000000093098847039326132480985641", 11m, -6435345690348766678656790453m, -0.0000000000000000000000000017m },
                 { NoDotNetDiff, null, DecimalMathTests.MaxValue, DecimalMathTests.MinValue, decimal.MinusOne },
                 { HasDotNetDiff, "-0.000000000000000000000000000012621774483536188886587657045", decimal.MinusOne, DecimalMathTests.MinValue, 0m },
                 { NoDotNetDiff, null, DecimalMathTests.MaxValue, decimal.MinusOne, DecimalMathTests.MinValue },
@@ -116,7 +117,7 @@ namespace Bridge.ClientTest
                 { HasDotNetDiff, 0.000000000000004m, 443534569034876.12345678901235m, 9436905724146.297872340425532m, 0.12345678901235m },
                 { NoDotNetDiff, null, 4435345690348766678656790453m, 17m, 14m },
                 { NoDotNetDiff, null, 17.2345324m, 4435345690348766678656790453m, 17.2345324m },
-                { HasDotNetDiff, 0.0000000000001m, -943456769034871.4234m, 47.00000000003455m, -43.8823070185248m },
+                { HasDotNetDiff, 0.0000000000001m, -943456769034871.4234m, 47.00000000003455m, -43.88230701852480m },
                 { NoDotNetDiff, null, 6999545690348766678656790453m, -13m, decimal.One },
                 { NoDotNetDiff, null, 11m, -6435345690348766678656790453m, 11m },
                 { NoDotNetDiff, null, DecimalMathTests.MaxValue, DecimalMathTests.MaxValue, 0m },
@@ -310,18 +311,12 @@ namespace Bridge.ClientTest
         {
             if (JSMode)
             {
-                AssertIsDecimalAndEqualTo(result, (decimal)expected - (dotNetDiff.HasValue ? dotNetDiff.Value : 0m), message);
+                NumberHelper.AssertDecimal((decimal)expected - (dotNetDiff.HasValue ? dotNetDiff.Value : 0m), result, message);
             }
             else
             {
-                AssertIsDecimalAndEqualTo(result, expected, message);
+                NumberHelper.AssertDecimal(expected, result, message);
             }
-        }
-
-        private static void AssertIsDecimalAndEqualTo(object actual, object expected, string message)
-        {
-            Assert.True(actual is decimal, "isDecimal " + message);
-            Assert.AreStrictEqual(expected.ToString(), actual.ToString(), "StrictEqual " + message);
         }
 
         private static string GetDifferenceReport(decimal difference)

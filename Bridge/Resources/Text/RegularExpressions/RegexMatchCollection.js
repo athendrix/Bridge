@@ -1,12 +1,21 @@
-﻿    Bridge.define("System.Text.RegularExpressions.MatchCollection", {
+    Bridge.define("System.Text.RegularExpressions.MatchCollection", {
         inherits: function () {
             return [System.Collections.ICollection];
         },
 
         config: {
+            properties: {
+                Count: {
+                    get: function () {
+                        return this.getCount();
+                    }
+                }
+            },
             alias: [
-            "getEnumerator", "System$Collections$IEnumerable$getEnumerator",
-            "getCount", "System$Collections$ICollection$getCount"
+            "GetEnumerator", "System$Collections$IEnumerable$GetEnumerator",
+            "getCount", "System$Collections$ICollection$getCount",
+            "Count", "System$Collections$ICollection$Count",
+            "copyTo", "System$Collections$ICollection$copyTo"
             ]
         },
 
@@ -22,7 +31,7 @@
         ctor: function (regex, input, beginning, length, startat) {
             this.$initialize();
             if (startat < 0 || startat > input.Length) {
-                throw new System.ArgumentOutOfRangeException("startat");
+                throw new System.ArgumentOutOfRangeException.$ctor1("startat");
             }
 
             this._regex = regex;
@@ -58,7 +67,7 @@
             var match = this._getMatch(i);
 
             if (match == null) {
-                throw new System.ArgumentOutOfRangeException("i");
+                throw new System.ArgumentOutOfRangeException.$ctor1("i");
             }
 
             return match;
@@ -66,7 +75,7 @@
 
         copyTo: function (array, arrayIndex) {
             if (array == null) {
-                throw new System.ArgumentNullException("array");
+                throw new System.ArgumentNullException.$ctor1("array");
             }
 
             var count = this.getCount();
@@ -85,7 +94,7 @@
             }
         },
 
-        getEnumerator: function () {
+        GetEnumerator: function () {
             return new System.Text.RegularExpressions.MatchEnumerator(this);
         },
 
@@ -127,10 +136,19 @@
         },
 
         config: {
+            properties: {
+                Current: {
+                    get: function () {
+                        return this.getCurrent();
+                    }
+                }
+            },
+
             alias: [
                 "getCurrent", "System$Collections$IEnumerator$getCurrent",
                 "moveNext", "System$Collections$IEnumerator$moveNext",
-                "reset", "System$Collections$IEnumerator$reset"
+                "reset", "System$Collections$IEnumerator$reset",
+                "Current", "System$Collections$IEnumerator$Current"
             ]
         },
 
@@ -163,7 +181,7 @@
 
         getCurrent: function () {
             if (this._match == null) {
-                throw new System.InvalidOperationException("Enumeration has either not started or has already finished.");
+                throw new System.InvalidOperationException.$ctor1("Enumeration has either not started or has already finished.");
             }
 
             return this._match;

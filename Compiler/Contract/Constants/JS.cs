@@ -24,26 +24,29 @@
             public const string STRUCT = "$struct";
             public const string CONFIG = "config";
             public const string EVENTS = "events";
-            public const string PROPERTIES = "properties";
+            public const string PROPERTIES = "props";
+            public const string FIELDS = "fields";
+            public const string METHODS = "methods";
             public const string STATICS = "statics";
+            public const string CTORS = "ctors";
+            public const string BOX = "box";
 
             public const string ASYNC_TASK = "task";
             public const string PROTOTYPE = "prototype";
+            public const string CURRENT = "current";
         }
 
         public class Funcs
         {
             public const string BRIDGE_AUTO_STARTUP_METHOD_TEMPLATE = "Bridge.ready(this.{0});";
             public const string BRIDGE_BIND = "Bridge.fn.bind";
+            public const string BRIDGE_CACHE_BIND = "Bridge.fn.cacheBind";
             public const string BRIDGE_BIND_SCOPE = "Bridge.fn.bindScope";
             public const string BRIDGE_CAST = "Bridge.cast";
             public const string BRIDGE_CREATEINSTANCE = "Bridge.createInstance";
             public const string BRIDGE_COMBINE = "Bridge.fn.combine";
             public const string BRIDGE_REMOVE = "Bridge.fn.remove";
             public const string BRIDGE_MERGE = "Bridge.merge";
-            public const string BRIDGE_DEFINE = "Bridge.define";
-            public const string BRIDGE_DEFINEI = "Bridge.definei";
-            public const string BRIDGE_IS = "Bridge.is";
             public const string BRIDGE_IS_DEFINED = "Bridge.isDefined";
             public const string BRIDGE_GET_ENUMERATOR = "Bridge.getEnumerator";
             public const string BRIDGE_GET_TYPE = "Bridge.getType";
@@ -59,31 +62,34 @@
             public const string BRIDGE_PROPERTY = "Bridge.property";
             public const string BRIDGE_TOPLAIN = "Bridge.toPlain";
             public const string BRIDGE_HASVALUE = "Bridge.hasValue";
+            public const string BRIDGE_LITERAL = "Bridge.literal";
 
             public const string INITIALIZE = "$initialize";
             public const string INIT = "init";
             public const string CLONE = "$clone";
-            public const string TO_ENUMERATOR = "toEnumerator";
-            public const string TO_ENUMERABLE = "toEnumerable";
             public const string MOVE_NEXT = "moveNext";
-            public const string GET_CURRENT = "getCurrent";
+            public const string GET_CURRENT = "Current";
             public const string TOSTIRNG = "toString";
             public const string EQUALS = "equals";
             public const string GETHASHCODE = "getHashCode";
             public const string GETDEFAULTVALUE = "getDefaultValue";
             public const string STRING_FROMCHARCODE = "String.fromCharCode";
             public const string TOJSON = "toJSON";
+            public const string GET_TYPE = "$getType";
 
             public const string ASYNC_BODY = "$asyncBody";
+            public const string ASYNC_YIELD_BODY = "moveNext";
             public const string GET_AWAITED_RESULT = "getAwaitedResult";
-            public const string CONTINUE_WITH = "continueWith";
+            public const string CONTINUE_WITH = "continue";
             public const string SET_RESULT = "setResult";
             public const string SET_EXCEPTION = "setException";
 
             public const string CONSTRUCTOR = "ctor";
+            public const string ENTRY_POINT_NAME = "main";
             public const string APPLY = "apply";
             public const string CALL = "call";
             public const string DEFINE = "define";
+            public const string DISPOSE = "System$IDisposable$Dispose";
 
             public const string SLICE = "slice";
 
@@ -117,6 +123,7 @@
                 public const string ADD = "add";
                 public const string SUB = "sub";
                 public const string MUL = "mul";
+                public const string UMUL = "umul";
                 public const string DIV = "div";
                 public const string TO_NUMBER_DIVIDED = "toNumberDivided";
                 public const string MOD = "mod";
@@ -142,10 +149,8 @@
         {
             public const string SYSTEM_UInt64 = "System.UInt64";
             public const string SYSTEM_DECIMAL = "System.Decimal";
-            public const string SYSTEM_ARRAY = "System.Array";
             public const string SYSTEM_NULLABLE = "System.Nullable";
             public const string TASK_COMPLETION_SOURCE = "System.Threading.Tasks.TaskCompletionSource";
-            public const string SYSTEM_EXCEPTION = "System.Exception";
             public const string BRIDGE_IBridgeClass = "Bridge.IBridgeClass";
             public const string BRIDGE_INT = "Bridge.Int";
             public const string BRIDGE_ANONYMOUS = "$AnonymousType$";
@@ -161,6 +166,7 @@
             public const string Uint32Array = "Uint32Array";
             public const string Float32Array = "Float32Array";
             public const string Float64Array = "Float64Array";
+            public const string TypeRef = "Bridge.TypeRef";
 
             public class Number
             {
@@ -180,6 +186,50 @@
             public class System
             {
                 private const string DOTNAME = "System.";
+
+                public class Object
+                {
+                    public const string NAME = System.DOTNAME + "Object";
+                }
+
+                public class IDisposable
+                {
+                    private const string DOTNAME = NAME + ".";
+                    public const string NAME = System.DOTNAME + "IDisposable";
+
+                    public const string DISPOSE = "Dispose";
+                    public const string INTERFACE_DISPOSE = "System$IDisposable$Dispose";
+                }
+
+                public class Array
+                {
+                    private const string DOTNAME = System.DOTNAME + "Array.";
+
+                    public const string CREATE = DOTNAME + "create";
+                    public const string INDEX = DOTNAME + "index";
+                    public const string INIT = DOTNAME + "init";
+                    public const string MIN = DOTNAME + "min";
+                    public const string TYPE = DOTNAME + "type";
+                    public const string TO_ENUMERATOR = DOTNAME + "toEnumerator";
+                    public const string TO_ENUMERABLE = DOTNAME + "toEnumerable";
+                }
+
+                public class DateTime
+                {
+                    public const string NAME = System.DOTNAME + "DateTime";
+                    private const string DOTNAME = NAME + ".";
+
+                    public const string GET_DEFAULT_VALUE = DOTNAME + "getDefaultValue";
+
+                }
+
+                public class Exception
+                {
+                    public const string NAME = System.DOTNAME + "Exception";
+                    private const string DOTNAME = NAME + ".";
+
+                    public const string CREATE = DOTNAME + "create";
+                }
 
                 public class String
                 {
@@ -224,7 +274,34 @@
                 private const string DOTNAME = NS.BRIDGE + ".";
 
                 public const string APPLY = DOTNAME + "apply";
+                public const string COPY_PROPERTIES = DOTNAME + "copyProperties";
                 public const string ASSEMBLY = DOTNAME + "assembly";
+                public const string ENSURE_BASE_PROPERTY = DOTNAME + "ensureBaseProperty";
+                public const string IS = DOTNAME + "is";
+                public const string SET_METADATA = DOTNAME + "setMetadata";
+                public const string GET_TYPE_ALIAS = DOTNAME + "getTypeAlias";
+                public const string DEFINE = DOTNAME + "define";
+                public const string DEFINE_I = DOTNAME + "definei";
+                public const string GET_INTERFACE = DOTNAME + "virtual";
+                public const string GET_CLASS = DOTNAME + "virtualc";
+                public const string INIT = DOTNAME + "init";
+                public const string BOX = DOTNAME + "box";
+                public const string UNBOX = DOTNAME + "unbox";
+                public const string CLONE = DOTNAME + "clone";
+
+                public class Generator
+                {
+                    public const string NAME = Bridge.DOTNAME + "GeneratorEnumerator";
+                    public const string NAME_GENERIC = NAME + "$1";
+                    private const string DOTNAME = NAME + ".";
+                    private const string DOTNAME_GENERIC = NAME_GENERIC + ".";
+                }
+
+                public class Global
+                {
+                    public const string NAME = Bridge.DOTNAME + "global";
+                    public const string DOTNAME = NAME + ".";
+                }
 
                 public class Reflection
                 {
@@ -238,15 +315,21 @@
 
         public class Vars
         {
+            public const string ASM = "$asm";
+
             public const char D = '$';
-            public const string D_ = "$_";
+            public const string D_ = ASM + ".$";
+            public const string DBOX_ = "$box_";
             public const string D_THIS = "$this";
 
             public const string T = "$t";
             public const string E = "$e";
+            public const string V = "$v";
             public const string YIELD = "$yield";
-            public const string EXPORTS = "exports";
+            public const string ENUMERATOR = "$enumerator";
+            public const string EXPORTS = "$exports";
             public const string SCOPE = "$scope";
+            public const string MODULE = "$module";
             public const string ITERATOR = "$i";
 
             public const string ASYNC_TASK = "$task";
@@ -264,8 +347,19 @@
 
         public class Reserved
         {
-            public static readonly List<string> StaticNames = new List<string> { "Name", "Arguments", "Caller", "Length", "Prototype", "ctor" };
-            public static readonly string[] Words = new string[] { "__proto__", "abstract", "arguments", "as", "boolean", "break", "byte", "case", "catch", "char", "class", "continue", "const", "constructor", "ctor", "debugger", "default", "delete", "do", "double", "else", "enum", "eval", "export", "extends", "false", "final", "finally", "float", "for", "function", "goto", "if", "implements", "import", "in", "instanceof", "int", "interface", "let", "long", "namespace", "native", "new", "null", "package", "private", "protected", "public", "return", "short", "static", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "true", "try", "typeof", "use", "var", "void", "volatile", "while", "window", "with", "yield" };
+            public static readonly List<string> StaticNames = new List<string> { "name", "arguments", "caller", "length", "prototype", "ctor" };
+            public static readonly string[] Words = new string[]
+            {
+                "Bridge", "__proto__", "abstract", "arguments", "as", "boolean", "break", "byte", "case", "catch", "char",
+                "class", "continue", "const", "constructor", "ctor", "debugger", "default", "delete", "do", "double",
+                "else", "enum", "eval", "export", "extends", "false", "final", "finally", "float", "for", "function",
+                "goto", "if", "implements", "import", "in", "instanceof", "int", "interface", "let", "long", "namespace",
+                "native", "new", "null", "package", "private", "protected", "public", "return", "short", "static", "super",
+                "switch", "synchronized", "this", "throw", "throws", "transient", "true", "try", "typeof", "use", "var",
+                "void", "volatile", "while", "window", "with", "yield", "Array", "Date", "eval", "hasOwnProperty", "Infinity",
+                "isFinite", "isNaN", "isPrototypeOf", "Math", "NaN", "Number", "Object", "prototype", "String", "toString",
+                "undefined", "valueOf"
+            };
         }
     }
 }

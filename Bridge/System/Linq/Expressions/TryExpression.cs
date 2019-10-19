@@ -1,24 +1,23 @@
-using Bridge;
 using System.Collections.ObjectModel;
 
 namespace System.Linq.Expressions
 {
-    [External]
-    [Name("Object")]
-    [Cast("{this}.ntype === 61")]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Name("System.Object")]
+    [Bridge.Cast("{this}.ntype === 61")]
     public sealed class TryExpression : Expression
     {
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern Expression Body { get; private set; }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern ReadOnlyCollection<CatchBlock> Handlers { get; private set; }
 
-        [Name("finallyExpr")]
-        [FieldProperty]
+        [Bridge.Name("finallyExpr")]
         public extern Expression Finally { get; private set; }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern Expression Fault { get; private set; }
 
         internal extern TryExpression();

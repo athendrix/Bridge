@@ -33,6 +33,8 @@ namespace Bridge.Translator
                 this.WriteOpenParentheses();
             }
 
+            int startPos = this.Emitter.Output.Length;
+
             this.ParenthesizedExpression.Expression.AcceptVisitor(this.Emitter);
 
             if (!ignoreParentheses)
@@ -43,19 +45,38 @@ namespace Bridge.Translator
 
         protected bool IgnoreParentheses(Expression expression)
         {
-            if (expression is CastExpression)
+            if (this.ParenthesizedExpression.Parent is CastExpression)
             {
+                var conversion = this.Emitter.Resolver.Resolver.GetConversion(this.ParenthesizedExpression);
+                bool isOperator = this.ParenthesizedExpression.Parent.Parent is BinaryOperatorExpression ||
+                                  this.ParenthesizedExpression.Parent.Parent is UnaryOperatorExpression;
+                if (!isOperator && (conversion.IsNumericConversion || conversion.IsEnumerationConversion || conversion.IsIdentityConversion))
+                {
+                    return true;
+                }
+            }
+
+            var castExpr = expression as CastExpression;
+            if (castExpr != null)
+            {
+                var orr = this.Emitter.Resolver.ResolveNode(castExpr.Expression, this.Emitter) as OperatorResolveResult;
+
+                if (orr != null)
+                {
+                    return false;
+                }
+
                 var rr = this.Emitter.Resolver.ResolveNode(expression, this.Emitter);
                 if (rr is ConstantResolveResult)
                 {
                     return false;
                 }
-                /*var simpleType = ((CastExpression)expression).Type as SimpleType;
 
-                if (simpleType != null && simpleType.Identifier == "dynamic")
+                if(rr.Type.Kind == ICSharpCode.NRefactory.TypeSystem.TypeKind.Unknown || rr.Type.Kind == ICSharpCode.NRefactory.TypeSystem.TypeKind.Delegate)
                 {
-                    return true;
-                }*/
+                    return false;
+                }
+
                 return true;
             }
             return false;

@@ -20,6 +20,27 @@ namespace Bridge.Translator
             set;
         }
 
+        public CompilerRule OldRules { get; private set; }
+
+        protected override void BeginEmit()
+        {
+            base.BeginEmit();
+            this.OldRules = this.Emitter.Rules;
+
+            var rr = this.Emitter.Resolver.ResolveNode(this.IndexerDeclaration, this.Emitter) as MemberResolveResult;
+
+            if (rr != null)
+            {
+                this.Emitter.Rules = Rules.Get(this.Emitter, rr.Member);
+            }
+        }
+
+        protected override void EndEmit()
+        {
+            base.EndEmit();
+            this.Emitter.Rules = this.OldRules;
+        }
+
         protected override void DoEmit()
         {
             var rr = this.Emitter.Resolver.ResolveNode(this.IndexerDeclaration, this.Emitter) as MemberResolveResult;
@@ -28,7 +49,7 @@ namespace Bridge.Translator
             {
                 prop = rr.Member as IProperty;
 
-                if (prop != null && this.Emitter.Validator.IsIgnoreType(prop))
+                if (prop != null && this.Emitter.Validator.IsExternalType(prop))
                 {
                     return;
                 }
@@ -40,7 +61,7 @@ namespace Bridge.Translator
 
         protected virtual void EmitIndexerMethod(IndexerDeclaration indexerDeclaration, IProperty prop, Accessor accessor, IMethod propAccessor, bool setter)
         {
-            var isIgnore = propAccessor != null && this.Emitter.Validator.IsIgnoreType(propAccessor);
+            var isIgnore = propAccessor != null && this.Emitter.Validator.IsExternalType(propAccessor);
 
             if (!accessor.IsNull && this.Emitter.GetInline(accessor) == null && !isIgnore)
             {
@@ -60,7 +81,7 @@ namespace Bridge.Translator
                     this.AddLocals(new ParameterDeclaration[0], accessor.Body);
                 }
 
-                XmlToJsDoc.EmitComment(this, this.IndexerDeclaration);
+                XmlToJsDoc.EmitComment(this, this.IndexerDeclaration, !setter);
 
                 string accName = null;
 
@@ -70,14 +91,21 @@ namespace Bridge.Translator
 
                     if (string.IsNullOrEmpty(accName))
                     {
+                        var member_rr = (MemberResolveResult)this.Emitter.Resolver.ResolveNode(indexerDeclaration, this.Emitter);
+
                         var overloads = OverloadsCollection.Create(this.Emitter, indexerDeclaration, setter);
-                        accName = overloads.GetOverloadName(false, Helpers.GetSetOrGet(setter), true);
+                        accName = overloads.GetOverloadName(false, Helpers.GetSetOrGet(setter), OverloadsCollection.ExcludeTypeParameterForDefinition(member_rr));
                     }
                 }
 
                 this.Write(accName);
                 this.WriteColon();
                 this.WriteFunction();
+                var nm = Helpers.GetFunctionName(this.Emitter.AssemblyInfo.NamedFunctions, prop, this.Emitter, setter);
+                if (nm != null)
+                {
+                    this.Write(nm);
+                }
                 this.EmitMethodParameters(indexerDeclaration.Parameters, null, indexerDeclaration, setter);
 
                 if (setter)
@@ -90,7 +118,14 @@ namespace Bridge.Translator
 
                 if (script == null)
                 {
-                    accessor.Body.AcceptVisitor(this.Emitter);
+                    if (YieldBlock.HasYield(accessor.Body))
+                    {
+                        new GeneratorBlock(this.Emitter, accessor).Emit();
+                    }
+                    else
+                    {
+                        accessor.Body.AcceptVisitor(this.Emitter);
+                    }
                 }
                 else
                 {

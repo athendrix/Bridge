@@ -1,12 +1,13 @@
-﻿using Bridge;
-using System.Collections;
+﻿using System.Collections;
 
 namespace System.Text.RegularExpressions
 {
     /// <summary>
     /// Represents the set of captures made by a single capturing group.
     /// </summary>
-    [External]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Reflectable]
     public class CaptureCollection : ICollection
     {
         internal extern CaptureCollection();
@@ -14,22 +15,38 @@ namespace System.Text.RegularExpressions
         /// <summary>
         /// Gets an object that can be used to synchronize access to the collection.
         /// </summary>
-        public extern object SyncRoot { get; }
+        public extern object SyncRoot
+        {
+            [Bridge.Template("getSyncRoot()")]
+            get;
+        }
 
         /// <summary>
         /// Gets a value that indicates whether access to the collection is synchronized (thread-safe).
         /// </summary>
-        public extern bool IsSynchronized { get; }
+        public extern bool IsSynchronized
+        {
+            [Bridge.Template("getIsSynchronized()")]
+            get;
+        }
 
         /// <summary>
         /// Gets a value that indicates whether the collection is read only.
         /// </summary>
-        public extern bool IsReadOnly { get; }
+        public extern bool IsReadOnly
+        {
+            [Bridge.Template("getIsReadOnly()")]
+            get;
+        }
 
         /// <summary>
         /// Gets the number of substrings captured by the group.
         /// </summary>
-        public extern int Count { get; }
+        public extern int Count
+        {
+            [Bridge.Template("getCount()")]
+            get;
+        }
 
         /// <summary>
         /// Gets an individual member of the collection.
@@ -37,7 +54,7 @@ namespace System.Text.RegularExpressions
 
         public extern Capture this[int i]
         {
-            [Template("get({0})")]
+            [Bridge.Template("get({0})")]
             get;
         }
 
@@ -49,6 +66,7 @@ namespace System.Text.RegularExpressions
         /// <summary>
         /// Provides an enumerator that iterates through the collection.
         /// </summary>
+        [Bridge.Convention(Bridge.Notation.None)]
         public extern IEnumerator GetEnumerator();
     }
 }

@@ -1,9 +1,10 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System;
 using System.Diagnostics.Contracts;
 
 namespace Bridge.ClientTest.Batch4.Exceptions
 {
+    // There is no ContractException type in .Net
     [TestFixture(TestNameFormat = "ContractExceptionTests - {0}")]
     public class ContractExceptionTests
     {

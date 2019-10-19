@@ -1,11 +1,13 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using ICSharpCode.NRefactory.TypeSystem;
+using ICSharpCode.NRefactory.CSharp;
 
 namespace Bridge.Translator
 {
@@ -19,6 +21,13 @@ namespace Bridge.Translator
             }
         }
 
+        public virtual string RemoveTokens(string code)
+        {
+            return this.Emitter.AssemblyInfo.SourceMap.Enabled
+                        ? SourceMapGenerator.tokenRegex.Replace(code, "")
+                        : code;
+        }
+
         public virtual void Indent()
         {
             this.Emitter.ResetLevel(this.Emitter.Level + 1);
@@ -27,6 +36,51 @@ namespace Bridge.Translator
         public virtual void Outdent()
         {
             this.Emitter.ResetLevel(this.Emitter.Level - 1);
+        }
+
+        public virtual void ResetLevel(int level)
+        {
+            this.Emitter.ResetLevel(level);
+        }
+
+        public virtual void WriteSourceMapName(string name)
+        {
+            if (this.Emitter.AssemblyInfo.SourceMap.Enabled && !this.Emitter.EmitterOutput.Names.Contains(name))
+            {
+                this.Emitter.EmitterOutput.Names.Add(name);
+            }
+        }
+
+        public virtual void WriteSequencePoint(DomRegion region)
+        {
+            if (this.Emitter.AssemblyInfo.SourceMap.Enabled)
+            {
+                var line = region.BeginLine;
+                var column = region.BeginColumn;
+                var idx = this.Emitter.SourceFileNameIndex;
+
+                if (this.Emitter.TypeInfo.TypeDeclaration.HasModifier(ICSharpCode.NRefactory.CSharp.Modifiers.Partial))
+                {
+                    var fn = this.Emitter.Translator.EmitNode.GetParent<SyntaxTree>().FileName;
+
+                    if (fn != null && fn.Length > 0)
+                    {
+                        idx = this.Emitter.SourceFiles.IndexOf(fn);
+
+                        if (idx == -1)
+                        {
+                            idx = this.Emitter.SourceFileNameIndex;
+                        }
+                    }
+                }
+                var point = string.Format("/*##|{0},{1},{2}|##*/", idx, line, column);
+
+                if (this.Emitter.LastSequencePoint != point)
+                {
+                    this.Emitter.LastSequencePoint = point;
+                    this.Write(point);
+                }
+            }
         }
 
         public virtual void WriteIndent()
@@ -63,6 +117,24 @@ namespace Bridge.Translator
             this.WriteCloseBrace();
         }
 
+        /// <summary>
+        /// Used to write simple blocks. Optionally doesn't end the block with a newline.
+        /// </summary>
+        /// <param name="what"></param>
+        /// <param name="newline"></param>
+        public virtual void WriteBlock(string what, bool newline = true)
+        {
+            this.BeginBlock();
+            this.Write(what);
+            this.WriteNewLine();
+            this.EndBlock();
+
+            if (newline)
+            {
+                this.WriteNewLine();
+            }
+        }
+
         public virtual void Write(object value)
         {
             this.WriteIndent();
@@ -91,7 +163,7 @@ namespace Bridge.Translator
 
             if (value is double)
             {
-                double d = (double) value;
+                double d = (double)value;
                 if (double.IsNaN(d))
                 {
                     s = JS.Types.Number.NaN;
@@ -133,9 +205,18 @@ namespace Bridge.Translator
             {
                 s = emitter.ToJavaScript((int)(char)value);
             }
-            else if (value is decimal)
+            else if (value is decimal d)
             {
-                s = JS.Types.SYSTEM_DECIMAL + "(" + AbstractEmitterBlock.DecimalConstant((decimal)value, emitter) + ")";
+                var tmp = d.ToString(CultureInfo.InvariantCulture);
+                s = JS.Types.SYSTEM_DECIMAL + "(" + AbstractEmitterBlock.DecimalConstant(d, emitter);
+
+                int dot;
+                if ((dot = tmp.IndexOf(".")) >= 0)
+                {
+                    s += ", " + tmp.Substring(dot + 1).Length;
+                }
+
+                s += ")";
             }
             else if (value is long)
             {
@@ -166,6 +247,123 @@ namespace Bridge.Translator
             this.WriteLines((IEnumerable<string>)lines);
         }
 
+        /// <summary>
+        /// Takes an array of strings to put into Emitter's output.
+        /// Each array element is considered as a separate line (i.e. new line character appended) and not expected to contain new line character at the end.
+        /// Set lineStartOffset to trim first lineStartOffset whitespaces.
+        /// Use wrappedStart to add it before the first line and use wrappedEnd to add it after the last line.
+        /// Use alignedIndent to align whitespace to match indent levels (i.e. first one whitespaces gets three extra ones, six became eight whitespaces etc).
+        /// </summary>
+        /// <param name="lines">Strings to put into Emitter's output, line by line.</param>
+        /// <param name="lineStartOffset">Offset in lines to trim whitespaces.</param>
+        /// <param name="wrappedStart">Suffix for the first line.</param>
+        /// <param name="wrappedEnd">Postfix for the last line.</param>
+        /// <param name="alignedIndent">Aligns each line to match indent levels (i.e. first one whitespaces gets three extra ones, six became eight whitespaces etc).</param>
+        public virtual void WriteLinesIndented(string[] lines, int lineStartOffset = 0, string wrappedStart = null, string wrappedEnd = null, bool alignedIndent = false)
+        {
+            if (lines == null)
+            {
+                return;
+            }
+
+            for (int j = 0; j < lines.Length; j++)
+            {
+                var line = lines[j];
+
+                line = IndentLine(line, lineStartOffset, alignedIndent);
+
+                if (line == null)
+                {
+                    line = string.Empty;
+                }
+
+                if (j == 0 && !string.IsNullOrEmpty(wrappedStart))
+                {
+                    line = wrappedStart + line;
+                }
+
+                if (j == lines.Length - 1 && !string.IsNullOrEmpty(wrappedEnd))
+                {
+                    line = line + wrappedEnd;
+                }
+
+                if (!string.IsNullOrEmpty(line))
+                {
+                    this.WriteIndent();
+
+                    this.Emitter.Output.Append(line);
+                }
+
+                this.WriteNewLine();
+            }
+        }
+
+        /// <summary>
+        /// First whitespace symbols get removed (i.e shifts the line on startOffset whitespace symbols (or less if not present) to the left.
+        /// Then aligns remaining whitespaces to match indent level if alignedIndent is true.
+        /// </summary>
+        /// <param name="line">The string to process.</param>
+        /// <param name="startOffset">The number of whitespaces to remove from the beginning, ignored if negative or zero.</param>
+        /// <param name="alignedIndent">Specifies if whitespaces should be aligned by indent level.</param>
+        /// <returns>The string with removed first startOffset whitespace symbols and aligned by indent level if required.</returns>
+        private static string IndentLine(string line, int startOffset, bool alignedIndent)
+        {
+            if (string.IsNullOrEmpty(line))
+            {
+                return line;
+            }
+
+            if (startOffset <= 0 && !alignedIndent)
+            {
+                return line;
+            }
+
+            if (startOffset < 0)
+            {
+                startOffset = 0;
+            }
+
+            int firstWhitespaceCount = 0;
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (line[i] == ' ')
+                {
+                    firstWhitespaceCount++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            int trimIndex = firstWhitespaceCount > startOffset
+                ? startOffset
+                : firstWhitespaceCount;
+
+            if (trimIndex > 0)
+            {
+                line = line.Substring(trimIndex);
+            }
+
+            if (alignedIndent)
+            {
+                int indentIndex = firstWhitespaceCount - trimIndex;
+
+                var indentLength = Bridge.Translator.Emitter.INDENT.Length;
+
+                if (indentIndex % indentLength > 0)
+                {
+                    var level = indentIndex / indentLength;
+                    var fullLevelLength = (level + 1) * indentLength;
+                    var restLevelLength = fullLevelLength - indentIndex;
+
+                    line = line.PadLeft(line.Length + restLevelLength);
+                }
+            }
+
+            return line;
+        }
+
         public static string DecimalConstant(decimal value, IEmitter emitter)
         {
             string s = null;
@@ -181,7 +379,7 @@ namespace Bridge.Translator
 
             if (similar)
             {
-                s = emitter.ToJavaScript((double)value);
+                s = emitter.ToJavaScript(value);
                 if (CultureInfo.InstalledUICulture.CompareInfo.IndexOf(s, "e", CompareOptions.IgnoreCase) > -1)
                 {
                     s = emitter.ToJavaScript(s);
@@ -501,6 +699,23 @@ namespace Bridge.Translator
             return WriteIndentToString(value, this.Level);
         }
 
+        public static string UpdateIndentsInString(string value, int level)
+        {
+            StringBuilder output = new StringBuilder();
+
+            for (var i = 0; i < level; i++)
+            {
+                output.Append(Bridge.Translator.Emitter.INDENT);
+            }
+
+            string indent = output.ToString();
+
+            return Regex.Replace(value, "^(\\s*)(.*)$", (m) =>
+            {
+                return indent + m.Groups[2].Value;
+            }, RegexOptions.Multiline);
+        }
+
         public static string WriteIndentToString(string value, int level)
         {
             StringBuilder output = new StringBuilder();
@@ -516,29 +731,6 @@ namespace Bridge.Translator
             {
                 return Bridge.Translator.Emitter.NEW_LINE + indent + m.Groups[1].Value;
             }, RegexOptions.Multiline);
-        }
-
-        public static string RemoveIndentFromString(string value, int offset)
-        {
-            StringBuilder output = new StringBuilder();
-            string indentWhiteSpaces = new string(' ', offset);
-
-            int level = offset / 4;
-            for (var i = 0; i < level; i++)
-            {
-                output.Append(Bridge.Translator.Emitter.TAB);
-            }
-
-            var needSpaces = offset % 4;
-            if (needSpaces > 0)
-            {
-                output.Append(new string(' ', needSpaces));
-            }
-
-            string indentTabs = output.ToString();
-
-            value = value.Replace(Bridge.Translator.Emitter.NEW_LINE + indentWhiteSpaces, Bridge.Translator.Emitter.NEW_LINE);
-            return value.Replace(Bridge.Translator.Emitter.NEW_LINE + indentTabs, Bridge.Translator.Emitter.NEW_LINE);
         }
 
         public virtual void EnsureComma(bool newLine = true)
@@ -637,15 +829,15 @@ namespace Bridge.Translator
             return count;
         }
 
-        public bool IsOnlyWhitespaceOnPenultimateLine(bool lastTwoLines = true)
+        public bool IsOnlyWhitespaceOnPenultimateLine(bool lastTwoLines = true, string output = null)
         {
-            return AbstractEmitterBlock.IsOnlyWhitespaceOnPenultimateLine(this.Emitter.Output, lastTwoLines);
+            return AbstractEmitterBlock.IsOnlyWhitespaceOnPenultimateLine(output ?? this.Emitter.Output.ToString(), lastTwoLines);
         }
 
-        public static bool IsOnlyWhitespaceOnPenultimateLine(StringBuilder buffer, bool lastTwoLines = true)
+        public static bool IsOnlyWhitespaceOnPenultimateLine(string buffer, bool lastTwoLines = true)
         {
             int i = buffer.Length - 1;
-            var charArray = buffer.ToString().ToCharArray();
+            var charArray = buffer.ToCharArray();
 
             while (i >= 0)
             {
@@ -682,6 +874,61 @@ namespace Bridge.Translator
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Splits the input string into lines by CRLF and LF,
+        /// replaces lines containing only whitespaces into empty lines and
+        /// optionally replaces first (ignoring whitespaces) asterisk symbol in each line with whitespace.
+        /// </summary>
+        /// <param name="s">Input string.</param>
+        /// <param name="removeFirstAsterisk">Specifies whether to replace first (ignoring whitespaces) asterisk symbol in each line with whitespace</param>
+        /// <returns>String array representing the input line splittted by lines, first asterisk symbol removed if required.</returns>
+        public string[] GetNormalizedWhitespaceAndAsteriskLines(string s, bool removeFirstAsterisk)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return new[] { s };
+            }
+
+            var lines = s.Split(new string[] { Bridge.Translator.Emitter.CRLF, Bridge.Translator.Emitter.NEW_LINE }, StringSplitOptions.None);
+
+            lines = lines.Select(
+                x =>
+                    {
+                        if (string.IsNullOrEmpty(x))
+                        {
+                            return string.Empty;
+                        }
+
+                        if (removeFirstAsterisk)
+                        {
+                            var asteriskIndex = -1;
+
+                            for (int i = 0; i < x.Length; i++)
+                            {
+                                if (x[i] != ' ')
+                                {
+                                    if (x[i] == '*')
+                                    {
+                                        asteriskIndex = i;
+                                    }
+
+                                    break;
+                                }
+                            }
+
+                            if (asteriskIndex >= 0)
+                            {
+                                var ie = asteriskIndex + 1 > x.Length ? x.Length : asteriskIndex + 1;
+                                x = x.Substring(0, asteriskIndex) + " " + x.Substring(ie);
+                            }
+                        }
+
+                        return x.All(c => c == ' ') ? string.Empty : x;
+                    }).ToArray();
+
+            return lines;
         }
 
         public static bool RemovePenultimateEmptyLines(StringBuilder buffer, bool withLast = false)
@@ -731,7 +978,7 @@ namespace Bridge.Translator
         public static bool IsReturnLast(string str)
         {
             str = str.TrimEnd();
-            return str.EndsWith("return;");
+            return str.EndsWith("return;") || Regex.IsMatch(str, "(?m:^)return(.*)?;$");
         }
 
         public static bool IsContinueLast(string str)
@@ -743,7 +990,7 @@ namespace Bridge.Translator
         public static bool IsJumpStatementLast(string str)
         {
             str = str.TrimEnd();
-            return str.EndsWith("continue;") || str.EndsWith("return;") || str.EndsWith("break;");
+            return str.EndsWith("continue;") || str.EndsWith("break;") || AbstractEmitterBlock.IsReturnLast(str);
         }
     }
 

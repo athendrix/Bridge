@@ -2,6 +2,14 @@
   "output": "Bridge\\output",
   "cleanOutputFolderBeforeBuildPattern": "*.*",
   "outputBy": "Class",
+  "outputFormatting": "Formatted",
   "ignoreCast": true,
-  "fileNameCasing": "Lowercase"
+  "fileNameCasing": "Lowercase",
+  "console": {
+    "enabled": false
+  },
+  "logging": {
+    "level":  "None"
+  },
+  "report": "reports/bridge.report.custom.log"
 }

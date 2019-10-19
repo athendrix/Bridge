@@ -1,16 +1,28 @@
 ﻿{
   "output": "..\\Runner\\Batch4",
-  "cleanOutputFolderBeforeBuild": true,
+  "cleanOutputFolderBeforeBuildPattern": "*.*",
   "outputFormatting": "Formatted",
   "fileName": "code.js",
   "outputBy": "Project",
+  "fileNameCasing": "CamelCase",
   "logging": {
     "level": "None"
   },
+  "html": {
+    "disabled": true
+  },
   "resources": [
     {
-      "name": "bridge.js",
       "extract": false
     }
-  ]
+  ],
+  "reflection": {
+    "disabled": true,
+    "target":  "Inline"
+  },
+  "test": {
+    "skipResources": true,
+    "skipAuxiliary": true
+  },
+  "ignoreDuplicateTypes": true
 }

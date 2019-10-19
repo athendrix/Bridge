@@ -5,10 +5,11 @@ using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Bridge.Build
 {
-    public class GenerateScript : Task
+    public class BridgeCompilerTask : Task
     {
         [Required]
         public ITaskItem Assembly
@@ -17,8 +18,13 @@ namespace Bridge.Build
             set;
         }
 
-        [Required]
         public string OutputPath
+        {
+            get;
+            set;
+        }
+
+        public string OutDir
         {
             get;
             set;
@@ -38,19 +44,60 @@ namespace Bridge.Build
             set;
         }
 
+        [Required]
+        public string AssemblyName
+        {
+            get;
+            set;
+        }
+
+        [Required]
+        public ITaskItem[] Sources
+        {
+            get;
+            set;
+        }
+
+        public string CheckForOverflowUnderflow
+        {
+            get;
+            set;
+        }
+
         public bool NoCore
         {
             get;
             set;
         }
 
+        public string Platform
+        {
+            get;
+            set;
+        }
+
+        [Required]
         public string Configuration
         {
             get;
             set;
         }
 
+        [Required]
+        public string OutputType
+        {
+            get;
+            set;
+        }
+
         public string DefineConstants
+        {
+            get;
+            set;
+        }
+
+        [Required]
+        public string RootNamespace
         {
             get;
             set;
@@ -82,42 +129,41 @@ namespace Bridge.Build
 #endif
             var logger = new Translator.Logging.Logger(null, false, LoggerLevel.Info, true, new VSLoggerWriter(this.Log), new FileLoggerWriter());
 
-            logger.Info("Executing Bridge.Build.Task...");
+            logger.Trace("Executing Bridge.Build.Task...");
 
             var bridgeOptions = this.GetBridgeOptions();
 
             var processor = new TranslatorProcessor(bridgeOptions, logger);
 
-            var result = processor.PreProcess();
-
-            if (result != null)
-            {
-                processor = null;
-                return false;
-            }
-
             try
             {
+                processor.PreProcess();
+
                 processor.Process();
 
                 processor.PostProcess();
             }
-            catch (EmitterException e)
+            catch (EmitterException ex)
             {
-                this.Log.LogError(null, null, null, e.FileName, e.StartLine + 1, e.StartColumn + 1, e.EndLine + 1, e.EndColumn + 1, "Error: {0} {1}", e.Message, e.StackTrace);
+                var errMsg = $"{ex.Message} {ex.StackTrace}";
+
+                logger.Error(errMsg, ex.FileName, ex.StartLine + 1, ex.StartColumn + 1, ex.EndLine + 1, ex.EndColumn + 1);
+
                 success = false;
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
+                var errMsg = $"{ex.Message} {ex.StackTrace}";
+
                 var ee = processor.Translator != null ? processor.Translator.CreateExceptionFromLastNode() : null;
 
                 if (ee != null)
                 {
-                    this.Log.LogError(null, null, null, ee.FileName, ee.StartLine + 1, ee.StartColumn + 1, ee.EndLine + 1, ee.EndColumn + 1, "Error: {0} {1}", e.Message, e.StackTrace);
+                    logger.Error(errMsg, ee.FileName, ee.StartLine + 1, ee.StartColumn + 1, ee.EndLine + 1, ee.EndColumn + 1);
                 }
                 else
                 {
-                    this.Log.LogError("Error: {0} {1}", e.Message, e.StackTrace);
+                    logger.Error(errMsg);
                 }
 
                 success = false;
@@ -134,23 +180,63 @@ namespace Bridge.Build
             {
                 ProjectLocation = this.ProjectPath,
                 OutputLocation = this.OutputPath,
-                DefaultFileName = Path.GetFileNameWithoutExtension(this.Assembly.ItemSpec),
+                DefaultFileName = Path.GetFileName(this.Assembly.ItemSpec),
                 BridgeLocation = Path.Combine(this.AssembliesPath, "Bridge.dll"),
                 Rebuild = false,
                 ExtractCore = !NoCore,
-                Configuration = this.Configuration,
-                Source = null,
                 Folder = null,
                 Recursive = false,
                 Lib = null,
-                DefinitionConstants = this.DefineConstants,
-                Help = false,
+                NoCompilation = false,
                 NoTimeStamp = null,
                 FromTask = true,
-                Name = ""
+                Name = "",
+                Sources = GetSources()
+            };
+
+            bridgeOptions.ProjectProperties = new ProjectProperties()
+            {
+                AssemblyName = this.AssemblyName,
+                OutputPath = this.OutputPath,
+                OutDir = this.OutDir,
+                RootNamespace = this.RootNamespace,
+                Configuration = this.Configuration,
+                Platform = this.Platform,
+                DefineConstants = this.DefineConstants,
+                CheckForOverflowUnderflow = GetCheckForOverflowUnderflow(),
+                OutputType = this.OutputType
             };
 
             return bridgeOptions;
+        }
+
+        private string GetSources()
+        {
+            if (this.Sources != null && this.Sources.Length > 0)
+            {
+                var result = string.Join(";", this.Sources.Select(x => x.ItemSpec));
+
+                return result;
+            }
+
+            return null;
+        }
+
+        private bool? GetCheckForOverflowUnderflow()
+        {
+            if (this.CheckForOverflowUnderflow == null)
+            {
+                return null;
+            }
+
+            bool b;
+
+            if (bool.TryParse(this.CheckForOverflowUnderflow, out b))
+            {
+                return b;
+            }
+
+            return null;
         }
     }
 }

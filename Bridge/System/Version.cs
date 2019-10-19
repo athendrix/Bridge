@@ -7,16 +7,17 @@ namespace System
     // internally as a -1.  By definition, an unspecified component matches anything
     // (both unspecified and specified), and an unspecified component is "less than" any
     // specified component.
-    //[External] the class should have External attribute as it uses transpiled js code Version.js
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
     public sealed class Version : ICloneable, IComparable<Version>, IEquatable<Version>
     {
         // AssemblyName depends on the order staying the same
         private int _Major;
+
         private int _Minor;
         private int _Build = -1;
         private int _Revision = -1;
 
-        private static readonly string SeparatorsArray = ".";
+        private static readonly char SeparatorsArray = '.';
 
         public Version(int major, int minor, int build, int revision)
         {
@@ -354,11 +355,13 @@ namespace System
             if ((Object)version == null)
             {
                 result.SetFailure(ParseFailureKind.ArgumentNullException);
+
                 return false;
             }
 
             String[] parsedComponents = version.Split(SeparatorsArray);
             int parsedComponentsLength = parsedComponents.Length;
+
             if ((parsedComponentsLength < 2) || (parsedComponentsLength > 4))
             {
                 result.SetFailure(ParseFailureKind.ArgumentException);

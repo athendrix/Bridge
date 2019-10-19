@@ -1,6 +1,5 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 
@@ -8,17 +7,20 @@ namespace Bridge.Translator
 {
     public class VariableBlock : AbstractEmitterBlock
     {
-        public VariableBlock(IEmitter emitter, VariableDeclarationStatement variableDeclarationStatement)
-            : base(emitter, variableDeclarationStatement)
-        {
-            this.Emitter = emitter;
-            this.VariableDeclarationStatement = variableDeclarationStatement;
-        }
+        internal string lastVarName;
+        internal bool lastIsReferenceLocal;
 
         public VariableDeclarationStatement VariableDeclarationStatement
         {
             get;
             set;
+        }
+
+        public VariableBlock(IEmitter emitter, VariableDeclarationStatement variableDeclarationStatement)
+            : base(emitter, variableDeclarationStatement)
+        {
+            this.Emitter = emitter;
+            this.VariableDeclarationStatement = variableDeclarationStatement;
         }
 
         protected override void DoEmit()
@@ -37,7 +39,10 @@ namespace Bridge.Translator
 
             foreach (var variable in this.VariableDeclarationStatement.Variables)
             {
+                this.WriteSourceMapName(variable.Name);
+
                 var varName = this.AddLocal(variable.Name, variable, this.VariableDeclarationStatement.Type);
+                lastVarName = varName;
 
                 if (variable.Initializer != null && !variable.Initializer.IsNull && variable.Initializer.ToString().Contains(JS.Vars.FIX_ARGUMENT_NAME))
                 {
@@ -58,36 +63,37 @@ namespace Bridge.Translator
                     isReferenceLocal = this.Emitter.LocalsMap[lrr.Variable].EndsWith(".v");
                 }
 
-                this.WriteAwaiters(variable.Initializer);
-
+                lastIsReferenceLocal = isReferenceLocal;
                 var hasInitializer = !variable.Initializer.IsNull;
 
                 if (variable.Initializer.IsNull && !this.VariableDeclarationStatement.Type.IsVar())
                 {
                     var typeDef = this.Emitter.GetTypeDefinition(this.VariableDeclarationStatement.Type, true);
 
-                    if (typeDef != null && typeDef.IsValueType && !this.Emitter.Validator.IsIgnoreType(typeDef))
+                    if (typeDef != null && typeDef.IsValueType && !this.Emitter.Validator.IsExternalType(typeDef))
                     {
                         hasInitializer = true;
                     }
                 }
 
+                if ((!this.Emitter.IsAsync || hasInitializer || isReferenceLocal) && needComma)
+                {
+                    if (this.Emitter.IsAsync)
+                    {
+                        this.WriteSemiColon(true);
+                    }
+                    else
+                    {
+                        this.WriteComma();
+                    }
+                }
+
+                needComma = true;
+
+                this.WriteAwaiters(variable.Initializer);
+
                 if (!this.Emitter.IsAsync || hasInitializer || isReferenceLocal)
                 {
-                    if (needComma)
-                    {
-                        if (this.Emitter.IsAsync)
-                        {
-                            this.WriteSemiColon();
-                        }
-                        else
-                        {
-                            this.WriteComma();
-                        }
-                    }
-
-                    needComma = true;
-
                     this.Write(varName);
                 }
 

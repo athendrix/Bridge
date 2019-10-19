@@ -1,10 +1,11 @@
-﻿using Bridge.Test;
+﻿using Bridge.ClientTestHelper;
+using Bridge.Test.NUnit;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
-#pragma warning disable 162	// CS0162: Unreachable code detected. Disable because we want to assert that code does not reach unreachable parts
+#pragma warning disable 162    // CS0162: Unreachable code detected. Disable because we want to assert that code does not reach unreachable parts
 
 namespace Bridge.ClientTest.Collections.Generic
 {
@@ -120,16 +121,19 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void TypeReturnedByIteratorBlockReturningIEnumeratorImplementsThatInterfaceAndIDisposable()
+        public void TypeReturnedByIteratorBlockReturningIEnumeratorImplementsThatInterfaceAndIDisposable_SPI_1554()
         {
             var enm = new C(new StringBuilder()).GetEnumerator(0);
+            Assert.True((object)enm is IEnumerator<int>);
             Assert.True((object)enm is IEnumerator);
+            Assert.True((object)enm is IDisposable);
         }
 
         [Test]
-        public void EnumeratingIEnumeratorIteratorToEndWorks()
+        public void EnumeratingIEnumeratorIteratorToEndWorks_SPI_1555()
         {
-            //TODO expected for v1: yield iterator works with no state machine
+            // #1329 Yield support
+            // #1555
             var sb = new StringBuilder();
             var enm = new C(sb).GetEnumerator(2);
 
@@ -138,14 +142,14 @@ namespace Bridge.ClientTest.Collections.Generic
                 sb.AppendLine("got " + enm.Current);
             }
 
-            AssertEqual(sb.ToString(), "yielding 0\nyielding 1\nyielding -1\nin finally\ngot 0\ngot 1\ngot -1\n");
+            AssertEqual(sb.ToString(), "yielding 0\ngot 0\nyielding 1\ngot 1\nyielding -1\ngot -1\nin finally\n");
         }
 
         [Test]
-        public void PrematureDisposalOfIEnumeratorIteratorExecutesFinallyBlocks()
+        public void PrematureDisposalOfIEnumeratorIteratorExecutesFinallyBlocks_SPI_1555()
         {
-            //TODO expected for v1: yield iterator works with no state machine
-
+            // #1329 Yield support
+            // #1555
             var sb = new StringBuilder();
             var enm = new C(sb).GetEnumerator(5);
 
@@ -156,13 +160,14 @@ namespace Bridge.ClientTest.Collections.Generic
             }
             enm.Dispose();
 
-            AssertEqual(sb.ToString(), "yielding 0\nyielding 1\nyielding 2\nyielding 3\nyielding 4\nyielding -1\nin finally\ngot 0\ngot 1\n");
+            AssertEqual(sb.ToString(), "yielding 0\ngot 0\nyielding 1\ngot 1\nin finally\n");
         }
 
         [Test(Name = "IteratorBlock - {0} Exception thrown not caught")]
-        public void ExceptionInIEnumeratorIteratorBodyExecutesFinallyBlocks()
+        public void ExceptionInIEnumeratorIteratorBodyExecutesFinallyBlocks_SPI_1554()
         {
-            //TODO expected for v1: yield iterator works with no state machine
+            // #1554
+            // #1329 Yield support
 
             var sb = new StringBuilder();
 
@@ -181,21 +186,23 @@ namespace Bridge.ClientTest.Collections.Generic
                 sb.AppendLine("caught exception");
             }
 
-            AssertEqual(sb.ToString(), "yielding 1\nyielding 2\nthrowing\nin finally\ncaught exception\n");
+            AssertEqual(sb.ToString(), "yielding 1\ngot 1\nyielding 2\ngot 2\nthrowing\nin finally\ncaught exception\n");
         }
 
         [Test]
-        public void TypeReturnedByIteratorBlockReturningIEnumerableImplementsThatInterface()
+        public void TypeReturnedByIteratorBlockReturningIEnumerableImplementsThatInterface_SPI_1554()
         {
+            // #1554
             var enm = new C(new StringBuilder()).GetEnumerable(0);
+            Assert.True((object)enm is IEnumerable<int>);
             Assert.True((object)enm is IEnumerable);
         }
 
         [Test]
-        public void EnumeratingIEnumerableIteratorToEndWorks()
+        public void EnumeratingIEnumerableIteratorToEndWorks_SPI_1555()
         {
-            //TODO expected for v1: yield iterator works with no state machine
-
+            // #1329 Yield support
+            // #1555
             var sb = new StringBuilder();
             var enm = new C(sb).GetEnumerable(2);
 
@@ -211,14 +218,15 @@ namespace Bridge.ClientTest.Collections.Generic
                 sb.AppendLine("got " + i);
             }
 
-            AssertEqual(sb.ToString(), "yielding 0\nyielding 1\nyielding -1\nin finally\ngot 0\ngot 1\ngot -1\n-\ngot 0\ngot 1\ngot -1\n");
+            string result = "yielding 0\ngot 0\nyielding 1\ngot 1\nyielding -1\ngot -1\nin finally\n";
+            AssertEqual(sb.ToString(), result + "-\n" + result);
         }
 
         [Test]
-        public void PrematureDisposalOfIEnumerableIteratorExecutesFinallyBlocks()
+        public void PrematureDisposalOfIEnumerableIteratorExecutesFinallyBlocks_SPI_1555()
         {
-            //TODO expected for v1: yield iterator works with no state machine
-
+            // #1329 Yield support
+            // #1555
             var sb = new StringBuilder();
             int n = 0;
             foreach (var i in new C(sb).GetEnumerable(5))
@@ -230,13 +238,14 @@ namespace Bridge.ClientTest.Collections.Generic
                 }
             }
 
-            AssertEqual(sb.ToString(), "yielding 0\nyielding 1\nyielding 2\nyielding 3\nyielding 4\nyielding -1\nin finally\ngot 0\ngot 1\n");
+            AssertEqual(sb.ToString(), "yielding 0\ngot 0\nyielding 1\ngot 1\nin finally\n");
         }
 
         [Test(Name = "IteratorBlock - {0} exception thrown not caught")]
-        public void ExceptionInIEnumerableIteratorBodyExecutesFinallyBlocks()
+        public void ExceptionInIEnumerableIteratorBodyExecutesFinallyBlocks_SPI_1554()
         {
-            //TODO expected for v1: yield iterator works with no state machine
+            // #1554
+            // #1329 Yield support
 
             var sb = new StringBuilder();
 
@@ -257,7 +266,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 sb.AppendLine("caught exception");
             }
 
-            AssertEqual(sb.ToString(), "yielding 1\nyielding 2\nthrowing\nin finally\ncaught exception\n");
+            AssertEqual(sb.ToString(), "yielding 1\ngot 1\nyielding 2\ngot 2\nthrowing\nin finally\ncaught exception\n");
         }
 
         [Test]

@@ -1,11 +1,26 @@
 ﻿namespace System
 {
-    //[External] the class should have External attribute as it uses transpiled js code Version.js
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
     public class RegexMatchTimeoutException : TimeoutException
     {
-        public extern string Pattern { get; }
-        public extern string Input { get; }
-        public extern TimeSpan MatchTimeout { get; }
+        public extern string Pattern
+        {
+            [Bridge.Template("getPattern()")]
+            get;
+        }
+
+        public extern string Input
+        {
+            [Bridge.Template("getInput()")]
+            get;
+        }
+
+        public extern TimeSpan MatchTimeout
+        {
+            [Bridge.Template("getMatchTimeout()")]
+            get;
+        }
 
         public extern RegexMatchTimeoutException();
 

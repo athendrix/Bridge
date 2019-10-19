@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
 {
@@ -36,7 +36,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             var plainee = Plainer.ToPlainObject(a);
 
             Assert.NotNull(plainee, "plainee not null");
-            Assert.NotNull(plainee["data"], "plainee has data");
+            Assert.NotNull(plainee["Data"], "plainee has data");
             Assert.AreEqual(5, plainee.Data, "plainee.Data == 5");
             Assert.Null(plainee["getHashCode"], "plainee has no getHashCode");
             Assert.Null(plainee["toJSON"], "plainee has no toJSON");
@@ -47,15 +47,13 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         [Test(ExpectedCount = 7)]
         public static void TestObjectLiteralProperty()
         {
-            var a = new A() { Data = 5 };
-
             var l = new Literal() { V = new { Data = 5 } };
 
             var plainee = l.V;
 
             Assert.NotNull(plainee, "plainee not null");
-            Assert.NotNull(plainee["data"], "plainee has data");
-            Assert.AreEqual(5, plainee["data"], "plainee.Data == 5");
+            Assert.NotNull(plainee["Data"], "plainee has data");
+            Assert.AreEqual(5, plainee["Data"], "plainee.Data == 5");
             Assert.Null(plainee["getHashCode"], "plainee has no getHashCode");
             Assert.Null(plainee["toJSON"], "plainee has no toJSON");
             Assert.Null(plainee["$constructor"], "plainee has no $constructor");
@@ -73,7 +71,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             Assert.Null(o1["toJSON"], "o1 has no toJSON");
             Assert.Null(o1["$constructor"], "o1 has no $constructor");
             Assert.Null(o1["equals"], "o1 has no equals");
-            Assert.NotNull(o1["a"], "o1 has a");
+            Assert.NotNull(o1["A"], "o1 has a");
         }
     }
 }

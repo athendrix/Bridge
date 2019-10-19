@@ -1,3 +1,4 @@
+using Bridge.Contract.Constants;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -6,11 +7,6 @@ namespace Bridge.Contract
 {
     public interface IAssemblyInfo
     {
-        bool PreserveMemberCase
-        {
-            get; set;
-        }
-
         List<IPluginDependency> Dependencies
         {
             get; set;
@@ -39,7 +35,7 @@ namespace Bridge.Contract
             get; set;
         }
 
-        string Module
+        Module Module
         {
             get; set;
         }
@@ -104,7 +100,8 @@ namespace Bridge.Contract
         /// Deletes files from output directory using pattern "*.js|*.d.ts" before build (before extracting scripts after translation).
         /// It is useful to replace BeforeBuild event if it just contain commands to clean the output folder.
         /// </summary>
-        bool CleanOutputFolderBeforeBuild
+        [JsonConverter(typeof(StringBoolJsonConverter), "*" + Files.Extensions.JS + "|*" + Files.Extensions.DTS)]
+        string CleanOutputFolderBeforeBuild
         {
             get; set;
         }
@@ -181,6 +178,60 @@ namespace Bridge.Contract
         ResourceConfig Resources
         {
             get; set;
+        }
+
+        IModuleLoader Loader
+        {
+            get; set;
+        }
+
+        NamedFunctionMode NamedFunctions
+        {
+            get;
+            set;
+        }
+
+        SourceMapConfig SourceMap
+        {
+            get; set;
+        }
+
+        HtmlConfig Html
+        {
+            get; set;
+        }
+
+        ConsoleConfig Console
+        {
+            get; set;
+        }
+
+        ReportConfig Report
+        {
+            get; set;
+        }
+
+        CompilerRule Rules
+        {
+            get; set;
+        }
+
+        string ReferencesPath
+        {
+            get;
+            set;
+        }
+
+        string[] References
+        {
+            get;
+            set;
+        }
+
+        bool IgnoreDuplicateTypes
+        {
+            get;
+            set;
         }
     }
  }

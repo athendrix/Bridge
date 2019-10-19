@@ -117,7 +117,13 @@ namespace Bridge.Contract
             set;
         }
 
-        string Module
+        string JsName
+        {
+            get;
+            set;
+        }
+
+        Module Module
         {
             get;
             set;
@@ -172,6 +178,6 @@ namespace Bridge.Contract
 
         AstType GetBaseClass(IEmitter emitter);
 
-        string GetNamespace(IEmitter emitter);
+        string GetNamespace(IEmitter emitter, bool nons = false);
     }
 }

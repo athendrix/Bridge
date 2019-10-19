@@ -1,4 +1,4 @@
-﻿    Bridge.define("System.Text.RegularExpressions.RegexEngineProbe", {
+    Bridge.define("System.Text.RegularExpressions.RegexEngineProbe", {
         min: 0,
         max: 0,
         value: 0,
@@ -17,7 +17,9 @@
 
         clone: function () {
             var cloned = new System.Text.RegularExpressions.RegexEngineProbe(this.min, this.max, this.value, this.isLazy);
+
             cloned.forced = this.forced;
+
             return cloned;
         }
     });

@@ -1,5 +1,5 @@
 using Bridge;
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 namespace SomeExternalNamespace
 {
@@ -49,7 +49,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
                 SomeNonBridgeClass: function () {
                 }
             };
-            SomeExternalNamespace.SomeNonBridgeClass.prototype.foo = function(){return 1;};
+            SomeExternalNamespace.SomeNonBridgeClass.prototype.Foo = function(){return 1;};
             */
         }
 

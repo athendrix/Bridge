@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 
 namespace Bridge.ClientTest.Batch2.BridgeIssues
 {
@@ -11,6 +11,7 @@ namespace Bridge.ClientTest.Batch2.BridgeIssues
         {
             object value = new byte[3];
             Assert.True(value is byte[]);
+            Assert.False(value is int[]);
         }
     }
 }

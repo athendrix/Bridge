@@ -1,8 +1,7 @@
-using Bridge;
-
 namespace System.Diagnostics
 {
-    [External]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
     public class Stopwatch
     {
         public static readonly long Frequency = 0;
@@ -12,23 +11,23 @@ namespace System.Diagnostics
 
         public extern TimeSpan Elapsed
         {
-            [Name("timeSpan")]
+            [Bridge.Template("timeSpan()")]
             get;
         }
 
         public extern long ElapsedMilliseconds
         {
-            [Name("milliseconds")]
+            [Bridge.Template("milliseconds()")]
             get;
         }
 
         public extern long ElapsedTicks
         {
-            [Name("ticks")]
+            [Bridge.Template("ticks()")]
             get;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern bool IsRunning
         {
             get;

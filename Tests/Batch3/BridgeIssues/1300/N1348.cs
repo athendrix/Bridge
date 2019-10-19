@@ -1,5 +1,5 @@
 using System;
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
 {
@@ -11,9 +11,8 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         public static void TestVoidTypeOf()
         {
             var value = typeof(void);
-            Assert.AreEqual("Object", value.FullName);
-            Assert.AreEqual("Object", value.FullName);
-            Assert.AreEqual("Function", value.GetType().FullName);
+            Assert.AreEqual("System.Void", value.FullName);
+            Assert.AreEqual("System.Type", value.GetType().FullName);
         }
     }
 }

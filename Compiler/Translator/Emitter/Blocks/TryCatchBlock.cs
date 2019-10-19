@@ -1,12 +1,11 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using Object.Net.Utilities;
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ICSharpCode.NRefactory.Semantics;
 
 namespace Bridge.Translator
 {
@@ -74,7 +73,7 @@ namespace Bridge.Translator
                 this.PopLocals();
                 this.WriteNewLine();
 
-                tryInfo.CatchBlocks.Add(new Tuple<string, string, int, int>(varName, clause.Type.IsNull ? JS.Types.SYSTEM_EXCEPTION : BridgeTypes.ToJsName(clause.Type, this.Emitter), catchStep.Step, Emitter.AsyncBlock.Steps.Last().Step));
+                tryInfo.CatchBlocks.Add(new Tuple<string, string, int, int>(varName, clause.Type.IsNull ? JS.Types.System.Exception.NAME : BridgeTypes.ToJsName(clause.Type, this.Emitter), catchStep.Step, Emitter.AsyncBlock.Steps.Last().Step));
                 catchSteps.Add(Emitter.AsyncBlock.Steps.Last());
             }
 
@@ -216,7 +215,7 @@ namespace Bridge.Translator
             {
                 var firstClause = this.TryCatchStatement.CatchClauses.Count == 1 ? this.TryCatchStatement.CatchClauses.First() : null;
                 var exceptionType = (firstClause == null || firstClause.Type.IsNull) ? null : BridgeTypes.ToJsName(firstClause.Type, this.Emitter);
-                var isBaseException = exceptionType == null || exceptionType == JS.Types.SYSTEM_EXCEPTION;
+                var isBaseException = exceptionType == null || exceptionType == JS.Types.System.Exception.NAME;
 
                 if (count == 1 && isBaseException)
                 {
@@ -246,6 +245,7 @@ namespace Bridge.Translator
 
             if (!tryCatchStatement.FinallyBlock.IsNull)
             {
+                this.WriteSpace();
                 this.WriteFinally();
                 tryCatchStatement.FinallyBlock.AcceptVisitor(this.Emitter);
             }
@@ -273,6 +273,7 @@ namespace Bridge.Translator
                 var oldVar = this.Emitter.CatchBlockVariable;
                 this.Emitter.CatchBlockVariable = varName;
 
+                this.WriteSpace();
                 this.WriteCatch();
                 this.WriteOpenParentheses();
                 this.Write(varName);
@@ -280,7 +281,8 @@ namespace Bridge.Translator
                 this.WriteSpace();
 
                 this.BeginBlock();
-                this.Write(string.Format("{0} = " + JS.Types.SYSTEM_EXCEPTION + ".create({0});", varName));
+                this.Write(string.Format("{0} = " + JS.Types.System.Exception.CREATE + "({0});", varName));
+
                 this.WriteNewLine();
                 this.Emitter.NoBraceBlock = clause.Body;
                 clause.Body.AcceptVisitor(this.Emitter);
@@ -290,7 +292,11 @@ namespace Bridge.Translator
                 }
 
                 this.EndBlock();
-                this.WriteNewLine();
+
+                if (tryCatchStatement.FinallyBlock.IsNull)
+                {
+                    this.WriteNewLine();
+                }
 
                 this.PopLocals();
                 this.Emitter.CatchBlockVariable = oldVar;
@@ -301,6 +307,7 @@ namespace Bridge.Translator
         {
             TryCatchStatement tryCatchStatement = this.TryCatchStatement;
 
+            this.WriteSpace();
             this.WriteCatch();
             this.WriteOpenParentheses();
             var varName = this.AddLocal(this.GetUniqueName(JS.Vars.E), null, AstType.Null);
@@ -312,7 +319,7 @@ namespace Bridge.Translator
             this.WriteCloseParentheses();
             this.WriteSpace();
             this.BeginBlock();
-            this.Write(string.Format("{0} = " + JS.Types.SYSTEM_EXCEPTION + ".create({0});", varName));
+            this.Write(string.Format("{0} = " + JS.Types.System.Exception.CREATE + "({0});", varName));
             this.WriteNewLine();
 
             var catchVars = new Dictionary<string, string>();
@@ -348,7 +355,7 @@ namespace Bridge.Translator
             foreach (var clause in tryCatchStatement.CatchClauses)
             {
                 var exceptionType = clause.Type.IsNull ? null : BridgeTypes.ToJsName(clause.Type, this.Emitter);
-                var isBaseException = exceptionType == null || exceptionType == JS.Types.SYSTEM_EXCEPTION;
+                var isBaseException = exceptionType == null || exceptionType == JS.Types.System.Exception.NAME;
 
                 if (!firstClause)
                 {
@@ -364,7 +371,7 @@ namespace Bridge.Translator
                 {
                     this.WriteIf();
                     this.WriteOpenParentheses();
-                    this.Write(string.Format(JS.Funcs.BRIDGE_IS + "({0}, {1})", varName, exceptionType));
+                    this.Write(string.Format(JS.Types.Bridge.IS + "({0}, {1})", varName, exceptionType));
                     this.WriteCloseParentheses();
                     this.WriteSpace();
                 }
@@ -410,7 +417,10 @@ namespace Bridge.Translator
             }
 
             this.EndBlock();
-            this.WriteNewLine();
+            if (tryCatchStatement.FinallyBlock.IsNull)
+            {
+                this.WriteNewLine();
+            }
             this.Emitter.CatchBlockVariable = oldVar;
         }
     }

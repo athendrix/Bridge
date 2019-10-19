@@ -1,4 +1,5 @@
 ﻿using Bridge.Contract;
+using Bridge.Contract.Constants;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -17,6 +18,100 @@ namespace Bridge.Translator
     /// </summary>
     static internal class SyntaxHelper
     {
+        public static bool IsNumeric(Type type)
+        {
+            if (type == null)
+            {
+                return false;
+            }
+
+            switch (Type.GetTypeCode(type))
+            {
+                case TypeCode.Byte:
+                case TypeCode.Decimal:
+                case TypeCode.Double:
+                case TypeCode.Int16:
+                case TypeCode.Int32:
+                case TypeCode.Int64:
+                case TypeCode.SByte:
+                case TypeCode.Single:
+                case TypeCode.UInt16:
+                case TypeCode.UInt32:
+                case TypeCode.UInt64:
+                    return true;
+                case TypeCode.Object:
+                    if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                    {
+                        return IsNumeric(Nullable.GetUnderlyingType(type));
+                    }
+                    return false;
+            }
+
+            return false;
+        }
+
+        public static bool IsChildOf(SyntaxNode node, SyntaxNode parent)
+        {
+            return parent.FullSpan.Contains(node.FullSpan);
+        }
+
+        public static bool RequireReturnStatement(SemanticModel model, SyntaxNode lambda)
+        {
+            var typeInfo = model.GetTypeInfo(lambda);
+            var type = typeInfo.ConvertedType ?? typeInfo.Type;
+            if (type == null || !type.IsDelegateType())
+            {
+                return false;
+            }
+
+            var returnType = type.GetDelegateInvokeMethod().GetReturnType();
+            return returnType != null && returnType.SpecialType != SpecialType.System_Void;
+        }
+
+        public static ITypeSymbol GetReturnType(this ISymbol symbol)
+        {
+            if (symbol == null)
+                throw new ArgumentNullException("symbol");
+            switch (symbol.Kind)
+            {
+                case SymbolKind.Field:
+                    var field = (IFieldSymbol)symbol;
+                    return field.Type;
+                case SymbolKind.Method:
+                    var method = (IMethodSymbol)symbol;
+                    if (method.MethodKind == MethodKind.Constructor)
+                        return method.ContainingType;
+                    return method.ReturnType;
+                case SymbolKind.Property:
+                    var property = (IPropertySymbol)symbol;
+                    return property.Type;
+                case SymbolKind.Event:
+                    var evt = (IEventSymbol)symbol;
+                    return evt.Type;
+                case SymbolKind.Parameter:
+                    var param = (IParameterSymbol)symbol;
+                    return param.Type;
+                case SymbolKind.Local:
+                    var local = (ILocalSymbol)symbol;
+                    return local.Type;
+            }
+            return null;
+        }
+
+        public static bool IsDelegateType(this ITypeSymbol symbol)
+        {
+            return symbol?.TypeKind == TypeKind.Delegate;
+        }
+
+        public static IMethodSymbol GetDelegateInvokeMethod(this ITypeSymbol type)
+        {
+            if (type == null)
+                throw new ArgumentNullException("type");
+            if (type.TypeKind == TypeKind.Delegate)
+                return type.GetMembers("Invoke").OfType<IMethodSymbol>().FirstOrDefault(m => m.MethodKind == MethodKind.DelegateInvoke);
+            return null;
+        }
+
         /// <summary>
         /// Generates the static method call.
         /// </summary>
@@ -29,10 +124,34 @@ namespace Bridge.Translator
             );
         }
 
+        public static InvocationExpressionSyntax GenerateInvocation(string methodName, string targetIdentifier, ArgumentSyntax[] arguments = null, ITypeSymbol[] typeArguments = null)
+        {
+            var methodIdentifier = GenerateMethodIdentifier(methodName, targetIdentifier, typeArguments);
+            return SyntaxFactory.InvocationExpression(methodIdentifier, SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments ?? new ArgumentSyntax[] { })));
+        }
+
+        public static InvocationExpressionSyntax GenerateInvocation(string methodName, ExpressionSyntax targetIdentifier, ArgumentSyntax[] arguments = null, ITypeSymbol[] typeArguments = null)
+        {
+            var methodIdentifier = GenerateMethodIdentifier(methodName, targetIdentifier, typeArguments);
+            return SyntaxFactory.InvocationExpression(methodIdentifier, SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments ?? new ArgumentSyntax[] { })));
+        }
+
         /// <summary>
         /// Generates the method call.
         /// </summary>
         public static ExpressionStatementSyntax GenerateMethodCall(string methodName, string targetIdentifier, ArgumentSyntax[] arguments = null, ITypeSymbol[] typeArguments = null)
+        {
+            var methodIdentifier = GenerateMethodIdentifier(methodName, targetIdentifier, typeArguments);
+            return SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.InvocationExpression(methodIdentifier,
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments ?? new ArgumentSyntax[] { })))
+            );
+        }
+
+        /// <summary>
+        /// Generates the method call.
+        /// </summary>
+        public static ExpressionStatementSyntax GenerateMethodCall(string methodName, ExpressionSyntax targetIdentifier, ArgumentSyntax[] arguments = null, ITypeSymbol[] typeArguments = null)
         {
             var methodIdentifier = GenerateMethodIdentifier(methodName, targetIdentifier, typeArguments);
             return SyntaxFactory.ExpressionStatement(
@@ -56,6 +175,14 @@ namespace Bridge.Translator
         }
 
         /// <summary>
+        /// Generates the method identifier.
+        /// </summary>
+        public static ExpressionSyntax GenerateMethodIdentifier(string methodName, ExpressionSyntax targetIdentifierOrTypeName, ITypeSymbol[] typeArguments = null)
+        {
+            return SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, targetIdentifierOrTypeName, SyntaxFactory.IdentifierName(methodName));
+        }
+
+        /// <summary>
         /// Generates the variable declaration and object creation statement.
         /// </summary>
         public static LocalDeclarationStatementSyntax GenerateVariableDeclarationAndObjectCreationStatement(string variableName, string typeName)
@@ -66,9 +193,9 @@ namespace Bridge.Translator
         /// <summary>
         /// Generates the variable declaration and object creation statement.
         /// </summary>
-        public static LocalDeclarationStatementSyntax GenerateVariableDeclarationAndObjectCreationStatement(string variableName, Type type)
+        public static LocalDeclarationStatementSyntax GenerateVariableDeclarationAndObjectCreationStatement(string variableName, Type type, SemanticModel model, int pos)
         {
-            return GenerateVariableDeclarationAndObjectCreationStatement(variableName, () => GenerateTypeSyntax(type));
+            return GenerateVariableDeclarationAndObjectCreationStatement(variableName, () => GenerateTypeSyntax(type, model, pos));
         }
 
         /// <summary>
@@ -170,14 +297,14 @@ namespace Bridge.Translator
         /// <summary>
         /// Generates the type syntax.
         /// </summary>
-        public static TypeSyntax GenerateTypeSyntax(Type type)
+        public static TypeSyntax GenerateTypeSyntax(Type type, SemanticModel model, int pos)
         {
             var name = GetTypeName(type);
 
             if (type.IsGenericType)
             {
                 var genericArguments = type.GetGenericArguments();
-                return GenerateGenericName(name, genericArguments);
+                return GenerateGenericName(name, genericArguments, model, pos);
             }
 
             return SyntaxFactory.ParseTypeName(name);
@@ -185,22 +312,129 @@ namespace Bridge.Translator
 
         public static TypeSyntax GenerateTypeSyntax(ITypeSymbol type)
         {
+            if (type.IsTupleType)
+            {
+                var elements = ((INamedTypeSymbol)type).TupleElements;
+                var types = new List<TypeSyntax>();
+                foreach (var el in elements)
+                {
+                    types.Add(SyntaxHelper.GenerateTypeSyntax(el.Type));
+                }
+
+                return SyntaxFactory.GenericName(SyntaxFactory.Identifier("System.ValueTuple"), SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList<TypeSyntax>(types)));
+            }
+
+            if (type.OriginalDefinition != null && type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+            {
+                return SyntaxFactory.IdentifierName(type.ToDisplayString(new SymbolDisplayFormat(genericsOptions: SymbolDisplayGenericsOptions.None)));
+            }
+
+            if (type is INamedTypeSymbol namedType && namedType.IsGenericType)
+            {
+                var elements = namedType.TypeArguments;
+                var types = new List<TypeSyntax>();
+                foreach (var el in elements)
+                {
+                    types.Add(SyntaxHelper.GenerateTypeSyntax(el));
+                }
+
+                return SyntaxFactory.GenericName(SyntaxFactory.Identifier(type.ToDisplayString(new SymbolDisplayFormat(genericsOptions: SymbolDisplayGenericsOptions.None))), SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList<TypeSyntax>(types)));
+            }
+
             return SyntaxFactory.IdentifierName(type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)).WithoutTrivia();
+        }
+
+        public static TypeSyntax GenerateTypeSyntax(ITypeSymbol type, SemanticModel model, int pos, SharpSixRewriter rewriter)
+        {
+            if (type.IsTupleType)
+            {
+                var elements = ((INamedTypeSymbol)type).TupleElements;
+                var types = new List<TypeSyntax>();
+                foreach (var el in elements)
+                {
+                    types.Add(SyntaxHelper.GenerateTypeSyntax(el.Type, model, pos, rewriter));
+                }
+
+                return SyntaxFactory.GenericName(SyntaxFactory.Identifier("System.ValueTuple"), SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList<TypeSyntax>(types)));
+            }
+
+            var typeName = type.FullyQualifiedName(false);
+            if (rewriter.usingStaticNames.Any(n => typeName.StartsWith(n + '.')))
+            {
+                return SyntaxFactory.ParseTypeName(type.ToDisplayString());
+            }
+            else if (type is INamedTypeSymbol namedType && namedType.IsGenericType)
+            {
+                var elements = namedType.TypeArguments;
+                var types = new List<TypeSyntax>();
+                foreach (var el in elements)
+                {
+                    types.Add(SyntaxHelper.GenerateTypeSyntax(el, model, pos, rewriter));
+                }
+
+                if (type.OriginalDefinition != null && type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+                {
+                    return SyntaxFactory.IdentifierName(type.ToMinimalDisplayString(
+                            model,
+                            pos,
+                            new SymbolDisplayFormat(
+                                genericsOptions: SymbolDisplayGenericsOptions.None
+                            )
+                        ));
+                }
+
+                if (types.Count > 0)
+                {
+                    string gtypeName;
+                    if (type.ContainingType != null)
+                    {
+                        var parent = SyntaxHelper.GenerateTypeSyntax(type.ContainingType, model, pos, rewriter);
+                        var name = type.Name;
+                        gtypeName = SyntaxFactory.QualifiedName((NameSyntax)parent, SyntaxFactory.IdentifierName(name)).ToString();
+                    }
+                    else
+                    {
+                        gtypeName = type.ToMinimalDisplayString(
+                              model,
+                              pos,
+                              new SymbolDisplayFormat(
+                                  genericsOptions: SymbolDisplayGenericsOptions.None
+                              )
+                          );
+                    }
+
+                    return SyntaxFactory.GenericName(
+                        SyntaxFactory.Identifier(gtypeName),
+                        SyntaxFactory.TypeArgumentList(
+                            SyntaxFactory.SeparatedList<TypeSyntax>(types)
+                        )
+                    );
+                }
+            }
+
+            if (type.ContainingType != null && type.Kind != SymbolKind.TypeParameter)
+            {
+                var parent = SyntaxHelper.GenerateTypeSyntax(type.ContainingType, model, pos, rewriter);
+                var name = type.Name;
+                return SyntaxFactory.QualifiedName((NameSyntax)parent, SyntaxFactory.IdentifierName(name));
+            }
+
+            return SyntaxFactory.ParseTypeName(type.ToMinimalDisplayString(model, pos));
         }
 
         /// <summary>
         /// Generates the name of the generic.
         /// </summary>
-        public static GenericNameSyntax GenerateGenericName(string name, IEnumerable<Type> types)
+        public static GenericNameSyntax GenerateGenericName(string name, IEnumerable<Type> types, SemanticModel model, int pos)
         {
             return SyntaxFactory.GenericName(SyntaxFactory.Identifier(name),
-                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(types.Select(GenerateTypeSyntax)))
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(types.Select((type) => GenerateTypeSyntax(type, model, pos))))
             );
         }
 
-        public static GenericNameSyntax GenerateGenericName(SyntaxToken name, IEnumerable<ITypeSymbol> types)
+        public static GenericNameSyntax GenerateGenericName(SyntaxToken name, IEnumerable<ITypeSymbol> types, SemanticModel model, int pos, SharpSixRewriter rewriter)
         {
-            return SyntaxFactory.GenericName(name, SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(types.Select(GenerateTypeSyntax))));
+            return SyntaxFactory.GenericName(name, SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(types.Select((type) => GenerateTypeSyntax(type, model, pos, rewriter)))));
         }
 
         /// <summary>
@@ -209,11 +443,13 @@ namespace Bridge.Translator
         private static string GetTypeName(Type type)
         {
             var name = type.Name.Replace("+", ".");
+
             if (name.Contains("`"))
             {
                 name = name.Substring(0, name.IndexOf("`"));
             }
-            return "global::" + name;
+
+            return CS.NS.GLOBAL + name;
         }
 
         /// <summary>
@@ -327,6 +563,44 @@ namespace Bridge.Translator
             }
         }
 
+        public static string GetFullyQualifiedNameAndValidate(this ISymbol symbol, SemanticModel semanticModel, int position, bool appenTypeArgs = true)
+        {
+            var name = symbol.FullyQualifiedName(appenTypeArgs);
+
+            if (symbol is ITypeSymbol)
+            {
+                var ti = semanticModel.GetSpeculativeTypeInfo(position, SyntaxFactory.ParseTypeName(name), SpeculativeBindingOption.BindAsTypeOrNamespace);
+                var type = ti.Type ?? ti.ConvertedType;
+
+                if (type == null || type.Kind == SymbolKind.ErrorType)
+                {
+                    ti = semanticModel.GetSpeculativeTypeInfo(position, SyntaxFactory.ParseTypeName(CS.NS.GLOBAL + name), SpeculativeBindingOption.BindAsTypeOrNamespace);
+                    type = ti.Type ?? ti.ConvertedType;
+
+                    if (type != null && type.Kind != SymbolKind.ErrorType)
+                    {
+                        name = CS.NS.GLOBAL + name;
+                    }
+                }
+            }
+            else
+            {
+                var si = semanticModel.GetSpeculativeSymbolInfo(position, SyntaxFactory.ParseExpression(name), SpeculativeBindingOption.BindAsExpression);
+
+                if (si.Symbol == null || si.Symbol.Kind == SymbolKind.ErrorType)
+                {
+                    si = semanticModel.GetSpeculativeSymbolInfo(position, SyntaxFactory.ParseExpression(CS.NS.GLOBAL + name), SpeculativeBindingOption.BindAsExpression);
+
+                    if (si.Symbol != null && si.Symbol.Kind != SymbolKind.ErrorType)
+                    {
+                        name = CS.NS.GLOBAL + name;
+                    }
+                }
+            }
+
+            return name;
+        }
+
         public static string FullyQualifiedName(this ISymbol symbol, bool appenTypeArgs = true)
         {
             var at = symbol as IArrayTypeSymbol;
@@ -343,6 +617,11 @@ namespace Bridge.Translator
                 result += "]";
 
                 return result;
+            }
+
+            if (symbol is INamedTypeSymbol typeSymbol && typeSymbol.IsTupleType)
+            {
+                symbol = typeSymbol.TupleUnderlyingType;
             }
 
             var localName = symbol.Name;
@@ -377,7 +656,7 @@ namespace Bridge.Translator
             {
                 if (symbol.ContainingNamespace.IsGlobalNamespace)
                 {
-                    //return "global::" + localName;
+                    //return CS.NS.GLOBAL + localName;
                     return localName;
                 }
 
@@ -525,6 +804,38 @@ namespace Bridge.Translator
                          .WithTrailingTrivia(method.GetTrailingTrivia());
         }
 
+        public static ConstructorDeclarationSyntax ToStatementBody(ConstructorDeclarationSyntax method)
+        {
+            var body = method.ExpressionBody.Expression.WithLeadingTrivia(SyntaxFactory.Space);
+
+            return method.WithBody(SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(body)))
+                         .WithExpressionBody(null)
+                         .WithSemicolonToken(SyntaxFactory.MissingToken(SyntaxKind.SemicolonToken))
+                         .WithTrailingTrivia(method.GetTrailingTrivia());
+        }
+
+        public static DestructorDeclarationSyntax ToStatementBody(DestructorDeclarationSyntax method)
+        {
+            var body = method.ExpressionBody.Expression.WithLeadingTrivia(SyntaxFactory.Space);
+
+            return method.WithBody(SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(body)))
+                         .WithExpressionBody(null)
+                         .WithSemicolonToken(SyntaxFactory.MissingToken(SyntaxKind.SemicolonToken))
+                         .WithTrailingTrivia(method.GetTrailingTrivia());
+        }
+
+        public static AccessorDeclarationSyntax ToStatementBody(AccessorDeclarationSyntax method)
+        {
+            var needReturn = method.Keyword.Kind() == SyntaxKind.GetKeyword;
+
+            var body = method.ExpressionBody.Expression.WithLeadingTrivia(SyntaxFactory.Space);
+
+            return method.WithBody(SyntaxFactory.Block(needReturn ? (StatementSyntax)SyntaxFactory.ReturnStatement(body) : SyntaxFactory.ExpressionStatement(body)))
+                         .WithExpressionBody(null)
+                         .WithSemicolonToken(SyntaxFactory.MissingToken(SyntaxKind.SemicolonToken))
+                         .WithTrailingTrivia(method.GetTrailingTrivia());
+        }
+
         public static OperatorDeclarationSyntax ToStatementBody(OperatorDeclarationSyntax method)
         {
             var isVoid = false;
@@ -568,9 +879,8 @@ namespace Bridge.Translator
                 .WithTrailingTrivia(property.GetTrailingTrivia());
         }
 
-        public static string GetSymbolName(InvocationExpressionSyntax node, SemanticModel semanticModel)
+        public static string GetSymbolName(InvocationExpressionSyntax node, SymbolInfo si, string name, SemanticModel semanticModel)
         {
-            var si = semanticModel.GetSymbolInfo(node.ArgumentList.Arguments[0].Expression);
             var symbol = si.Symbol;
 
             if (symbol == null && si.CandidateSymbols.Any())
@@ -578,11 +888,9 @@ namespace Bridge.Translator
                 symbol = si.CandidateSymbols.First();
             }
 
-            var name = (string)semanticModel.GetConstantValue(node).Value;
-
             if (symbol != null && symbol.Kind != SymbolKind.Namespace)
             {
-                bool preserveMemberChange = !(symbol.Kind == SymbolKind.Method || symbol.Kind == SymbolKind.Property);
+                //bool preserveMemberChange = !(symbol.Kind == SymbolKind.Method || symbol.Kind == SymbolKind.Property);
 
                 int enumMode = -1;
 
@@ -601,13 +909,8 @@ namespace Bridge.Translator
                     }
                 }
 
-                if (symbol is IFieldSymbol && ((IFieldSymbol)symbol).IsConst)
-                {
-                    preserveMemberChange = true;
-                }
-
                 var nameAttr = SyntaxHelper.GetInheritedAttribute(symbol, Bridge.Translator.Translator.Bridge_ASSEMBLY + ".NameAttribute");
-                bool isIgnore = symbol.ContainingType != null && SyntaxHelper.IsIgnoreType(symbol.ContainingType);
+                bool isIgnore = symbol.ContainingType != null && SyntaxHelper.IsExternalType(symbol.ContainingType);
 
                 name = symbol.Name;
 
@@ -617,14 +920,15 @@ namespace Bridge.Translator
                     if (value is string)
                     {
                         name = value.ToString();
-                        if (!isIgnore && symbol.IsStatic && Emitter.IsReservedStaticName(name))
+                        name = Helpers.ConvertNameTokens(name, symbol.Name);
+                        if (!isIgnore && symbol.IsStatic && Helpers.IsReservedStaticName(name))
                         {
                             name = Helpers.ChangeReservedWord(name);
                         }
                         return name;
                     }
 
-                    preserveMemberChange = !(bool)value;
+                    //preserveMemberChange = !(bool)value;
                     enumMode = -1;
                 }
 
@@ -644,12 +948,12 @@ namespace Bridge.Translator
                             break;
                     }
                 }
-                else
+                /*else
                 {
                     name = !preserveMemberChange ? Object.Net.Utilities.StringUtils.ToLowerCamelCase(name) : name;
-                }
+                }*/
 
-                if (!isIgnore && symbol.IsStatic && Emitter.IsReservedStaticName(name))
+                if (!isIgnore && symbol.IsStatic && Helpers.IsReservedStaticName(name))
                 {
                     name = Helpers.ChangeReservedWord(name);
                 }
@@ -658,13 +962,49 @@ namespace Bridge.Translator
             return name;
         }
 
-        private static bool IsIgnoreType(ISymbol symbol)
+        private static bool IsExternalType(INamedTypeSymbol symbol)
         {
             string externalAttr = Translator.Bridge_ASSEMBLY + ".ExternalAttribute";
+            string virtualAttr = Translator.Bridge_ASSEMBLY + ".VirtualAttribute";
             string objectLiteralAttr = Translator.Bridge_ASSEMBLY + ".ObjectLiteralAttribute";
 
-            return SyntaxHelper.HasAttribute(symbol.GetAttributes(), externalAttr)
-                   || SyntaxHelper.HasAttribute(symbol.GetAttributes(), objectLiteralAttr);
+            var result = SyntaxHelper.HasAttribute(symbol.GetAttributes(), externalAttr)
+                   || SyntaxHelper.HasAttribute(symbol.GetAttributes(), objectLiteralAttr)
+                   || SyntaxHelper.HasAttribute(symbol.ContainingAssembly.GetAttributes(), externalAttr);
+
+            if (result)
+            {
+                return true;
+            }
+
+            var attr = symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass != null && a.AttributeClass.FullyQualifiedName() == virtualAttr);
+
+            if (attr == null)
+            {
+                attr = symbol.ContainingAssembly.GetAttributes().FirstOrDefault(a => a.AttributeClass != null && a.AttributeClass.FullyQualifiedName() == virtualAttr);
+            }
+
+            if (attr != null)
+            {
+                if (attr.ConstructorArguments.Length == 0)
+                {
+                    return true;
+                }
+
+                var value = (int)attr.ConstructorArguments[0].Value;
+
+                switch (value)
+                {
+                    case 0:
+                        return true;
+                    case 1:
+                        return symbol.TypeKind != TypeKind.Interface;
+                    case 2:
+                        return symbol.TypeKind == TypeKind.Interface;
+                }
+            }
+
+            return false;
         }
 
         private static bool HasAttribute(ImmutableArray<AttributeData> attributes, string attrName)
@@ -725,10 +1065,10 @@ namespace Bridge.Translator
             return type.GetBaseTypesAndThis().Contains(baseType);
         }
 
-        public static T GetParent<T>(this SyntaxNode node) where T : SyntaxNode
+        public static T GetParent<T>(this SyntaxNode node, Type stop = null) where T : SyntaxNode
         {
             var p = node.Parent;
-            while (p != null && !(p is T))
+            while (p != null && !(p is T) && (stop == null || stop.IsAssignableFrom(p.GetType())))
             {
                 p = p.Parent;
             }
@@ -736,5 +1076,39 @@ namespace Bridge.Translator
             return p as T;
         }
 
+        public static SyntaxTriviaList ExcludeDirectivies(this SyntaxTriviaList list)
+        {
+            return SyntaxFactory.TriviaList(list.Where(t => !t.IsDirective));
+        }
+
+        public static bool IsAccessibleIn(this ITypeSymbol type, ITypeSymbol currentType)
+        {
+            var list = new List<ITypeSymbol>();
+
+            while (currentType != null && currentType.ContainingType != null)
+            {
+                var nested = currentType.GetTypeMembers();
+
+                if (nested != null && nested.Length > 0)
+                {
+                    list.AddRange(nested);
+                }
+
+                list.Add(currentType.ContainingType);
+                currentType = currentType.ContainingType;
+            }
+
+            if (currentType != null)
+            {
+                var nested1 = currentType.GetTypeMembers();
+
+                if (nested1 != null && nested1.Length > 0)
+                {
+                    list.AddRange(nested1);
+                }
+            }
+
+            return list.Contains(type);
+        }
     }
 }

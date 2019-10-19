@@ -1,110 +1,101 @@
-// Content header: 1.0.0-beta  {notdate} 2016 
-
+// Content header:   {notdate} 2019
 // ---
 // Content remark: Path: Bridge/output/testIssue434.js; name: testIssue434.js
 // ---
 
 // Top
 
-    (function(){
-        TestIssue434.Issue434A.doSomething(2);
-    })();
+    Bridge.init(function () {
+        TestIssue434.Issue434A.DoSomething(2);
+    });
 
     Bridge.define("TestIssue434.Issue434A", {
         statics: {
-            method1: function () {
-                TestIssue434.Issue434A.doSomething(1);
-            },
-            method3: function () {
-                TestIssue434.Issue434A.doSomething(3);
-            },
-            method4: function () {
-                TestIssue434.Issue434A.doSomething(4);
-            },
-            doSomething: function (i) {
-                Bridge.Console.log(i);
+            methods: {
+                Method1: function Method1 () {
+                    TestIssue434.Issue434A.DoSomething(1);
+                },
+                Method3: function Method3 () {
+                    TestIssue434.Issue434A.DoSomething(3);
+                },
+                Method4: function Method4 () {
+                    TestIssue434.Issue434A.DoSomething(4);
+                },
+                DoSomething: function DoSomething (i) {
+                    System.Console.WriteLine(i);
+                }
             }
         }
     });
 
-    TestIssue434.Issue434A.method1();
-    TestIssue434.Issue434A.method3();
-    TestIssue434.Issue434A.method4();
+    Bridge.init(function () { TestIssue434.Issue434A.Method1(); });
+    Bridge.init(function () { TestIssue434.Issue434A.Method3(); });
+    Bridge.init(function () { TestIssue434.Issue434A.Method4(); });
 
-    (function(){
-        TestIssue434.Issue434B.doSomething(2);
-    })();
+    Bridge.init(function () {
+        TestIssue434.Issue434B.DoSomething(2);
+    });
 
     Bridge.define("TestIssue434.Issue434B", {
         statics: {
-            method1: function () {
-                TestIssue434.Issue434B.doSomething(1);
-            },
-            method3: function () {
-                TestIssue434.Issue434B.doSomething(3);
-            },
-            method4: function () {
-                TestIssue434.Issue434B.doSomething(4);
-            },
-            doSomething: function (i) {
-                Bridge.Console.log(i);
+            methods: {
+                Method1: function Method1 () {
+                    TestIssue434.Issue434B.DoSomething(1);
+                },
+                Method3: function Method3 () {
+                    TestIssue434.Issue434B.DoSomething(3);
+                },
+                Method4: function Method4 () {
+                    TestIssue434.Issue434B.DoSomething(4);
+                },
+                DoSomething: function DoSomething (i) {
+                    System.Console.WriteLine(i);
+                }
             }
         }
     });
 
-    TestIssue434.Issue434B.method1();
-    TestIssue434.Issue434B.method3();
-    TestIssue434.Issue434B.method4();
+    Bridge.init(function () { TestIssue434.Issue434B.Method1(); });
+    Bridge.init(function () { TestIssue434.Issue434B.Method3(); });
+    Bridge.init(function () { TestIssue434.Issue434B.Method4(); });
 
-    Bridge.define("TestIssue434.Issue434C", {
-        statics: {
-
-        }
-    });
+    Bridge.define("TestIssue434.Issue434C");
 
 // Bottom
-
 // ---
 // Content remark: Path: Bridge/output/testIssue461.js; name: testIssue461.js
 // ---
 
     Bridge.define("TestIssue461.Issue461", {
         statics: {
-            test: function () {
-                var input = document.createElement('input');
+            methods: {
+                Test: function Test () {
+                    //HTMLInputElement input = new HTMLInputElement();
 
-                input.onchange = Bridge.fn.combine(input.onchange, $_.TestIssue461.Issue461.f1);
+                    //input.OnChange += (ev) =>
+                    //{
+                    //    // Tests if ev.CurrentTarget.Value compiles
+                    //    Console.WriteLine("ev.CurrentTarget.Value: " + ev.CurrentTarget.Value);
 
-                var anchor = document.createElement('a');
+                    //    // Tests if ev.IsMouseEvent() compiles
+                    //    Console.WriteLine("IsMouseEvent: " + ev.IsMouseEvent());
+                    //};
 
-                anchor.onclick = Bridge.fn.combine(anchor.onclick, $_.TestIssue461.Issue461.f2);
+                    //HTMLAnchorElement anchor = new HTMLAnchorElement();
 
-                // Test if Document.GetElementById<>() compiles
-                var div = document.getElementById("div1");
+                    //anchor.OnClick += (ev) =>
+                    //{
+                    //    // Tests if ev.CurrentTarget.Href compiles
+                    //    Console.WriteLine("ev.CurrentTarget.Href: " + ev.CurrentTarget.Href);
+                    //};
 
-                // Tests if Element is still a superclass of all the element classes and the following code compiles
-                var element;
+                    //HTMLDivElement div = Document.GetElementById<HTMLDivElement>("div1");
 
-                element = document.createElement('input');
-                element = document.createElement('textarea');
+                    //HTMLElement element;
+
+                    //element = new HTMLInputElement();
+                    //element = new HTMLTextAreaElement();
+                }
             }
-        }
-    });
-
-    var $_ = {};
-
-    Bridge.ns("TestIssue461.Issue461", $_);
-
-    Bridge.apply($_.TestIssue461.Issue461, {
-        f1: function (ev) {
-            // Tests if ev.CurrentTarget.Value compiles
-            Bridge.Console.log(System.String.concat("ev.CurrentTarget.Value: ", ev.currentTarget.value));
-
-            // Tests if ev.IsMouseEvent() compiles
-            Bridge.Console.log("IsMouseEvent: " + System.Boolean.toString(Bridge.is(ev, MouseEvent)));
-        },
-        f2: function (ev) {
-            // Tests if ev.CurrentTarget.Href compiles
-            Bridge.Console.log(System.String.concat("ev.CurrentTarget.Href: ", ev.currentTarget.href));
         }
     });

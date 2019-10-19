@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System;
 using System.Linq;
 
@@ -22,10 +22,10 @@ namespace Bridge.ClientTest.CSharp6
             Assert.Null(GetCustomers(customers2)[2]?.Method1(customers2?[0].Orders.Count())?.Length);
             Assert.AreEqual(1, GetCustomers(customers2)?[1].Method1(GetCustomers(customers2)?[1].Orders.Count())?.Length);
 
-            Assert.Null(customers1?[0].Orders?.Concat(null)?.Length);
-            Assert.Null(customers2[2]?.Orders?.Concat(null)?.Length);
-            Assert.Null(customers2[0]?.Orders?.Concat(null)?.Length);
-            Assert.AreEqual(2, customers2[1]?.Orders?.Concat(null)?.Length);
+            Assert.Null(customers1?[0].Orders?.Concat(null)?.Count());
+            Assert.Null(customers2[2]?.Orders?.Concat(null)?.Count());
+            Assert.Null(customers2[0]?.Orders?.Concat(null)?.Count());
+            Assert.AreEqual(2, customers2[1]?.Orders?.Concat(null)?.Count());
 
             Assert.Null(customers1?[0].Orders?.Length);
             Assert.Null(customers2[2]?.Orders?.Length);
@@ -37,14 +37,14 @@ namespace Bridge.ClientTest.CSharp6
             Assert.Null(customers2[0].Orders?.Count());
             Assert.AreEqual(2, customers2?[1].Orders?.Count());
 
-            Assert.Null(customers1?[0].Orders?.Concat(null).Concat(null)?.Length);
-            Assert.Null(customers2[2]?.Orders?.Concat(null).Concat(null)?.Length);
-            Assert.Null(customers2?[0].Orders?.Concat(null).Concat(null)?.Length);
-            Assert.AreEqual(2, customers2?[1].Orders?.Concat(null).Concat(null)?.Length);
+            Assert.Null(customers1?[0].Orders?.Concat(null).Concat(null)?.Count());
+            Assert.Null(customers2[2]?.Orders?.Concat(null).Concat(null)?.Count());
+            Assert.Null(customers2?[0].Orders?.Concat(null).Concat(null)?.Count());
+            Assert.AreEqual(2, customers2?[1].Orders?.Concat(null).Concat(null)?.Count());
 
             Assert.Null(customers1?[0].Method1(nameof(GetStrings)));
             Assert.Null(customers2[2]?.Method1(nameof(GetStrings)));
-            Assert.AreEqual("getStrings", customers2?[1].Method1(nameof(GetStrings)));
+            Assert.AreEqual("GetStrings", customers2?[1].Method1(nameof(GetStrings)));
 
             Assert.Null(GetCustomers(customers1)?.Select(c => c)?.Select(c2 => c2)?.Count());
             Assert.AreEqual(3, GetCustomers(customers2)?.Select(c => c)?.Select(c2 => c2)?.Count());

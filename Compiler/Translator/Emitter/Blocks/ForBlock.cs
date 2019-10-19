@@ -1,8 +1,6 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
-
 using System.Collections.Generic;
 using System.Linq;
 
@@ -78,7 +76,16 @@ namespace Bridge.Translator
 
             this.WriteIf();
             this.WriteOpenParentheses(true);
-            forStatement.Condition.AcceptVisitor(this.Emitter);
+
+            if (!forStatement.Condition.IsNull)
+            {
+                forStatement.Condition.AcceptVisitor(this.Emitter);
+            }
+            else
+            {
+                this.Write("true");
+            }
+
             this.WriteCloseParentheses(true);
             this.Emitter.ReplaceAwaiterByVar = oldValue;
 
@@ -183,6 +190,8 @@ namespace Bridge.Translator
         protected void VisitForStatement()
         {
             ForStatement forStatement = this.ForStatement;
+            var jumpStatements = this.Emitter.JumpStatements;
+            this.Emitter.JumpStatements = null;
 
             this.PushLocals();
             this.Emitter.EnableSemicolon = false;
@@ -190,6 +199,8 @@ namespace Bridge.Translator
             this.WriteFor();
             this.WriteOpenParentheses();
 
+            var old = this.Emitter.IsAsync;
+            this.Emitter.IsAsync = false;
             foreach (var item in forStatement.Initializers)
             {
                 if (item != forStatement.Initializers.First())
@@ -199,6 +210,7 @@ namespace Bridge.Translator
 
                 item.AcceptVisitor(this.Emitter);
             }
+            this.Emitter.IsAsync = old;
 
             this.WriteSemiColon();
             this.WriteSpace();
@@ -228,6 +240,7 @@ namespace Bridge.Translator
             this.EmitBlockOrIndentedLine(forStatement.EmbeddedStatement);
 
             this.PopLocals();
+            this.Emitter.JumpStatements = jumpStatements;
         }
     }
 }

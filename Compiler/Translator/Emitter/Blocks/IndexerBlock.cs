@@ -1,10 +1,8 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
-
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -94,7 +92,7 @@ namespace Bridge.Translator
             if (memberResolveResult != null)
             {
                 var resolvedMember = memberResolveResult.Member;
-                isIgnore = this.Emitter.Validator.IsIgnoreType(resolvedMember.DeclaringTypeDefinition);
+                isIgnore = this.Emitter.Validator.IsExternalType(resolvedMember.DeclaringTypeDefinition);
                 isAccessorsIndexer = this.Emitter.Validator.IsAccessorsIndexer(resolvedMember);
 
                 var property = resolvedMember as IProperty;
@@ -129,11 +127,14 @@ namespace Bridge.Translator
                 this.Write(interfaceTempVar);
             }
 
-            bool nativeImplementation;
-            var externalInterface = this.Emitter.Validator.IsExternalInterface(resolveResult.Member.DeclaringTypeDefinition, out nativeImplementation);
+            var itypeDef = resolveResult.Member.DeclaringTypeDefinition;
+            var externalInterface = this.Emitter.Validator.IsExternalInterface(itypeDef);
+            bool variance = MetadataUtils.IsJsGeneric(itypeDef, this.Emitter) &&
+                itypeDef.TypeParameters != null &&
+                itypeDef.TypeParameters.Any(typeParameter => typeParameter.Variance != VarianceModifier.Invariant);
 
             this.WriteOpenBracket();
-            if (externalInterface && !nativeImplementation)
+            if (externalInterface != null && externalInterface.IsDualImplementation || variance)
             {
                 this.Write(JS.Funcs.BRIDGE_GET_I);
                 this.WriteOpenParentheses();
@@ -156,7 +157,7 @@ namespace Bridge.Translator
 
                 this.WriteComma();
 
-                var interfaceName = OverloadsCollection.Create(Emitter, resolveResult.Member, isSetter).GetOverloadName(false, prefix);
+                var interfaceName = Helpers.GetPropertyRef(resolveResult.Member, this.Emitter, isSetter, ignoreInterface:false);
 
                 if (interfaceName.StartsWith("\""))
                 {
@@ -167,19 +168,21 @@ namespace Bridge.Translator
                     this.WriteScript(interfaceName);
                 }
 
-                this.WriteComma();
-                this.WriteScript(
-                    OverloadsCollection.Create(Emitter, resolveResult.Member, isSetter).GetOverloadName(true, prefix));
+                if (variance)
+                {
+                    this.WriteComma();
+                    this.WriteScript(Helpers.GetPropertyRef(resolveResult.Member, this.Emitter, isSetter, ignoreInterface: false, withoutTypeParams:true));
+                }
 
                 this.Write(")");
             }
-            else if (nativeImplementation)
+            else if (externalInterface == null || externalInterface.IsNativeImplementation)
             {
-                this.Write(OverloadsCollection.Create(Emitter, resolveResult.Member, isSetter).GetOverloadName(false, prefix));
+                this.Write(Helpers.GetPropertyRef(resolveResult.Member, this.Emitter, isSetter, ignoreInterface: false));
             }
             else
             {
-                this.Write(OverloadsCollection.Create(Emitter, resolveResult.Member, isSetter).GetOverloadName(true, prefix));
+                this.Write(Helpers.GetPropertyRef(resolveResult.Member, this.Emitter, isSetter, ignoreInterface: true));
             }
 
             this.WriteCloseBracket();
@@ -192,7 +195,6 @@ namespace Bridge.Translator
 
         public static IndexerAccessor GetIndexerAccessor(IEmitter emitter, IProperty member, bool setter)
         {
-            string inlineCode = null;
             var method = setter ? member.Setter : member.Getter;
 
             if (method == null)
@@ -201,24 +203,13 @@ namespace Bridge.Translator
             }
 
             var inlineAttr = emitter.GetAttribute(method.Attributes, Translator.Bridge_ASSEMBLY + ".TemplateAttribute");
-
-            var ignoreAccessor = emitter.Validator.IsIgnoreType(method);
-
-            if (inlineAttr != null)
-            {
-                var inlineArg = inlineAttr.PositionalArguments[0];
-
-                if (inlineArg.ConstantValue != null)
-                {
-                    inlineCode = inlineArg.ConstantValue.ToString();
-                }
-            }
+            var ignoreAccessor = emitter.Validator.IsExternalType(method);
 
             return new IndexerAccessor
             {
                 IgnoreAccessor = ignoreAccessor,
                 InlineAttr = inlineAttr,
-                InlineCode = inlineCode,
+                InlineCode = emitter.GetInline(method),
                 Method = method
             };
         }
@@ -228,6 +219,12 @@ namespace Bridge.Translator
             var oldIsAssignment = this.Emitter.IsAssignment;
             var oldUnary = this.Emitter.IsUnaryAccessor;
             var inlineCode = current.InlineCode;
+            var rr = this.Emitter.Resolver.ResolveNode(indexerExpression, this.Emitter) as MemberResolveResult;
+            if (rr != null)
+            {
+                inlineCode = Helpers.ConvertTokens(this.Emitter, inlineCode, rr.Member);
+            }
+
             bool hasThis = inlineCode != null && inlineCode.Contains("{this}");
 
             if (inlineCode != null && inlineCode.StartsWith("<self>"))
@@ -258,10 +255,10 @@ namespace Bridge.Translator
                 inlineCode = inlineCode.Replace("{this}", thisArg);
 
                 this.Emitter.Output = new StringBuilder();
-                inlineCode = inlineCode.Replace("{0}", "[[0]]");
-                new InlineArgumentsBlock(this.Emitter, new ArgumentsInfo(this.Emitter, indexerExpression, this.Emitter.Resolver.ResolveNode(indexerExpression, this.Emitter) as InvocationResolveResult), inlineCode).Emit();
+                inlineCode = inlineCode.Replace("{value}", "[[value]]");
+                new InlineArgumentsBlock(this.Emitter, new ArgumentsInfo(this.Emitter, indexerExpression, rr as InvocationResolveResult), inlineCode).Emit();
                 inlineCode = this.Emitter.Output.ToString();
-                inlineCode = inlineCode.Replace("[[0]]", "{0}");
+                inlineCode = inlineCode.Replace("[[value]]", "{0}");
 
                 this.Emitter.IsAssignment = oldIsAssignment;
                 this.Emitter.IsUnaryAccessor = oldUnary;
@@ -274,15 +271,10 @@ namespace Bridge.Translator
                 }
 
                 this.PushWriter(inlineCode, null, thisArg, range);
-                new ExpressionListBlock(this.Emitter, indexerExpression.Arguments, null, null, 0).Emit();
 
                 if (!this.Emitter.IsAssignment)
                 {
                     this.PopWriter();
-                }
-                else
-                {
-                    this.WriteComma();
                 }
 
                 return;
@@ -318,18 +310,49 @@ namespace Bridge.Translator
             var oldIsAssignment = this.Emitter.IsAssignment;
             var oldUnary = this.Emitter.IsUnaryAccessor;
             var isInterfaceMember = false;
-            bool nativeImplementation;
-            var isExternalInterface = this.Emitter.Validator.IsExternalInterface(memberResolveResult.Member.DeclaringTypeDefinition, out nativeImplementation);
+            bool nativeImplementation = true;
             var hasTypeParemeter = Helpers.IsTypeParameterType(memberResolveResult.Member.DeclaringType);
+            var isExternalInterface = false;
 
-            if (memberResolveResult != null && memberResolveResult.Member.DeclaringTypeDefinition != null &&
-                memberResolveResult.Member.DeclaringTypeDefinition.Kind == TypeKind.Interface &&
-                (isExternalInterface || hasTypeParemeter))
+            if (memberResolveResult.Member.DeclaringTypeDefinition != null &&
+                memberResolveResult.Member.DeclaringTypeDefinition.Kind == TypeKind.Interface)
             {
-                if (hasTypeParemeter || !nativeImplementation)
+                var itypeDef = memberResolveResult.Member.DeclaringTypeDefinition;
+                var variance = MetadataUtils.IsJsGeneric(itypeDef, this.Emitter) &&
+                    itypeDef.TypeParameters != null &&
+                    itypeDef.TypeParameters.Any(typeParameter => typeParameter.Variance != VarianceModifier.Invariant);
+
+                if (variance)
                 {
                     isInterfaceMember = true;
-                    writeTargetVar = true;
+                }
+                else
+                {
+                    var ei =
+                        this.Emitter.Validator.IsExternalInterface(memberResolveResult.Member.DeclaringTypeDefinition);
+
+                    if (ei != null)
+                    {
+                        nativeImplementation = ei.IsNativeImplementation;
+                        isExternalInterface = true;
+                    }
+                    else
+                    {
+                        nativeImplementation =
+                            memberResolveResult.Member.DeclaringTypeDefinition.ParentAssembly.AssemblyName == CS.NS.BRIDGE ||
+                            !this.Emitter.Validator.IsExternalType(memberResolveResult.Member.DeclaringTypeDefinition);
+                    }
+
+                    if (ei != null && ei.IsSimpleImplementation)
+                    {
+                        nativeImplementation = false;
+                        isExternalInterface = false;
+                    }
+                    else if (hasTypeParemeter || ei != null && !nativeImplementation)
+                    {
+                        isInterfaceMember = true;
+                        writeTargetVar = true;
+                    }
                 }
             }
 
@@ -355,16 +378,20 @@ namespace Bridge.Translator
             var memberTargetrr = targetrr as MemberResolveResult;
             bool isField = memberTargetrr != null && memberTargetrr.Member is IField &&
                            (memberTargetrr.TargetResult is ThisResolveResult ||
+                           memberTargetrr.TargetResult is TypeResolveResult ||
                             memberTargetrr.TargetResult is LocalResolveResult);
+            bool isSimple = targetrr is ThisResolveResult || targetrr is LocalResolveResult ||
+                            targetrr is ConstantResolveResult || isField;
+            bool needTemp = isExternalInterface && !nativeImplementation && !isSimple;
 
-            if (isInterfaceMember && (!this.Emitter.IsUnaryAccessor || isStatement) && !(targetrr is ThisResolveResult || targetrr is LocalResolveResult || targetrr is ConstantResolveResult || isField))
+            if (isInterfaceMember && (!this.Emitter.IsUnaryAccessor || isStatement) && needTemp)
             {
                 this.WriteOpenParentheses();
             }
 
             if (writeTargetVar)
             {
-                if (!(targetrr is ThisResolveResult || targetrr is LocalResolveResult || targetrr is ConstantResolveResult || isField))
+                if (needTemp)
                 {
                     targetVar = this.GetTempVarName();
                     this.Write(targetVar);
@@ -791,7 +818,7 @@ namespace Bridge.Translator
                             "(",
                             isBase ? "this, " : "",
                             paramsStr,
-                            "){0})"));
+                            ") {0})"));
 
                         this.RemoveTempVar(targetVar);
                     }
@@ -820,7 +847,7 @@ namespace Bridge.Translator
                             "(",
                             isBase ? "this, " : "",
                             paramsStr,
-                            "){0})"));
+                            ") {0})"));
                     }
                 }
                 else
@@ -1254,7 +1281,7 @@ namespace Bridge.Translator
                             targetVar,
                             ".get([",
                             paramsStr,
-                            "]){0})"), () =>
+                            "]) {0})"), () =>
                             {
                                 this.RemoveTempVar(targetVar);
                             });
@@ -1281,7 +1308,7 @@ namespace Bridge.Translator
                             trg,
                             ".get([",
                             paramsStr,
-                            "]){0})"));
+                            "]) {0})"));
                     }
                 }
                 else
@@ -1302,7 +1329,42 @@ namespace Bridge.Translator
             var oldUnary = this.Emitter.IsUnaryAccessor;
             this.Emitter.IsAssignment = false;
             this.Emitter.IsUnaryAccessor = false;
-            indexerExpression.Target.AcceptVisitor(this.Emitter);
+
+            var targetrr = this.Emitter.Resolver.ResolveNode(indexerExpression.Target, this.Emitter);
+            var memberTargetrr = targetrr as MemberResolveResult;
+            bool isField = memberTargetrr != null && memberTargetrr.Member is IField &&
+                           (memberTargetrr.TargetResult is ThisResolveResult ||
+                            memberTargetrr.TargetResult is TypeResolveResult ||
+                            memberTargetrr.TargetResult is LocalResolveResult);
+            bool isArray = targetrr.Type.Kind == TypeKind.Array && !ConversionBlock.IsInUncheckedContext(this.Emitter, indexerExpression, false);
+            bool isSimple = !isArray || (targetrr is ThisResolveResult || targetrr is LocalResolveResult ||
+                            targetrr is ConstantResolveResult || isField);
+            string targetVar = null;
+
+            if (!isSimple)
+            {
+                this.WriteOpenParentheses();
+                targetVar = this.GetTempVarName();
+                this.Write(targetVar);
+                this.Write(" = ");
+            }
+
+            var rr = this.Emitter.Resolver.ResolveNode(indexerExpression, this.Emitter) as MemberResolveResult;
+
+            if (indexerExpression.Target is BaseReferenceExpression && rr != null && this.Emitter.Validator.IsExternalType(rr.Member.DeclaringTypeDefinition) && !this.Emitter.Validator.IsBridgeClass(rr.Member.DeclaringTypeDefinition))
+            {
+                this.Write("this");
+            }
+            else
+            {
+                indexerExpression.Target.AcceptVisitor(this.Emitter);
+            }
+
+            if (!isSimple)
+            {
+                this.WriteCloseParentheses();
+            }
+
             this.Emitter.IsAssignment = oldIsAssignment;
             this.Emitter.IsUnaryAccessor = oldUnary;
 
@@ -1315,7 +1377,7 @@ namespace Bridge.Translator
 
             var primitive = index as PrimitiveExpression;
 
-            if (primitive != null && primitive.Value != null &&
+            if (!isArray && primitive != null && primitive.Value != null &&
                 Regex.Match(primitive.Value.ToString(), "^[_$a-z][_$a-z0-9]*$", RegexOptions.IgnoreCase).Success)
             {
                 if (this.isRefArg)
@@ -1340,12 +1402,32 @@ namespace Bridge.Translator
                 else
                 {
                     this.WriteOpenBracket();
+                    if (isArray && this.Emitter.Rules.ArrayIndex == ArrayIndexRule.Managed)
+                    {
+                        this.Write(JS.Types.System.Array.INDEX);
+                        this.WriteOpenParentheses();
+                    }
                 }
 
                 index.AcceptVisitor(this.Emitter);
 
                 if (!this.isRefArg)
                 {
+                    if (isArray && this.Emitter.Rules.ArrayIndex == ArrayIndexRule.Managed)
+                    {
+                        this.WriteComma();
+
+                        if (targetVar != null)
+                        {
+                            this.Write(targetVar);
+                        }
+                        else
+                        {
+                            indexerExpression.Target.AcceptVisitor(this.Emitter);
+                        }
+
+                        this.WriteCloseParentheses();
+                    }
                     this.WriteCloseBracket();
                 }
 

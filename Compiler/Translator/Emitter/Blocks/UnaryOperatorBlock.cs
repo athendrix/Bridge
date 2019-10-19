@@ -1,10 +1,9 @@
 using Bridge.Contract;
 using Bridge.Contract.Constants;
-
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
-
+using System;
 using System.Linq;
 
 namespace Bridge.Translator
@@ -50,7 +49,7 @@ namespace Bridge.Translator
                 {
                     if (orr.IsLiftedOperator)
                     {
-                        this.Write(JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT + ".(");
+                        this.Write(JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT + "(");
                     }
 
                     this.Write(BridgeTypes.ToJsName(method.DeclaringType, this.Emitter));
@@ -91,9 +90,16 @@ namespace Bridge.Translator
             OperatorResolveResult orr = resolveOperator as OperatorResolveResult;
             int count = this.Emitter.Writers.Count;
 
-            if (resolveOperator is ConstantResolveResult)
+            if (resolveOperator is ConstantResolveResult crr)
             {
-                this.WriteScript(((ConstantResolveResult)resolveOperator).ConstantValue);
+                object constantValue = crr.ConstantValue;
+
+                if (unaryOperatorExpression.Operator == UnaryOperatorType.Minus && SyntaxHelper.IsNumeric(constantValue.GetType()) && Convert.ToDouble(constantValue) == 0)
+                {
+                    this.Write("-");
+                }
+
+                this.WriteScript(constantValue);
                 return;
             }
 
@@ -147,21 +153,26 @@ namespace Bridge.Translator
             }
 
             bool isAccessor = false;
+
             var memberArgResolverResult = argResolverResult as MemberResolveResult;
 
-            if (memberArgResolverResult != null && memberArgResolverResult.Member is IProperty)
+            if (memberArgResolverResult != null)
             {
-                var prop = (IProperty)memberArgResolverResult.Member;
-                var isIgnore = this.Emitter.Validator.IsIgnoreType(memberArgResolverResult.Member.DeclaringTypeDefinition);
-                var inlineAttr = this.Emitter.GetAttribute(prop.Getter.Attributes, Translator.Bridge_ASSEMBLY + ".TemplateAttribute");
-                var ignoreAccessor = this.Emitter.Validator.IsIgnoreType(prop.Getter);
-                var isAccessorsIndexer = this.Emitter.Validator.IsAccessorsIndexer(memberArgResolverResult.Member);
+                var prop = memberArgResolverResult.Member as IProperty;
 
-                isAccessor = true;
-
-                if (inlineAttr == null && (isIgnore || ignoreAccessor) && !isAccessorsIndexer)
+                if (prop != null)
                 {
-                    isAccessor = false;
+                    var isIgnore = memberArgResolverResult.Member.DeclaringTypeDefinition != null && this.Emitter.Validator.IsExternalType(memberArgResolverResult.Member.DeclaringTypeDefinition);
+                    var inlineAttr = prop.Getter != null ? this.Emitter.GetAttribute(prop.Getter.Attributes, Translator.Bridge_ASSEMBLY + ".TemplateAttribute") : null;
+                    var ignoreAccessor = prop.Getter != null && this.Emitter.Validator.IsExternalType(prop.Getter);
+                    var isAccessorsIndexer = this.Emitter.Validator.IsAccessorsIndexer(memberArgResolverResult.Member);
+
+                    isAccessor = prop.IsIndexer;
+
+                    if (inlineAttr == null && (isIgnore || ignoreAccessor) && !isAccessorsIndexer)
+                    {
+                        isAccessor = false;
+                    }
                 }
             }
             else if (argResolverResult is ArrayAccessResolveResult)
@@ -403,12 +414,12 @@ namespace Bridge.Translator
 
             if (memberArgResolverResult != null && memberArgResolverResult.Member is IProperty)
             {
-                var isIgnore = this.Emitter.Validator.IsIgnoreType(memberArgResolverResult.Member.DeclaringTypeDefinition);
+                var isIgnore = this.Emitter.Validator.IsExternalType(memberArgResolverResult.Member.DeclaringTypeDefinition);
                 var inlineAttr = this.Emitter.GetAttribute(memberArgResolverResult.Member.Attributes, Translator.Bridge_ASSEMBLY + ".TemplateAttribute");
-                var ignoreAccessor = this.Emitter.Validator.IsIgnoreType(((IProperty)memberArgResolverResult.Member).Getter);
+                var ignoreAccessor = this.Emitter.Validator.IsExternalType(((IProperty)memberArgResolverResult.Member).Getter);
                 var isAccessorsIndexer = this.Emitter.Validator.IsAccessorsIndexer(memberArgResolverResult.Member);
 
-                isAccessor = true;
+                isAccessor = ((IProperty)memberArgResolverResult.Member).IsIndexer;
 
                 if (inlineAttr == null && (isIgnore || ignoreAccessor) && !isAccessorsIndexer)
                 {
@@ -460,7 +471,7 @@ namespace Bridge.Translator
                 method = type.GetMethods(m => m.Name == name, GetMemberOptions.IgnoreInheritedMembers).FirstOrDefault();
             }
 
-            if (orr.IsLiftedOperator)
+            if (orr != null && orr.IsLiftedOperator)
             {
                 if (!isOneOp)
                 {
@@ -492,7 +503,7 @@ namespace Bridge.Translator
                         this.Write(") ? ");
                         this.WriteOpenParentheses();
                         this.UnaryOperatorExpression.Expression.AcceptVisitor(this.Emitter);
-                        this.Write(" = " + JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT1 + "('" + (op == UnaryOperatorType.Decrement ? JS.Funcs.Math.DEC : JS.Funcs.Math.INC) + "', ");
+                        this.Write(" = " + JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT1 + "(\"" + (op == UnaryOperatorType.Decrement ? JS.Funcs.Math.DEC : JS.Funcs.Math.INC) + "\", ");
                         this.UnaryOperatorExpression.Expression.AcceptVisitor(this.Emitter);
                         this.AddOveflowFlag(typeCode, JS.Funcs.Math.DEC, true);
                         this.Write(")");
@@ -516,7 +527,7 @@ namespace Bridge.Translator
                         this.UnaryOperatorExpression.Expression.AcceptVisitor(this.Emitter);
                         this.WriteComma();
                         this.UnaryOperatorExpression.Expression.AcceptVisitor(this.Emitter);
-                        this.Write(" = " + JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT1 + "('" + (op == UnaryOperatorType.PostDecrement ? JS.Funcs.Math.DEC : JS.Funcs.Math.INC) + "', ");
+                        this.Write(" = " + JS.Types.SYSTEM_NULLABLE + "." + JS.Funcs.Math.LIFT1 + "(\"" + (op == UnaryOperatorType.PostDecrement ? JS.Funcs.Math.DEC : JS.Funcs.Math.INC) + "\", ");
                         this.UnaryOperatorExpression.Expression.AcceptVisitor(this.Emitter);
                         this.AddOveflowFlag(typeCode, JS.Funcs.Math.DEC, true);
                         this.Write(")");
@@ -677,7 +688,7 @@ namespace Bridge.Translator
                         new ArgumentsInfo(this.Emitter, this.UnaryOperatorExpression, orr, method), inline).Emit();
                     }
                 }
-                else if (!this.Emitter.Validator.IsIgnoreType(method.DeclaringTypeDefinition))
+                else if (!this.Emitter.Validator.IsExternalType(method.DeclaringTypeDefinition))
                 {
                     this.Write(BridgeTypes.ToJsName(method.DeclaringType, this.Emitter));
                     this.WriteDot();

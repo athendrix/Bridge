@@ -47,13 +47,13 @@ namespace Bridge.Translator
 
         public virtual void AddLocals(IEnumerable<ParameterDeclaration> declarations, AstNode statement)
         {
-            var visitor = new ReferenceArgumentVisitor();
+            var visitor = new ReferenceArgumentVisitor(this.Emitter);
             statement.AcceptVisitor(visitor);
 
             declarations.ToList().ForEach(item =>
             {
                 var rr = item.Parent != null ? (LocalResolveResult)this.Emitter.Resolver.ResolveNode(item, this.Emitter) : null;
-                var name = this.Emitter.GetEntityName(item);
+                var name = this.Emitter.GetParameterName(item);
                 var vName = this.AddLocal(item.Name, item, item.Type, name);
 
                 if (item.Parent == null && item.Name == "value" && visitor.DirectionExpression.Any(expr => expr is IdentifierExpression && ((IdentifierExpression)expr).Identifier == "value"))
@@ -80,30 +80,53 @@ namespace Bridge.Translator
                 if (lrr != null && ((identifierExpression = expr as IdentifierExpression) != null))
                 {
                     var name = identifierExpression.Identifier;
-                    if (Helpers.IsReservedWord(name))
+                    if (Helpers.IsReservedWord(this.Emitter, name))
                     {
                         name = Helpers.ChangeReservedWord(name);
                     }
                     this.Emitter.LocalsMap[lrr.Variable] = name + ".v";
                 }
             }
+
+            foreach (var variable in visitor.DirectionVariables)
+            {
+                var name = variable.Name;
+
+                if (Helpers.IsReservedWord(this.Emitter, name))
+                {
+                    name = Helpers.ChangeReservedWord(name);
+                }
+                this.Emitter.LocalsMap[variable] = name + ".v";
+            }
         }
 
         public string AddLocal(string name, AstNode node, AstType type, string valueName = null)
         {
+            if (this.Emitter.Locals.ContainsKey(name))
+            {
+                throw new EmitterException(node, string.Format(Constants.Messages.Exceptions.DUPLICATE_LOCAL_VARIABLE, name));
+            }
+
             this.Emitter.Locals.Add(name, type);
 
             name = name.StartsWith(JS.Vars.FIX_ARGUMENT_NAME) ? name.Substring(JS.Vars.FIX_ARGUMENT_NAME.Length) : name;
             string vName = valueName ?? name;
 
-            if (Helpers.IsReservedWord(vName))
+            if (Helpers.IsReservedWord(this.Emitter, vName))
             {
                 vName = Helpers.ChangeReservedWord(vName);
             }
 
             if (!this.Emitter.LocalsNamesMap.ContainsKey(name))
             {
-                this.Emitter.LocalsNamesMap.Add(name, vName);
+                if (this.Emitter.LocalsNamesMap.ContainsValue(name))
+                {
+                    this.Emitter.LocalsNamesMap.Add(name, this.GetUniqueNameByValue(vName));
+                }
+                else
+                {
+                    this.Emitter.LocalsNamesMap.Add(name, vName);
+                }
             }
             else
             {
@@ -119,12 +142,25 @@ namespace Bridge.Translator
                 this.Emitter.LocalsMap[lrr.Variable] = result + (oldValue.EndsWith(".v") ? ".v" : "");
             }
 
-            if (this.Emitter.IsAsync && !this.Emitter.AsyncVariables.Contains(result))
+            if (this.Emitter.IsAsync && !this.Emitter.AsyncVariables.Contains(result) && (lrr == null || !lrr.IsParameter))
             {
                 this.Emitter.AsyncVariables.Add(result);
             }
 
             return result;
+        }
+
+        protected virtual string GetUniqueNameByValue(string name)
+        {
+            int index = 1;
+            string tempName = name + index;
+
+            while (this.Emitter.LocalsNamesMap.ContainsValue(tempName) || Helpers.IsReservedWord(this.Emitter, tempName))
+            {
+                tempName = name + ++index;
+            }
+
+            return tempName;
         }
 
         protected virtual string GetUniqueName(string name)
@@ -150,7 +186,7 @@ namespace Bridge.Translator
 
             string tempName = name + index;
 
-            while (this.Emitter.LocalsNamesMap.ContainsValue(tempName))
+            while (this.Emitter.LocalsNamesMap.ContainsValue(tempName) || Helpers.IsReservedWord(this.Emitter, tempName))
             {
                 tempName = name + ++index;
             }
@@ -221,7 +257,7 @@ namespace Bridge.Translator
                                 if (prm.IsOptional)
                                 {
                                     var name = prm.Name;
-                                    if (Helpers.IsReservedWord(name))
+                                    if (Helpers.IsReservedWord(this.Emitter, name))
                                     {
                                         name = Helpers.ChangeReservedWord(name);
                                     }
@@ -230,6 +266,34 @@ namespace Bridge.Translator
                                     if (prm.ConstantValue == null && prm.Type.Kind == TypeKind.Struct && !prm.Type.IsKnownType(KnownTypeCode.NullableOfT))
                                     {
                                         this.Write(Inspector.GetStructDefaultValue(prm.Type, this.Emitter));
+                                    }
+                                    else if (prm.ConstantValue == null && prm.Type.Kind == TypeKind.TypeParameter)
+                                    {
+                                        this.Write(JS.Funcs.BRIDGE_GETDEFAULTVALUE + "(" + BridgeTypes.ToJsName(prm.Type, this.Emitter) + ")");
+                                    }
+                                    else if (prm.Type.Kind == TypeKind.Enum)
+                                    {
+                                        var enumMode = Helpers.EnumEmitMode(prm.Type);
+
+                                        if (enumMode >= 3 && enumMode < 7)
+                                        {
+                                            var members = prm.Type.GetMembers(options: GetMemberOptions.IgnoreInheritedMembers);
+                                            var member = members.FirstOrDefault(m => m is IField field && field.ConstantValue == prm.ConstantValue);
+
+                                            if (member != null)
+                                            {
+                                                string enumStringName = this.Emitter.GetEntityName(member);
+                                                this.WriteScript(enumStringName);
+                                            }
+                                            else
+                                            {
+                                                this.WriteScript(prm.ConstantValue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            this.WriteScript(prm.ConstantValue);
+                                        }
                                     }
                                     else
                                     {
@@ -242,14 +306,14 @@ namespace Bridge.Translator
                                 else if (prm.IsParams)
                                 {
                                     var name = prm.Name;
-                                    if (Helpers.IsReservedWord(name))
+                                    if (Helpers.IsReservedWord(this.Emitter, name))
                                     {
                                         name = Helpers.ChangeReservedWord(name);
                                     }
 
                                     if (expandParams)
                                     {
-                                        this.Write(string.Format("{0} = " + JS.Types.ARRAY + "." + JS.Fields.PROTOTYPE + "." + JS.Funcs.SLICE + "." + JS.Funcs.CALL +"(" + JS.Vars.ARGUMENTS +", {1});", name, method.Parameters.IndexOf(prm) + method.TypeParameters.Count));
+                                        this.Write(string.Format("{0} = " + JS.Types.ARRAY + "." + JS.Fields.PROTOTYPE + "." + JS.Funcs.SLICE + "." + JS.Funcs.CALL + "(" + JS.Vars.ARGUMENTS + ", {1});", name, method.Parameters.IndexOf(prm) + method.TypeParameters.Count));
                                     }
                                     else
                                     {
@@ -367,7 +431,7 @@ namespace Bridge.Translator
             }
         }
 
-        protected virtual void SimpleEmitTempVars()
+        protected virtual void SimpleEmitTempVars(bool newline = true)
         {
             if (this.Emitter.TempVariables.Count > 0)
             {
@@ -382,7 +446,10 @@ namespace Bridge.Translator
 
                 this.Emitter.Comma = false;
                 this.WriteSemiColon();
-                this.WriteNewLine();
+                if (newline)
+                {
+                    this.WriteNewLine();
+                }
             }
         }
     }

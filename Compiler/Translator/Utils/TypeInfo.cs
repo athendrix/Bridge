@@ -188,9 +188,9 @@ namespace Bridge.Translator
                                 var argrr = emitter.Resolver.ResolveNode(expr, emitter);
                                 if (argrr.ConstantValue is int)
                                 {
-                                    var value = (int)argrr.ConstantValue;
+                                    var value = (InitPosition)argrr.ConstantValue;
 
-                                    if (value == 1 || value == 2)
+                                    if (value == InitPosition.Before || value == InitPosition.Top)
                                     {
                                         return false;
                                     }
@@ -269,7 +269,7 @@ namespace Bridge.Translator
             set;
         }
 
-        public string Module
+        public Module Module
         {
             get;
             set;
@@ -305,6 +305,12 @@ namespace Bridge.Translator
             set;
         }
 
+        public string JsName
+        {
+            get;
+            set;
+        }
+
         public AstType GetBaseClass(IEmitter emitter)
         {
             var types = this.GetBaseTypes(emitter);
@@ -327,23 +333,32 @@ namespace Bridge.Translator
 
             foreach (var partialTypeDeclaration in this.PartialTypeDeclarations)
             {
-                var temp = new List<AstType>();
+                var appendTypes = new List<AstType>();
+                var insertTypes = new List<AstType>();
                 foreach (var baseType in partialTypeDeclaration.BaseTypes)
                 {
                     var t = emitter.Resolver.ResolveNode(baseType, emitter);
-                    if (this.baseTypes.All(bt => emitter.Resolver.ResolveNode(baseType, emitter).Type.FullName != t.Type.FullName))
+                    if (this.baseTypes.All(bt => emitter.Resolver.ResolveNode(bt, emitter).Type.FullName != t.Type.FullName))
                     {
-                        temp.Add(baseType);
+                        if (t.Type.Kind != TypeKind.Interface)
+                        {
+                            insertTypes.Add(baseType);
+                        }
+                        else
+                        {
+                            appendTypes.Add(baseType);
+                        }
                     }
                 }
 
-                this.baseTypes.AddRange(temp);
+                this.baseTypes.AddRange(appendTypes);
+                this.baseTypes.InsertRange(0, insertTypes);
             }
 
             return this.baseTypes;
         }
 
-        public string GetNamespace(IEmitter emitter)
+        public string GetNamespace(IEmitter emitter, bool nons = false)
         {
             if (emitter == null)
             {
@@ -358,6 +373,18 @@ namespace Bridge.Translator
             // Search for an 'NamespaceAttribute' entry
             foreach (var ca in cas)
             {
+                if (ca.AttributeType.Name == "NameAttribute" && ca.ConstructorArguments.Count > 0)
+                {
+                    var constructorArgumentValue = ca.ConstructorArguments[0].Value as string;
+
+                    if (constructorArgumentValue != null)
+                    {
+                        name = constructorArgumentValue.Contains(".") ? constructorArgumentValue.Substring(0, constructorArgumentValue.LastIndexOf(".")) : null;
+
+                        break;
+                    }
+                }
+
                 if (ca.AttributeType.Name == "NamespaceAttribute" && ca.ConstructorArguments.Count > 0)
                 {
                     var constructorArgumentValue = ca.ConstructorArguments[0].Value as string;
@@ -365,12 +392,19 @@ namespace Bridge.Translator
                     if (!string.IsNullOrWhiteSpace(constructorArgumentValue))
                     {
                         name = constructorArgumentValue;
-                        break;
+                    }
+
+                    if (ca.ConstructorArguments[0].Value is bool)
+                    {
+                        if (!(bool)ca.ConstructorArguments[0].Value)
+                        {
+                            name = null;
+                        }
                     }
                 }
             }
 
-            if (name == null)
+            if (name == null && !nons)
             {
                 name = emitter.Translator.DefaultNamespace;
             }

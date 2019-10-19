@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -21,20 +21,30 @@ namespace Bridge.ClientTest.Collections.Generic
                 return GetEnumerator();
             }
 
-            public List<string> Items { get; private set; }
+            public List<string> Items
+            {
+                get;
+                private set;
+            }
 
             public IEnumerator<string> GetEnumerator()
             {
                 return Items.GetEnumerator();
             }
 
-            public int Count { get { return Items.Count; } }
+            public int Count
+            {
+                get
+                {
+                    return Items.Count;
+                }
+            }
 
             public bool IsReadOnly
             {
                 get
                 {
-                    return true;
+                    return false;
                 }
             }
 
@@ -63,7 +73,17 @@ namespace Bridge.ClientTest.Collections.Generic
                 return Items.Remove(item);
             }
 
-            public string this[int index] { get { return Items[index]; } set { Items[index] = value; } }
+            public string this[int index]
+            {
+                get
+                {
+                    return Items[index];
+                }
+                set
+                {
+                    Items[index] = value;
+                }
+            }
 
             public int IndexOf(string item)
             {
@@ -104,12 +124,14 @@ namespace Bridge.ClientTest.Collections.Generic
         [Test]
         public void TypePropertiesAreCorrect()
         {
-            Assert.AreEqual("System.Collections.Generic.IList$1[[Object]]", typeof(IList<object>).FullName, "FullName should be correct");
+            Assert.AreEqual("System.Collections.Generic.IList`1[[System.Object, mscorlib]]", typeof(IList<object>).FullName, "FullName should be correct");
+            Assert.True(typeof(IList<object>).IsInterface, "IsInterface should be true");
 
-            IList<object> iList = new List<object>();
-
-            Assert.True(iList is IEnumerable<object>, "Interfaces should contain IEnumerable");
-            Assert.True(iList is ICollection<object>, "Interfaces should contain ICollection");
+            var interfaces = typeof(IList<object>).GetInterfaces();
+            Assert.AreEqual(3, interfaces.Length, "Interfaces length");
+            Assert.True(interfaces.Contains(typeof(IEnumerable)), "Interfaces should contain IEnumerable");
+            Assert.True(interfaces.Contains(typeof(IEnumerable<object>)), "Interfaces should contain IEnumerable<>");
+            Assert.True(interfaces.Contains(typeof(ICollection<object>)), "Interfaces should contain ICollection<>");
         }
 
         [Test]
@@ -132,6 +154,14 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
+        public void ArrayCastToIListSetItemWorks()
+        {
+            IList<string> l = new[] { "x", "y", "z" };
+            l[1] = "a";
+            Assert.AreEqual("a", l[1]);
+        }
+
+        [Test]
         public void ClassImplementingIListGetItemWorks()
         {
             MyList l = new MyList(new[] { "x", "y", "z" });
@@ -143,14 +173,6 @@ namespace Bridge.ClientTest.Collections.Generic
         {
             IList<string> l = new MyList(new[] { "x", "y", "z" });
             Assert.AreEqual("y", l[1]);
-        }
-
-        [Test]
-        public void ArrayCastToIListSetItemWorks()
-        {
-            IList<string> l = new[] { "x", "y", "z" };
-            l[1] = "a";
-            Assert.AreEqual("a", l[1]);
         }
 
         [Test]
@@ -180,14 +202,14 @@ namespace Bridge.ClientTest.Collections.Generic
         public void ClassImplementingIListIsReadOnlyWorks()
         {
             MyList c = new MyList(new[] { "x", "y" });
-            Assert.AreEqual(true, c.IsReadOnly);
+            Assert.AreEqual(false, c.IsReadOnly);
         }
 
         [Test]
         public void ClassImplementingIListCastToIListIsReadOnlyWorks()
         {
             IList<string> l = new MyList(new[] { "x", "y" });
-            Assert.AreEqual(true, l.IsReadOnly);
+            Assert.AreEqual(false, l.IsReadOnly);
         }
 
         [Test]
@@ -219,7 +241,7 @@ namespace Bridge.ClientTest.Collections.Generic
         {
             MyList l = new MyList(new[] { "x", "y" });
             l.Insert(1, "z");
-            Assert.AreDeepEqual(new[] { "x", "z", "y" }, l.Items.ToArray());
+            Assert.AreEqual(new[] { "x", "z", "y" }, l.Items.ToArray());
         }
 
         [Test]
@@ -227,7 +249,7 @@ namespace Bridge.ClientTest.Collections.Generic
         {
             IList<string> l = new MyList(new[] { "x", "y" });
             l.Insert(1, "z");
-            Assert.AreDeepEqual(new[] { "x", "z", "y" }, ((MyList)l).Items.ToArray());
+            Assert.AreEqual(new[] { "x", "z", "y" }, ((MyList)l).Items.ToArray());
         }
 
         [Test]
@@ -235,7 +257,7 @@ namespace Bridge.ClientTest.Collections.Generic
         {
             MyList l = new MyList(new[] { "x", "y", "z" });
             l.RemoveAt(1);
-            Assert.AreDeepEqual(new[] { "x", "z" }, l.Items.ToArray());
+            Assert.AreEqual(new[] { "x", "z" }, l.Items.ToArray());
         }
 
         [Test]
@@ -243,7 +265,7 @@ namespace Bridge.ClientTest.Collections.Generic
         {
             IList<string> l = new MyList(new[] { "x", "y", "z" });
             l.RemoveAt(1);
-            Assert.AreDeepEqual(new[] { "x", "z" }, ((MyList)l).Items.ToArray());
+            Assert.AreEqual(new[] { "x", "z" }, ((MyList)l).Items.ToArray());
         }
 
         [Test]

@@ -6,25 +6,25 @@ namespace Bridge.Translator
     public class AssemblyInfo : IAssemblyInfo
     {
         public const string DEFAULT_FILENAME = "---";
-        public const string JAVASCRIPT_EXTENSION = "js";
+        public const string DEFAULT_OUTPUT = "$(OutDir)/bridge/";
 
         public AssemblyInfo()
         {
             this.Dependencies = new List<IPluginDependency>();
+            this.DefineConstants = new List<string>();
             this.Logging = new LoggingOptions();
             this.Reflection = new ReflectionConfig();
             this.ReflectionInternal = new ReflectionConfig();
             this.Assembly = new AssemblyConfig();
             this.Resources = new ResourceConfig();
-        }
-
-        /// <summary>
-        /// True to preserve case of the first letter of generated JavaScript members - methods, constructors, etc.
-        /// Defaults to false - the members will be forced to start with a lowercase letter.
-        /// </summary>
-        public bool PreserveMemberCase
-        {
-            get; set;
+            this.Loader = new ModuleLoader();
+            this.Output = DEFAULT_OUTPUT;
+            this.SourceMap = new SourceMapConfig();
+            this.Html = new HtmlConfig();
+            this.Console = new ConsoleConfig();
+            this.Report = new ReportConfig();
+            this.Rules = new CompilerRule();
+            this.IgnoreDuplicateTypes = false;
         }
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace Bridge.Translator
             get; set;
         }
 
-        private OutputBy outputBy = OutputBy.Namespace;
+        private OutputBy outputBy = OutputBy.Project;
 
         /// <summary>
         /// The option to manage JavaScript output folders and files.
@@ -56,10 +56,11 @@ namespace Bridge.Translator
         {
             get
             {
-                if (this.CombineScripts)
+                if (this.CombineScripts || !string.IsNullOrEmpty(this.FileName))
                 {
                     return OutputBy.Project;
                 }
+
                 return this.outputBy;
             }
             set
@@ -68,7 +69,7 @@ namespace Bridge.Translator
             }
         }
 
-        private FileNameCaseConvert jsFileCasing = FileNameCaseConvert.CamelCase;
+        private FileNameCaseConvert jsFileCasing = FileNameCaseConvert.None;
 
         /// <summary>
         /// The option to manage JavaScript file name case converting for class grouping.
@@ -117,7 +118,7 @@ namespace Bridge.Translator
         /// The global Module setting. The entire project is considered as one Module.
         /// Though, you are still able to define a Module attribute on the class level.
         /// </summary>
-        public string Module
+        public Module Module
         {
             get; set;
         }
@@ -189,8 +190,9 @@ namespace Bridge.Translator
         /// <summary>
         /// Deletes files from output directory using pattern "*.js|*.d.ts" before build (before extracting scripts after translation).
         /// It is useful to replace BeforeBuild event if it just contain commands to clean the output folder.
+        /// Default value is null. It can be used either as string or bool value. True means "*.js|*.d.ts"
         /// </summary>
-        public bool CleanOutputFolderBeforeBuild
+        public string CleanOutputFolderBeforeBuild
         {
             get; set;
         }
@@ -286,6 +288,69 @@ namespace Bridge.Translator
         public ResourceConfig Resources
         {
             get; set;
+        }
+
+        public IModuleLoader Loader
+        {
+            get; set;
+        }
+
+        public NamedFunctionMode NamedFunctions
+        {
+            get;
+            set;
+        }
+
+        [Newtonsoft.Json.JsonConverter(typeof(SourceMapConfigConverter))]
+        public SourceMapConfig SourceMap
+        {
+            get; set;
+        }
+
+        [Newtonsoft.Json.JsonConverter(typeof(HtmlConfigConverter))]
+        public HtmlConfig Html
+        {
+            get; set;
+        }
+
+        [Newtonsoft.Json.JsonConverter(typeof(ConsoleConfigConverter))]
+        public ConsoleConfig Console
+        {
+            get; set;
+        }
+
+        [Newtonsoft.Json.JsonConverter(typeof(ReportConfigConverter))]
+        public ReportConfig Report
+        {
+            get; set;
+        }
+
+        public CompilerRule Rules
+        {
+            get; set;
+        }
+
+        public string ReferencesPath
+        {
+            get;
+            set;
+        }
+
+        public string[] References
+        {
+            get;
+            set;
+        }
+
+        /// <summary>
+        /// Skips loading types off assemblies when they have already been loaded.
+        /// If false, throws an exception when a same type comes from more than
+        /// one assembly.
+        /// </summary>
+        public bool IgnoreDuplicateTypes
+        {
+            get;
+            set;
         }
     }
 }

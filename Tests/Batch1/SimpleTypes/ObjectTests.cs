@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 
 namespace Bridge.ClientTest.SimpleTypes
 {
@@ -14,13 +14,16 @@ namespace Bridge.ClientTest.SimpleTypes
             }
         }
 
-        private class C2 : C1 { }
+        private class C2 : C1
+        {
+        }
 
         [Test]
         public void TypePropertiesAreCorrect()
         {
             Assert.True(new object() is object);
-            Assert.AreEqual("Object", typeof(object).FullName);
+            Assert.AreEqual("System.Object", typeof(object).FullName);
+            Assert.True(typeof(object).IsClass);
         }
 
         [Test]

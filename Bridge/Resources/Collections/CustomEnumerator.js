@@ -1,21 +1,52 @@
-﻿    Bridge.define('Bridge.CustomEnumerator', {
-        inherits: [System.Collections.IEnumerator],
+    Bridge.define("Bridge.CustomEnumerator", {
+        inherits: [System.Collections.IEnumerator, System.IDisposable],
 
         config: {
+            properties: {
+                Current: {
+                    get: function () {
+                        return this.getCurrent();
+                    }
+                },
+
+                Current$1: {
+                    get: function () {
+                        return this.getCurrent();
+                    }
+                }
+            },
+
             alias: [
                 "getCurrent", "System$Collections$IEnumerator$getCurrent",
                 "moveNext", "System$Collections$IEnumerator$moveNext",
-                "reset", "System$Collections$IEnumerator$reset"
+                "reset", "System$Collections$IEnumerator$reset",
+                "Dispose", "System$IDisposable$Dispose",
+                "Current", "System$Collections$IEnumerator$Current"
             ]
         },
 
-        ctor: function (moveNext, getCurrent, reset, dispose, scope) {
+        ctor: function (moveNext, getCurrent, reset, dispose, scope, T) {
             this.$initialize();
             this.$moveNext = moveNext;
             this.$getCurrent = getCurrent;
-            this.$dispose = dispose;
+            this.$Dispose = dispose;
             this.$reset = reset;
             this.scope = scope;
+
+            if (T) {
+                this["System$Collections$Generic$IEnumerator$1$" + Bridge.getTypeAlias(T) + "$getCurrent$1"] = this.getCurrent;
+                this["System$Collections$Generic$IEnumerator$1$getCurrent$1"] = this.getCurrent;
+
+                Object.defineProperty(this, "System$Collections$Generic$IEnumerator$1$" + Bridge.getTypeAlias(T) + "$Current$1", {
+                    get: this.getCurrent,
+                    enumerable: true
+                });
+
+                Object.defineProperty(this, "System$Collections$Generic$IEnumerator$1$Current$1", {
+                    get: this.getCurrent,
+                    enumerable: true
+                });
+            }
         },
 
         moveNext: function () {
@@ -23,7 +54,7 @@
                 return this.$moveNext.call(this.scope);
             }
             catch (ex) {
-                this.dispose.call(this.scope);
+                this.Dispose.call(this.scope);
 
                 throw ex;
             }
@@ -43,9 +74,9 @@
             }
         },
 
-        dispose: function () {
-            if (this.$dispose) {
-                this.$dispose.call(this.scope);
+        Dispose: function () {
+            if (this.$Dispose) {
+                this.$Dispose.call(this.scope);
             }
         }
     });

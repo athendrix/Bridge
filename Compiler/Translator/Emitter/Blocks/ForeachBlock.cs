@@ -8,7 +8,6 @@ using ICSharpCode.NRefactory.MonoCSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
 using EmptyStatement = ICSharpCode.NRefactory.CSharp.EmptyStatement;
-using Expression = ICSharpCode.NRefactory.CSharp.Expression;
 
 namespace Bridge.Translator
 {
@@ -89,16 +88,60 @@ namespace Bridge.Translator
                 return;
             }
 
-            //var iteratorName = this.GetNextIteratorName();
             var iteratorName = this.AddLocal(this.GetTempVarName(), null, AstType.Null);
 
-            //this.WriteVar();
-            this.Write(iteratorName, " = ", JS.Funcs.BRIDGE_GET_ENUMERATOR);
+            var for_rr = (ForEachResolveResult)this.Emitter.Resolver.ResolveNode(foreachStatement, this.Emitter);
+            var get_rr = for_rr.GetEnumeratorCall as InvocationResolveResult;
+            var in_rr = this.Emitter.Resolver.ResolveNode(foreachStatement.InExpression, this.Emitter);
+            var inline = get_rr != null ? this.Emitter.GetInline(get_rr.Member) : null;
+            var checkEnum = in_rr.Type.Kind != TypeKind.Array && !in_rr.Type.IsKnownType(KnownTypeCode.String) &&
+                           !in_rr.Type.IsKnownType(KnownTypeCode.Array);
+            var isGenericEnumerable = for_rr.CollectionType.IsParameterized &&
+                                      for_rr.CollectionType.FullName == "System.Collections.Generic.IEnumerable";
+            var emitInline = checkEnum && !isGenericEnumerable && inline != null;
 
-            this.WriteOpenParentheses();
-            foreachStatement.InExpression.AcceptVisitor(this.Emitter);
+            this.Write(iteratorName, " = ");
+
+            if (!emitInline)
+            {
+                this.Write(JS.Funcs.BRIDGE_GET_ENUMERATOR);
+                this.WriteOpenParentheses();
+                foreachStatement.InExpression.AcceptVisitor(this.Emitter);
+            }
+
+            if (checkEnum)
+            {
+                if (for_rr.CollectionType.IsParameterized &&
+                for_rr.CollectionType.FullName == "System.Collections.Generic.IEnumerable")
+                {
+                    this.WriteComma(false);
+                    this.Write(BridgeTypes.ToJsName(((ParameterizedType)for_rr.CollectionType).TypeArguments[0], this.Emitter));
+                }
+                else if (get_rr != null)
+                {
+                    if (inline != null)
+                    {
+                        var argsInfo = new ArgumentsInfo(this.Emitter, foreachStatement.InExpression, get_rr);
+                        new InlineArgumentsBlock(this.Emitter, argsInfo, inline).Emit();
+                    }
+                    else
+                    {
+                        var name = OverloadsCollection.Create(this.Emitter, get_rr.Member).GetOverloadName();
+
+                        if (name != "GetEnumerator" && name != "System$Collections$IEnumerable$GetEnumerator")
+                        {
+                            this.WriteComma(false);
+                            this.WriteScript(name);
+                        }
+                    }
+                }
+            }
+
             this.Emitter.ReplaceAwaiterByVar = oldValue;
-            this.WriteCloseParentheses();
+            if (!emitInline)
+            {
+                this.WriteCloseParentheses();
+            }
             this.WriteSemiColon();
             this.WriteNewLine();
             this.Write(JS.Vars.ASYNC_STEP + " = " + this.Emitter.AsyncBlock.Step + ";");
@@ -126,11 +169,24 @@ namespace Bridge.Translator
             this.Write(varName + " = ");
 
             var rr = this.Emitter.Resolver.ResolveNode(foreachStatement, this.Emitter) as ForEachResolveResult;
+
+            bool isReferenceLocal = false;
+
+            if (this.Emitter.LocalsMap != null && this.Emitter.LocalsMap.ContainsKey(rr.ElementVariable))
+            {
+                isReferenceLocal = this.Emitter.LocalsMap[rr.ElementVariable].EndsWith(".v");
+            }
+
+            if (isReferenceLocal)
+            {
+                this.Write("{ v : ");
+            }
+
             string castCode = this.GetCastCode(rr.ElementType, rr.ElementVariable.Type);
 
             if (castCode != null)
             {
-                this.EmitInlineCast(iteratorName + "." + JS.Funcs.GET_CURRENT + "()", castCode);
+                this.EmitInlineCast(iteratorName + "." + JS.Funcs.GET_CURRENT, castCode);
             }
             else if (this.CastMethod != null)
             {
@@ -138,7 +194,9 @@ namespace Bridge.Translator
                 this.WriteDot();
                 this.Write(OverloadsCollection.Create(this.Emitter, this.CastMethod).GetOverloadName());
                 this.WriteOpenParentheses();
-                this.Write(iteratorName + "." + JS.Funcs.GET_CURRENT + "()");
+                var pos = this.Emitter.Output.Length;
+                this.Write(iteratorName + "." + JS.Funcs.GET_CURRENT);
+                Helpers.CheckValueTypeClone(rr, this.ForeachStatement.InExpression, this, pos);
                 this.WriteCloseParentheses();
             }
             else
@@ -150,16 +208,22 @@ namespace Bridge.Translator
                     this.WriteOpenParentheses();
                 }
 
+                var pos = this.Emitter.Output.Length;
                 this.Write(iteratorName);
 
                 this.WriteDot();
                 this.Write(JS.Funcs.GET_CURRENT);
-                this.WriteOpenCloseParentheses();
+                Helpers.CheckValueTypeClone(rr, this.ForeachStatement.InExpression, this, pos);
 
                 if (needCast)
                 {
                     this.Write(", ", BridgeTypes.ToJsName(rr.ElementVariable.Type, this.Emitter), ")");
                 }
+            }
+
+            if (isReferenceLocal)
+            {
+                this.Write(" }");
             }
 
             this.WriteSemiColon();
@@ -227,50 +291,73 @@ namespace Bridge.Translator
         protected void VisitForeachStatement(bool? replaceAwaiterByVar = null)
         {
             ForeachStatement foreachStatement = this.ForeachStatement;
+            var jumpStatements = this.Emitter.JumpStatements;
+            this.Emitter.JumpStatements = null;
 
             if (foreachStatement.EmbeddedStatement is EmptyStatement)
             {
                 return;
             }
 
+            this.WriteSourceMapName(foreachStatement.VariableName);
             var iteratorVar = this.GetTempVarName();
             var iteratorName = this.AddLocal(iteratorVar, null, AstType.Null);
 
             var rr = (ForEachResolveResult)this.Emitter.Resolver.ResolveNode(foreachStatement, this.Emitter);
             var get_rr = rr.GetEnumeratorCall as InvocationResolveResult;
             var in_rr = this.Emitter.Resolver.ResolveNode(foreachStatement.InExpression, this.Emitter);
+            var inline = get_rr != null ? this.Emitter.GetInline(get_rr.Member) : null;
+            var checkEnum = in_rr.Type.Kind != TypeKind.Array && !in_rr.Type.IsKnownType(KnownTypeCode.String) &&
+                           !in_rr.Type.IsKnownType(KnownTypeCode.Array);
+            var isGenericEnumerable = rr.CollectionType.IsParameterized &&
+                                      rr.CollectionType.FullName == "System.Collections.Generic.IEnumerable";
+            var emitInline = checkEnum && !isGenericEnumerable && inline != null;
 
-            this.Write(iteratorName, " = ", JS.Funcs.BRIDGE_GET_ENUMERATOR);
+            this.Write(iteratorName, " = ");
 
-            this.WriteOpenParentheses();
-            foreachStatement.InExpression.AcceptVisitor(this.Emitter);
-
-            if (in_rr.Type.Kind != TypeKind.Array && !in_rr.Type.IsKnownType(KnownTypeCode.String) &&
-                !in_rr.Type.IsKnownType(KnownTypeCode.Array))
+            if (!emitInline)
             {
-                if (rr.CollectionType.IsParameterized &&
-                rr.CollectionType.FullName == "System.Collections.Generic.IEnumerable")
+                this.Write(JS.Funcs.BRIDGE_GET_ENUMERATOR);
+                this.WriteOpenParentheses();
+                foreachStatement.InExpression.AcceptVisitor(this.Emitter);
+            }
+
+            if (checkEnum)
+            {
+                if (isGenericEnumerable)
                 {
                     this.WriteComma(false);
-                    this.Write("null, ");
                     this.Write(BridgeTypes.ToJsName(((ParameterizedType)rr.CollectionType).TypeArguments[0], this.Emitter));
                 }
                 else if (get_rr != null)
                 {
-                    var name = OverloadsCollection.Create(this.Emitter, get_rr.Member).GetOverloadName();
-
-                    if (name != "getEnumerator" && name != "System$Collections$IEnumerable$getEnumerator")
+                    if (inline != null)
                     {
-                        this.WriteComma(false);
-                        this.WriteScript(name);
+                        var argsInfo = new ArgumentsInfo(this.Emitter, foreachStatement.InExpression, get_rr);
+                        new InlineArgumentsBlock(this.Emitter, argsInfo, inline).Emit();
+                    }
+                    else
+                    {
+                        var name = OverloadsCollection.Create(this.Emitter, get_rr.Member).GetOverloadName();
+
+                        if (name != "GetEnumerator" && name != "System$Collections$IEnumerable$GetEnumerator")
+                        {
+                            this.WriteComma(false);
+                            this.WriteScript(name);
+                        }
                     }
                 }
             }
 
-            this.WriteCloseParentheses();
+            if (!emitInline)
+            {
+                this.WriteCloseParentheses();
+            }
             this.WriteSemiColon();
             this.WriteNewLine();
 
+            this.WriteTry();
+            this.BeginBlock();
             this.WriteWhile();
             this.WriteOpenParentheses();
             this.Write(iteratorName);
@@ -284,16 +371,28 @@ namespace Bridge.Translator
             this.PushLocals();
             Action ac = () =>
             {
+                bool isReferenceLocal = false;
+
+                if (this.Emitter.LocalsMap != null && this.Emitter.LocalsMap.ContainsKey(rr.ElementVariable))
+                {
+                    isReferenceLocal = this.Emitter.LocalsMap[rr.ElementVariable].EndsWith(".v");
+                }
+
                 var varName = this.AddLocal(foreachStatement.VariableName, foreachStatement.VariableNameToken, foreachStatement.VariableType);
 
                 this.WriteVar();
                 this.Write(varName + " = ");
-                
+
+                if (isReferenceLocal)
+                {
+                    this.Write("{ v : ");
+                }
+
                 string castCode = this.GetCastCode(rr.ElementType, rr.ElementVariable.Type);
 
                 if (castCode != null)
                 {
-                    this.EmitInlineCast(iteratorName + "." + JS.Funcs.GET_CURRENT + "()", castCode);
+                    this.EmitInlineCast(iteratorName + "." + JS.Funcs.GET_CURRENT, castCode);
                 }
                 else if (this.CastMethod != null)
                 {
@@ -301,7 +400,9 @@ namespace Bridge.Translator
                     this.WriteDot();
                     this.Write(OverloadsCollection.Create(this.Emitter, this.CastMethod).GetOverloadName());
                     this.WriteOpenParentheses();
-                    this.Write(iteratorName + "." + JS.Funcs.GET_CURRENT + "()");
+                    int pos = this.Emitter.Output.Length;
+                    this.Write(iteratorName + "." + JS.Funcs.GET_CURRENT);
+                    Helpers.CheckValueTypeClone(rr, this.ForeachStatement.InExpression, this, pos);
                     this.WriteCloseParentheses();
                 }
                 else
@@ -312,17 +413,23 @@ namespace Bridge.Translator
                         this.Write(JS.Funcs.BRIDGE_CAST);
                         this.WriteOpenParentheses();
                     }
-
+                    int pos = this.Emitter.Output.Length;
                     this.Write(iteratorName);
 
                     this.WriteDot();
                     this.Write(JS.Funcs.GET_CURRENT);
-                    this.WriteOpenCloseParentheses();
+
+                    Helpers.CheckValueTypeClone(rr, this.ForeachStatement.InExpression, this, pos);
 
                     if (needCast)
                     {
                         this.Write(", ", BridgeTypes.ToJsName(rr.ElementVariable.Type, this.Emitter), ")");
                     }
+                }
+
+                if (isReferenceLocal)
+                {
+                    this.Write(" }");
                 }
 
                 this.WriteSemiColon();
@@ -353,6 +460,20 @@ namespace Bridge.Translator
 
             this.EndBlock();
             this.WriteNewLine();
+
+            this.EndBlock();
+            this.WriteSpace();
+            this.WriteFinally();
+            this.BeginBlock();
+            this.Write($"if ({JS.Types.Bridge.IS}({iteratorName}, {JS.Types.System.IDisposable.NAME})) ");
+            this.BeginBlock();
+            this.Write($"{iteratorName}.{JS.Types.System.IDisposable.INTERFACE_DISPOSE}();");
+            this.WriteNewLine();
+            this.EndBlock();
+            this.WriteNewLine();
+            this.EndBlock();
+            this.WriteNewLine();
+            this.Emitter.JumpStatements = jumpStatements;
         }
 
         protected virtual string GetCastCode(IType fromType, IType toType)

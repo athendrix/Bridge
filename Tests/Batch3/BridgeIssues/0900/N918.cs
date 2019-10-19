@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System.Threading.Tasks;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
@@ -19,7 +19,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         {
             var asyncComplete = Assert.Async();
             dynamic a = new Bridge918();
-            var result = (int)await a.test();
+            var result = (int)await a.Test();
 
             Assert.AreEqual(1, result);
 

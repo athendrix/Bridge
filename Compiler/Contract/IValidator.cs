@@ -27,10 +27,6 @@ namespace Bridge.Contract
 
         void CheckType(Mono.Cecil.TypeDefinition type, ITranslator translator);
 
-        int EnumEmitMode(ICSharpCode.NRefactory.TypeSystem.Implementation.DefaultResolvedTypeDefinition type);
-
-        int EnumEmitMode(ICSharpCode.NRefactory.TypeSystem.IType type);
-
         ICSharpCode.NRefactory.TypeSystem.IAttribute GetAttribute(System.Collections.Generic.IEnumerable<ICSharpCode.NRefactory.TypeSystem.IAttribute> attributes, string name);
 
         Mono.Cecil.CustomAttribute GetAttribute(System.Collections.Generic.IEnumerable<Mono.Cecil.CustomAttribute> attributes, string name);
@@ -39,11 +35,7 @@ namespace Bridge.Contract
 
         string GetCustomConstructor(Mono.Cecil.TypeDefinition type);
 
-        string GetCustomTypeName(Mono.Cecil.TypeDefinition type, IEmitter emitter);
-
-        string GetInlineCode(Mono.Cecil.MethodDefinition method);
-
-        string GetInlineCode(Mono.Cecil.PropertyDefinition property);
+        string GetCustomTypeName(Mono.Cecil.TypeDefinition type, IEmitter emitter, bool excludeNs, bool asDefinition = true);
 
         System.Collections.Generic.HashSet<string> GetParentTypes(System.Collections.Generic.IDictionary<string, Mono.Cecil.TypeDefinition> allTypes);
 
@@ -53,29 +45,27 @@ namespace Bridge.Contract
 
         bool IsDelegateOrLambda(ICSharpCode.NRefactory.Semantics.ResolveResult result);
 
-        bool IsIgnoreType(Mono.Cecil.ICustomAttributeProvider type, bool ignoreLiteral = false);
+        bool IsExternalType(TypeDefinition type, bool ignoreLiteral = false);
 
-        bool IsIgnoreType(ICSharpCode.NRefactory.TypeSystem.ITypeDefinition typeDefinition, bool ignoreLiteral = false);
+        bool IsExternalType(ICSharpCode.NRefactory.TypeSystem.ITypeDefinition typeDefinition, bool ignoreLiteral = false);
+
+        bool IsVirtualType(ICSharpCode.NRefactory.TypeSystem.ITypeDefinition typeDefinition);
 
         bool IsExternalInterface(ICSharpCode.NRefactory.TypeSystem.ITypeDefinition typeDefinition, out bool isNative);
 
+        IExternalInterface IsExternalInterface(ICSharpCode.NRefactory.TypeSystem.ITypeDefinition typeDefinition);
+
         bool IsImmutableType(ICustomAttributeProvider type);
 
-        bool IsIgnoreType(IEntity enity, bool ignoreLiteral = false);
+        bool IsExternalType(IEntity enity, bool ignoreLiteral = false);
 
         bool IsBridgeClass(Mono.Cecil.TypeDefinition type);
 
-        bool IsInlineMethod(Mono.Cecil.MethodDefinition method);
-
-        bool IsNameEnum(ICSharpCode.NRefactory.TypeSystem.Implementation.DefaultResolvedTypeDefinition type);
+        bool IsBridgeClass(IType type);
 
         bool IsObjectLiteral(ICSharpCode.NRefactory.TypeSystem.ITypeDefinition type);
 
         bool IsObjectLiteral(Mono.Cecil.TypeDefinition type);
-
-        bool IsStringNameEnum(ICSharpCode.NRefactory.TypeSystem.Implementation.DefaultResolvedTypeDefinition type);
-
-        bool IsValueEnum(ICSharpCode.NRefactory.TypeSystem.Implementation.DefaultResolvedTypeDefinition type);
 
         bool IsAccessorsIndexer(IEntity enity);
 

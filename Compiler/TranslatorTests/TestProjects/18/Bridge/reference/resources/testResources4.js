@@ -1,51 +1,60 @@
 /*
-    --------------   1.0.0-beta    ---------------
-    --------------   2016       ---------------
+    --------------       ---------------
+    --------------   2019       ---------------
     --------------   {notdate}       ---------------
     --------------     ---------------
     --------------        ---------------
 */
 
-alert("I'm header 1.0.0-beta");
-
+alert("I'm header ");
 // -- remark with no tokens
 
     Bridge.define("TestIssue599.Issue599", {
         statics: {
-            config: {
+            ctors: {
                 init: function () {
-                    Bridge.ready(this.main1);
+                    Bridge.ready(this.Main1);
                 }
             },
-            main1: function () {
-                Bridge.Console.log(new TestIssue599.Issue599()._something);
+            methods: {
+                Main1: function Main1 () {
+                    System.Console.WriteLine(new TestIssue599.Issue599()._something);
+                }
             }
         },
         $entryPoint: true,
-        _something: "HI!"
+        fields: {
+            _something: null
+        },
+        ctors: {
+            init: function () {
+                this._something = "HI!";
+            }
+        }
     });
-
 // -- remark with no tokens
 
     Bridge.define("TestIssue948.Issue948", {
         statics: {
-            test: function () {
-                // A comment
+            methods: {
+                Test: function Test () {
+                    // A comment
 
-                /* global Bridge */
+                    /* global Bridge */
 
-                var a = 5;/* global Bridge */
+                    var a = 5;/* global Bridge */
 
-                var b = 6; /* global Bridge */
+                    var b = 6; /* global Bridge */
 
-                var c = 7; /* global Bridge */;
+                    var c = 7; /* global Bridge */;
 
-                var d = 8;// A comment;
+                    var d = 8;// A comment;
 
-                var e = 9; // A comment;
+                    var e = 9; // A comment;
 
-                var f = 10; // A comment;
+                    var f = 10; // A comment;
 
+                }
             }
         }
     });

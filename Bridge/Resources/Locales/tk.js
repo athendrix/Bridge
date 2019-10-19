@@ -1,20 +1,20 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("tk", true), {
+Bridge.merge(new System.Globalization.CultureInfo("tk", true), {
     englishName: "Turkmen",
     nativeName: "Türkmen dili",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "NaN",
+        nanSymbol: "san däl",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "-tükeniksizlik",
-        positiveInfinitySymbol: "tükeniksizlik",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
         percentGroupSizes: [3],
         percentDecimalDigits: 2,
         percentDecimalSeparator: ",",
         percentGroupSeparator: " ",
-        percentPositivePattern: 1,
-        percentNegativePattern: 1,
+        percentPositivePattern: 0,
+        percentNegativePattern: 0,
         currencySymbol: "m.",
         currencyGroupSizes: [3],
         currencyDecimalDigits: 2,
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "yyyy 'ý.' MMMM",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 1250,
+        CultureName: "tk-TM",
+        EBCDICCodePage: 20880,
+        IsRightToLeft: false,
+        LCID: 1090,
+        listSeparator: ";",
+        MacCodePage: 10029,
+        OEMCodePage: 852,
+        IsReadOnly: true
     })
 });

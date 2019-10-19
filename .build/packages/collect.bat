@@ -21,9 +21,6 @@ SET output="%root%Bridge\.build\packages\"
 :: Bridge.PostBuild
 echo f | xcopy /f /y "%root%Bridge\PostBuild\bin\%build%\*.nupkg"                   %output%
 
-:: Bridge.Html5
-echo f | xcopy /f /y "%root%Bridge\Html5\bin\%build%\*.nupkg"                       %output%
-
 :: Bridge.Build
 echo f | xcopy /f /y "%root%Bridge\Compiler\Build\bin\%build%\*.nupkg"              %output%
 
@@ -31,6 +28,7 @@ echo f | xcopy /f /y "%root%Bridge\Compiler\Build\bin\%build%\*.nupkg"          
 echo f | xcopy /f /y "%root%Bridge\Compiler\Contract\bin\%build%\*.nupkg"           %output%
 
 :: Bridge.Compiler
+echo f | xcopy /f /y "%root%Bridge\Compiler\Builder\bin\%build%\bridge.exe"         %output%
 echo f | xcopy /f /y "%root%Bridge\Compiler\Translator\bin\%build%\*.nupkg"         %output%
 
 ::------------------------------------------------------------------------------------------::
@@ -41,20 +39,20 @@ echo f | xcopy /f /y "%root%Bridge\Compiler\Translator\bin\%build%\*.nupkg"     
 echo f | xcopy /f /y "%root%Aspect\Bridge.Aspect\bin\%build%\*.nupkg"               %output%
 
 :: Bridge.Test
-echo f | xcopy /f /y "%root%Test\Bridge.Test\bin\output\*.nupkg"                   	%output%
+echo f | xcopy /f /y "%root%Test\Bridge.Test\bin\%build%\*.nupkg"                   %output%
 
 ::------------------------------------------------------------------------------------------::
 :: Frameworks
 ::------------------------------------------------------------------------------------------::
 
-:: Bridge.AngularJS
-echo f | xcopy /f /y "%root%Frameworks\AngularJS\bin\%build%\*.nupkg"               %output%
+:: Bridge.Html5
+echo f | xcopy /f /y "%root%Frameworks\Html5\bin\%build%\*.nupkg"                   %output%
+
+:: Bridge.Newtonsoft.Json
+echo f | xcopy /f /y "%root%Bridge.Newtonsoft.Json\Newtonsoft.Json\bin\%build%\*.nupkg"	%output%
 
 :: Bridge.Bootstrap3
 echo f | xcopy /f /y "%root%Frameworks\Bootstrap3\bin\%build%\*.nupkg"              %output%
-
-:: Bridge.Collections
-echo f | xcopy /f /y "%root%Frameworks\Collections\bin\%build%\*.nupkg"             %output%
 
 :: Bridge.Html5.Console
 echo f | xcopy /f /y "%root%Frameworks\Html5.Console\bin\%build%\*.nupkg"           %output%
@@ -70,3 +68,5 @@ echo f | xcopy /f /y "%root%Frameworks\WebGL\bin\%build%\*.nupkg"               
 
 :: Bridge.QUnit.Sample
 echo f | xcopy /f /y "%root%Samples\QUnit\Bridge.QUnit.Sample\bin\%build%\*.nupkg"  %output%
+
+:: PAUSE

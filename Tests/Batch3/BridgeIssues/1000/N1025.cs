@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.Batch3.BridgeIssues
@@ -305,7 +305,7 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
         public interface I11
         {
             [AccessorsIndexer]
-            int this[string index] {[Name("get")] get;[Name("set")] set; }
+            int this[string index] { [Name("get")] get; [Name("set")] set; }
 
             string this[int index] { get; set; }
 
@@ -532,12 +532,12 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
             {
                 get = (Func<int>)(() => 1),
                 set = (Action<string>)(s => { }),
-                getProp1 = (Func<int>)(() => 2),
-                getProp2 = (Func<string>)(() => "test"),
-                setProp2 = (Action<string>)(s => { }),
                 addEvent1 = (Action<string>)(s => { }),
-                foo = (Action)(() => { })
+                Foo = (Action)(() => { })
             });
+
+            //@ Object.defineProperty(externalInstance, "Prop1", {value:2});
+            //@ Object.defineProperty(externalInstance, "Prop2", {value:"test", writable:true});
 
             return externalInstance.As<I11>();
         }

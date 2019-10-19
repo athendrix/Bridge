@@ -10,18 +10,16 @@ namespace Bridge.Translator
 {
     public partial class Emitter : Visitor
     {
-        private Dictionary<string, OverloadsCollection> overloadsCache;
-
-        public Dictionary<string, OverloadsCollection> OverloadsCache
+        public string Tag
         {
-            get
-            {
-                if (this.overloadsCache == null)
-                {
-                    this.overloadsCache = new Dictionary<string, OverloadsCollection>();
-                }
-                return this.overloadsCache;
-            }
+            get;
+            set;
+        }
+
+        public EmitterCache Cache
+        {
+            get;
+            private set;
         }
 
         public IValidator Validator
@@ -111,14 +109,25 @@ namespace Bridge.Translator
                 level = InitialLevel;
             }
 
-            if (level <= InitialLevel)
+            if (level < InitialLevel && !this.InitPosition.HasValue )
             {
                 level = InitialLevel;
+            }
+
+            if (level < 0)
+            {
+                level = 0;
             }
 
             this.Level = level.Value;
 
             return this.Level;
+        }
+
+        public InitPosition? InitPosition
+        {
+            get;
+            set;
         }
 
         public bool IsNewLine
@@ -306,6 +315,12 @@ namespace Bridge.Translator
             set;
         }
 
+        public bool IsYield
+        {
+            get;
+            set;
+        }
+
         public List<string> AsyncVariables
         {
             get;
@@ -438,6 +453,12 @@ namespace Bridge.Translator
             set;
         }
 
+        public Dictionary<IType, Dictionary<string, string>> NamedBoxedFunctions
+        {
+            get;
+            set;
+        }
+
         public bool IsJavaScriptOverflowMode
         {
             get
@@ -479,7 +500,85 @@ namespace Bridge.Translator
             get; set;
         }
 
+        public Dictionary<string, int> NamespacesCache
+        {
+            get; set;
+        }
+
         private bool AssemblyJsDocWritten
+        {
+            get; set;
+        }
+
+        public bool ForbidLifting
+        {
+            get; set;
+        }
+
+        public bool DisableDependencyTracking
+        {
+            get; set;
+        }
+
+        public Dictionary<IAssembly, NameRule[]> AssemblyNameRuleCache
+        {
+            get;
+        }
+
+        public Dictionary<ITypeDefinition, NameRule[]> ClassNameRuleCache
+        {
+            get;
+        }
+
+        public Dictionary<IAssembly, CompilerRule[]> AssemblyCompilerRuleCache
+        {
+            get;
+        }
+
+        public Dictionary<ITypeDefinition, CompilerRule[]> ClassCompilerRuleCache
+        {
+            get;
+        }
+
+        public string SourceFileName
+        {
+            get;
+            set;
+        }
+
+        public int SourceFileNameIndex
+        {
+            get;
+            set;
+        }
+
+        public string LastSequencePoint
+        {
+            get;
+            set;
+        }
+
+        public bool InConstructor
+        {
+            get; set;
+        }
+
+        public CompilerRule Rules
+        {
+            get; set;
+        }
+
+        public bool HasModules
+        {
+            get; set;
+        }
+
+        public string TemplateModifier
+        {
+            get; set;
+        }
+
+        public int WrapRestCounter
         {
             get; set;
         }

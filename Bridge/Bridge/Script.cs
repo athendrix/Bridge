@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Bridge
 {
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
     [External]
     [Name("Bridge")]
     public static class Script
@@ -11,7 +13,7 @@ namespace Bridge
 
         public static extern T Apply<T>(T obj, object values);
 
-        public static extern bool IsDefined(object value);
+        public static extern bool IsDefined(object obj);
 
         public static extern bool IsArray(object obj);
 
@@ -19,8 +21,29 @@ namespace Bridge
 
         public static extern T Identity<T>(T arg, params object[] args);
 
+        /// <summary>
+        /// Emit a return statement
+        /// </summary>
+        /// <param name="obj">An object to return.</param>
+        [Template("return {0}")]
+        public static extern void Return(object obj);
+
+        /// <summary>
+        /// The delete operator removes a property from an object.
+        /// </summary>
+        /// <param name="obj">The name of an object, or an expression evaluating to an object.</param>
+        /// <returns>true for all cases except when the property is an own non-configurable property, in which case, false is returned in non-strict mode.</returns>
         [Template("delete {0}")]
-        public static extern void Delete(object value);
+        public static extern bool Delete(object obj);
+
+        /// <summary>
+        /// The delete operator removes a property from an object.
+        /// </summary>
+        /// <param name="obj">The name of an object, or an expression evaluating to an object.</param>
+        /// <param name="prop">The property to delete.</param>
+        /// <returns>true for all cases except when the property is an own non-configurable property, in which case, false is returned in non-strict mode.</returns>
+        [Template("delete {0}[{1}]")]
+        public static extern bool Delete(object obj, string prop);
 
         [Template("Bridge.is({0}, {1})")]
         public static extern bool Is(object type, string typeName);
@@ -44,13 +67,64 @@ namespace Bridge
         public static extern object NS(string ns);
 
         [Template("Bridge.getHashCode({0})")]
-        public static extern int GetHashCode(object value);
+        public static extern int GetHashCode(object obj);
 
         [Template("Bridge.getDefaultValue({0})")]
         public static extern T GetDefaultValue<T>(Type type);
 
         [Template("Bridge.getDefaultValue({0})")]
         public static extern object GetDefaultValue(Type type);
+
+        /// <summary>
+        /// Checks if the specified object is undefined. The object passed in should be a local variable, and not a member of a class (to avoid potential script warnings).
+        /// </summary>
+        /// <param name="obj">The object to test against undefined.</param>
+        /// <returns>true if the object is undefined; false otherwise.</returns>
+        [Template("{0} === undefined")]
+        public static extern bool IsUndefined(object obj);
+
+        /// <summary>
+        /// Checks if the object has a value.
+        /// </summary>
+        /// <param name="obj">The object to test if there is a value.</param>
+        /// <returns>true if the object has a value; false otherwise.</returns>
+        [Template("Bridge.hasValue({0})")]
+        public static extern bool HasValue(object obj);
+
+        /// <summary>
+        /// Checks if the specified object is null.
+        /// </summary>
+        /// <param name="obj">The object to test against null.</param>
+        /// <returns>true if the object is null; false otherwise.</returns>
+        [Template("{0} === null")]
+        public static extern bool IsNull(object obj);
+
+        /// <summary>
+        /// Converts an object into a boolean.
+        /// </summary>
+        /// <param name="obj">The object to convert.</param>
+        /// <returns>true if the object is not null, zero, empty string or undefined.</returns>
+        [Template("!!{0}")]
+        public static extern bool Boolean(object obj);
+
+        /// <summary>
+        /// Generate <c>member in obj</c>.
+        /// </summary>
+        /// <param name="obj">The object to test against.</param>
+        /// <param name="member">The member to check if in the object.</param>
+        /// <returns>true if member in object; false otherwise.</returns>
+        [Template("{member} in {obj}")]
+        public static extern bool In(object obj, string member);
+
+        /// <summary>
+        /// Invoke a method on an object
+        /// </summary>
+        /// <param name="obj">The object to invoke the method against.</param>
+        /// <param name="name">The method to invoke.</param>
+        /// <param name="args">The arguments passed into the method.</param>
+        /// <returns></returns>
+        [Template("{obj}[{name}]({*args})")]
+        public static extern object InvokeMethod(object obj, string name, params object[] args);
 
         /// <summary>
         /// Inject javascript code
@@ -182,8 +256,11 @@ namespace Bridge
         [Template("encodeURIComponent({0})")]
         public static extern string EncodeURIComponent(string component);
 
-        [Template("typeof {0}")]
+        [Template("(typeof {0})")]
         public static extern string TypeOf(object obj);
+
+        [Template("({obj} instanceof {type})")]
+        public static extern bool InstanceOf(object obj, Type type);
 
         [Template("this")]
         public static extern T This<T>();
@@ -230,11 +307,20 @@ namespace Bridge
         [Template("{init}({t})")]
         public static extern T CallFor<T>(T t, Func<T, T> init);
 
+        [Template("{init}({t})")]
+        public static extern Task<T> AsyncCallFor<T>(T t, Func<T, Task<T>> init);
+
         [Template("({name:tmp} = {t})")]
+        [Unbox(false)]
         public static extern T ToTemp<T>(string name, T t);
 
         [Template("{name:gettmp}")]
+        [Unbox(false)]
         public static extern T FromTemp<T>(string name);
+
+        [Template("{name:gettmp}")]
+        [Unbox(false)]
+        public static extern T FromTemp<T>(string name, T t);
 
         [Template("{action:body}")]
         public static extern object FromLambda(Action action);
@@ -244,5 +330,44 @@ namespace Bridge
 
         [Template("{o:plain}")]
         public static extern T ToObjectLiteral<T>(T o);
+
+        /// <summary>
+        /// Runs the function in a try/catch statement
+        /// </summary>
+        /// <param name="fn">Function to run</param>
+        /// <returns>Return either function result or false in case of catch</returns>
+        [Template("Bridge.safe({fn})")]
+        public static extern bool SafeFunc(Func<bool> fn);
+
+        [Template("Bridge.isNode")]
+        public static readonly bool IsNode;
+
+        [Template("Bridge.Deconstruct({obj}, {t1})")]
+        public extern static void Deconstruct<T1>(object obj, out T1 t1);
+
+        [Template("Bridge.Deconstruct({obj}, {t1}, {t2})")]
+        public extern static void Deconstruct<T1, T2>(object obj, out T1 t1, out T2 t2);
+
+        [Template("Bridge.Deconstruct({obj}, {t1}, {t2}, {t3})")]
+        public extern static void Deconstruct<T1, T2, T3>(object obj, out T1 t1, out T2 t2, out T3 t3);
+
+        [Template("Bridge.Deconstruct({obj}, {t1}, {t2}, {t3}, {t4})")]
+        public extern static void Deconstruct<T1, T2, T3, T4>(object obj, out T1 t1, out T2 t2, out T3 t3, out T4 t4);
+
+        [Template("Bridge.Deconstruct({obj}, {t1}, {t2}, {t3}, {t4}, {t5})")]
+        public extern static void Deconstruct<T1, T2, T3, T4, T5>(object obj, out T1 t1, out T2 t2, out T3 t3, out T4 t4, out T5 t5);
+
+        [Template("Bridge.Deconstruct({obj}, {t1}, {t2}, {t3}, {t4}, {t5}, {t6})")]
+        public extern static void Deconstruct<T1, T2, T3, T4, T5, T6>(object obj, out T1 t1, out T2 t2, out T3 t3, out T4 t4, out T5 t5, out T6 t6);
+
+        [Template("Bridge.Deconstruct({obj}, {t1}, {t2}, {t3}, {t4}, {t5}, {t6}, {t7})")]
+        public extern static void Deconstruct<T1, T2, T3, T4, T5, T6, T7>(object obj, out T1 t1, out T2 t2, out T3 t3, out T4 t4, out T5 t5, out T6 t6, out T7 t7);
+
+        [Template("Bridge.Deconstruct({obj}, {t1}, {t2}, {t3}, {t4}, {t5}, {t6}, {t7}, {rest})")]
+        public extern static void Deconstruct<T1, T2, T3, T4, T5, T6, T7, TRest>(object obj, out T1 t1, out T2 t2, out T3 t3, out T4 t4, out T5 t5, out T6 t6, out T7 t7, out TRest rest);
+
+        [Name("Bridge._")]
+        [Unbox(false)]
+        public static object Discard;
     }
 }

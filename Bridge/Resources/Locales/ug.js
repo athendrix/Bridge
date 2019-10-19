@@ -1,13 +1,13 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("ug", true), {
+Bridge.merge(new System.Globalization.CultureInfo("ug", true), {
     englishName: "Uyghur",
     nativeName: "ئۇيغۇرچە",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "سان ئەمەس",
+        nanSymbol: "NaN",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "مەنپىي چەكسىزلىك",
-        positiveInfinitySymbol: "مۇسبەت چەكسىزلىك",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
         percentGroupSizes: [3],
         percentDecimalDigits: 2,
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "yyyy-'يىلى' MMMM",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 1256,
+        CultureName: "ug-CN",
+        EBCDICCodePage: 20420,
+        IsRightToLeft: true,
+        LCID: 1152,
+        listSeparator: ",",
+        MacCodePage: 10004,
+        OEMCodePage: 720,
+        IsReadOnly: true
     })
 });

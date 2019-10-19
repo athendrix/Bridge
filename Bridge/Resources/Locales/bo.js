@@ -1,15 +1,15 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("bo", true), {
+Bridge.merge(new System.Globalization.CultureInfo("bo", true), {
     englishName: "Tibetan",
     nativeName: "བོད་ཡིག",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "ཨང་ཀི་མིན་པ།",
+        nanSymbol: "NaN",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "མོ་གྲངས་ཚད་མེད་ཆུང་བ།",
-        positiveInfinitySymbol: "ཕོ་གྲངས་ཚད་མེད་ཆེ་བ།",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
-        percentGroupSizes: [3,0],
+        percentGroupSizes: [3],
         percentDecimalDigits: 2,
         percentDecimalSeparator: ".",
         percentGroupSeparator: ",",
@@ -22,7 +22,7 @@
         currencyGroupSeparator: ",",
         currencyNegativePattern: 2,
         currencyPositivePattern: 0,
-        numberGroupSizes: [3,0],
+        numberGroupSizes: [3],
         numberDecimalDigits: 2,
         numberDecimalSeparator: ".",
         numberGroupSeparator: ",",
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "yyyy'ལོའི་ཟླ་' M",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 0,
+        CultureName: "bo-CN",
+        EBCDICCodePage: 500,
+        IsRightToLeft: false,
+        LCID: 1105,
+        listSeparator: ",",
+        MacCodePage: 2,
+        OEMCodePage: 1,
+        IsReadOnly: true
     })
 });

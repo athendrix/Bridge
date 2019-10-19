@@ -1,5 +1,5 @@
 using Bridge.Html5;
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 using System.Linq;
 
@@ -43,9 +43,9 @@ namespace Bridge.ClientTest.Batch3.BridgeIssues
                             p.FirstName,
                         };
 
-            var s = JSON.Stringify(query.ToList());
+            var s = Bridge.Html5.JSON.Stringify(query.ToList());
 
-            Assert.AreEqual("{\"items\":[{\"lastName\":\"Ruth\",\"firstName\":\"Babe\"},{\"lastName\":\"Cobb\",\"firstName\":\"Ty\"}]}", s, "#485");
+            Assert.AreEqual("[{\"LastName\":\"Ruth\",\"FirstName\":\"Babe\"},{\"LastName\":\"Cobb\",\"FirstName\":\"Ty\"}]", s, "#485");
         }
     }
 }

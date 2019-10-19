@@ -2,7 +2,7 @@
 // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Convert.ToSingle.cs
 // https://github.com/dotnet/corefx/blob/master/LICENSE
 
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System;
 
 namespace Bridge.ClientTest.ConvertTests
@@ -31,7 +31,9 @@ namespace Bridge.ClientTest.ConvertTests
         public void FromDecimal()
         {
             decimal[] testValues = { 1000m, 0m, -1000m, decimal.MaxValue, decimal.MinValue };
-            float[] expectedValues = { 1000f, 0.0f, -1000f, (float)decimal.MaxValue, (float)decimal.MinValue };
+            decimal max = decimal.MaxValue;
+            decimal min = decimal.MinValue;
+            float[] expectedValues = { 1000f, 0.0f, -1000f, (float)max, (float)min };
             VerifyViaObj(Convert.ToSingle, testValues, expectedValues);
         }
 

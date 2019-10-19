@@ -1,13 +1,13 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("sr-Cyrl-ME", true), {
+Bridge.merge(new System.Globalization.CultureInfo("sr-Cyrl-ME", true), {
     englishName: "Serbian (Cyrillic, Montenegro)",
     nativeName: "српски (Црна Гора)",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "NaN",
+        nanSymbol: "NaN",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "-бесконачност",
-        positiveInfinitySymbol: "+бесконачност",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
         percentGroupSizes: [3],
         percentDecimalDigits: 2,
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "MMMM yyyy.",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 1251,
+        CultureName: "sr-Cyrl-ME",
+        EBCDICCodePage: 21025,
+        IsRightToLeft: false,
+        LCID: 12314,
+        listSeparator: ";",
+        MacCodePage: 10007,
+        OEMCodePage: 855,
+        IsReadOnly: true
     })
 });

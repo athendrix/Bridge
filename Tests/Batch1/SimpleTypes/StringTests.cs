@@ -1,10 +1,9 @@
-﻿using Bridge.Html5;
-using Bridge.Test;
-using Bridge.Text.RegularExpressions;
-
+﻿using Bridge.Test.NUnit;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 
 namespace Bridge.ClientTest.SimpleTypes
 {
@@ -12,6 +11,22 @@ namespace Bridge.ClientTest.SimpleTypes
     [TestFixture(TestNameFormat = "String - {0}")]
     public class StringTests
     {
+        private class MyFormattable : IFormattable
+        {
+            public string ToString(string format, IFormatProvider formatProvider)
+            {
+                return "Formatted: " + format + ", " + (formatProvider == null ? "null formatProvider" : formatProvider.GetType().FullName);
+            }
+        }
+
+        private class MyFormatProvider : IFormatProvider
+        {
+            public object GetFormat(Type type)
+            {
+                return CultureInfo.InvariantCulture.GetFormat(type);
+            }
+        }
+
         private class MyEnumerable<T> : IEnumerable<T>
         {
             private readonly T[] _items;
@@ -33,20 +48,23 @@ namespace Bridge.ClientTest.SimpleTypes
         }
 
         [Test]
-        public void TypePropertiesAreCorrect()
+        public void TypePropertiesAreCorrect_SPI_1597()
         {
-            Assert.AreEqual("String", typeof(string).FullName);
+            Assert.AreEqual("System.String", typeof(string).FullName, "#2066");
+            Assert.True(typeof(string).IsClass);
+            // #1597
+            Assert.True(typeof(IComparable<string>).IsAssignableFrom(typeof(string)));
+            Assert.True(typeof(IEquatable<string>).IsAssignableFrom(typeof(string)));
             object s = "X";
             Assert.True(s is string);
-        }
-
-        [Test]
-        public void StringInterfaces()
-        {
-            object s = "X";
             Assert.True(s is object, "string is object");
             Assert.True(s is IComparable<string>);
             Assert.True(s is IEquatable<string>);
+
+            var interfaces = typeof(string).GetInterfaces();
+            Assert.AreEqual(7, interfaces.Length);
+            Assert.True(interfaces.Contains(typeof(IComparable<string>)));
+            Assert.True(interfaces.Contains(typeof(IEquatable<string>)));
         }
 
         [Test]
@@ -68,6 +86,66 @@ namespace Bridge.ClientTest.SimpleTypes
         }
 
         [Test]
+        public void CharArrayWithStartIndexAndLengthConstructorWorks()
+        {
+            Assert.AreEqual("", new string(new[] { 'a', 'b', 'c', 'D' }, 0, 0));
+            Assert.AreEqual("a", new string(new[] { 'a', 'b', 'c', 'D' }, 0, 1));
+            Assert.AreEqual("ab", new string(new[] { 'a', 'b', 'c', 'D' }, 0, 2));
+            Assert.AreEqual("bc", new string(new[] { 'a', 'b', 'c', 'D' }, 1, 2));
+            Assert.AreEqual("bcD", new string(new[] { 'a', 'b', 'c', 'D' }, 1, 3));
+
+            Assert.Throws(() =>
+            {
+                new string(new[] { 'a', 'b', 'c', 'D' }, 1, 4);
+            });
+
+            Assert.Throws(() =>
+            {
+                new string(new[] { 'a', 'b', 'c', 'D' }, -1, 1);
+            });
+
+            Assert.Throws(() =>
+            {
+                new string(new[] { 'a', 'b', 'c', 'D' }, 1, -1);
+            });
+
+            Assert.Throws(() =>
+            {
+                new string(new[] { 'a', 'b', 'c', 'D' }, -1, -1);
+            });
+        }
+
+        [Test]
+        public void CopyToWorks()
+        {
+            string strSource = "changed";
+            char[] destination = { 'T', 'h', 'e', ' ', 'i', 'n', 'i', 't', 'i', 'a', 'l', ' ',
+                'a', 'r', 'r', 'a', 'y' };
+
+            // Embed the source string in the destination string
+            strSource.CopyTo(0, destination, 4, strSource.Length);
+
+            Assert.AreEqual("The changed array", string.Join("", destination.Select(x => Char.ToString(x))));
+
+            strSource = "A different string";
+
+            // Embed only a section of the source string in the destination
+            strSource.CopyTo(2, destination, 3, 9);
+
+            Assert.AreEqual("Thedifferentarray", string.Join("", destination.Select(x => Char.ToString(x))));
+
+            Assert.Throws<ArgumentNullException>(() => { strSource.CopyTo(0, null, 4, strSource.Length); });
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => { strSource.CopyTo(-1, destination, 4, strSource.Length); });
+            Assert.Throws<ArgumentOutOfRangeException>(() => { strSource.CopyTo(0, destination, -1, strSource.Length); });
+            Assert.Throws<ArgumentOutOfRangeException>(() => { strSource.CopyTo(0, destination, 4, -1); });
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => { strSource.CopyTo(100, destination, 4, strSource.Length); });
+            Assert.Throws<ArgumentOutOfRangeException>(() => { strSource.CopyTo(0, destination, 100, strSource.Length); });
+            Assert.Throws<ArgumentOutOfRangeException>(() => { strSource.CopyTo(0, destination, 4, 200); });
+        }
+
+        [Test]
         public void EmptyFieldWorks()
         {
             Assert.AreEqual("", string.Empty);
@@ -79,29 +157,22 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.AreEqual(4, "abcd".Length);
         }
 
+        // #353
         [Test]
-        public void CharAtWorks()
+        public void CompareToWorks_353()
         {
-            Assert.AreEqual("c", "abcd".CharAt(2));
-        }
+            Assert.AreEqual(0, "abcd".CompareTo("abcd"));
+            Assert.AreEqual(1, "abcd".CompareTo("abcb"));
+            Assert.AreEqual(-1, "abcd".CompareTo("abce"));
+            Assert.AreEqual(1, "abcd".CompareTo("ABCB"));
+            Assert.AreEqual(-1, "abcd".CompareTo("ABCE"));
 
-        [Test]
-        public void CharCodeAtWorks()
-        {
-            Assert.AreEqual((int)'c', (int)"abcd".CharCodeAt(2));
-        }
+            // Phantom JS engine has different implementation of stringCompare
+            var expected = !Utilities.BrowserHelper.IsPhantomJs() ? -1 : 1;
+            Assert.AreEqual(expected, "abcd".CompareTo("ABCD"));
 
-        // TODO #353
-        //[Test]
-        //public void CompareToWithIgnoreCaseArgWorks()
-        //{
-        //    Assert.True("abcd".CompareTo("abcd", false) == 0);
-        //    Assert.True("abcd".CompareTo("abcb", false) > 0);
-        //    Assert.True("abcd".CompareTo("abce", false) < 0);
-        //    Assert.True("abcd".CompareTo("ABCD", true) == 0);
-        //    Assert.True("abcd".CompareTo("ABCB", true) > 0);
-        //    Assert.True("abcd".CompareTo("ABCE", true) < 0);
-        //}
+            Assert.True("".CompareTo(null) > 0);
+        }
 
         [Test]
         public void CompareWorks()
@@ -109,6 +180,10 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.True(string.Compare("abcd", "abcd") == 0);
             Assert.True(string.Compare("abcd", "abcb") > 0);
             Assert.True(string.Compare("abcd", "abce") < 0);
+
+            Assert.True(string.Compare(null, "") < 0);
+            Assert.True(string.Compare("", null) > 0);
+            Assert.True(string.Compare(null, null) == 0);
         }
 
         [Test]
@@ -120,6 +195,10 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.True(string.Compare("abcd", "ABCD", true) == 0);
             Assert.True(string.Compare("abcd", "ABCB", true) > 0);
             Assert.True(string.Compare("abcd", "ABCE", true) < 0);
+
+            Assert.True(string.Compare(null, "", true) < 0);
+            Assert.True(string.Compare("", null, true) > 0);
+            Assert.True(string.Compare(null, null, true) == 0);
         }
 
         [Test]
@@ -166,12 +245,28 @@ namespace Bridge.ClientTest.SimpleTypes
         [Test]
         public void StaticEqualsWorks()
         {
+            Assert.True(string.Equals("abcd", "abcd", StringComparison.InvariantCulture));
+            Assert.False(string.Equals("abcd", "abce", StringComparison.InvariantCulture));
+            Assert.False(string.Equals("abcd", "ABCD", StringComparison.InvariantCulture));
+            Assert.True(string.Equals("abcd", "abcd", StringComparison.InvariantCultureIgnoreCase));
+            Assert.False(string.Equals("abcd", "abce", StringComparison.InvariantCultureIgnoreCase));
+            Assert.True(string.Equals("abcd", "ABCD", StringComparison.InvariantCultureIgnoreCase));
+
             Assert.True(string.Equals("abcd", "abcd"));
             Assert.False(string.Equals("abcd", "abce"));
             Assert.False(string.Equals("abcd", "ABCD"));
             Assert.True(string.Equals("abcd", "abcd"));
             Assert.False(string.Equals("abcd", "abce"));
             Assert.False(string.Equals("abcd", "ABCD"));
+
+            Assert.True(string.Equals("", ""));
+            Assert.True(string.Equals("", "", StringComparison.InvariantCultureIgnoreCase));
+            Assert.True(string.Equals(null, null));
+            Assert.True(string.Equals(null, null, StringComparison.InvariantCultureIgnoreCase));
+            Assert.False(string.Equals(null, ""));
+            Assert.False(string.Equals(null, "", StringComparison.InvariantCultureIgnoreCase));
+            Assert.False(string.Equals("", null));
+            Assert.False(string.Equals("", null, StringComparison.InvariantCultureIgnoreCase));
         }
 
         [Test]
@@ -206,24 +301,25 @@ namespace Bridge.ClientTest.SimpleTypes
         }
 
         [Test]
-        public void FormatWorksWithIFormattable()
+        public void FormatWorksWithIFormattable_SPI_1598()
         {
             Assert.AreEqual("3.14", string.Format("{0:F2}", 22.0 / 7.0));
+            // #1598
+            //Assert.AreEqual("Formatted: FMT, null formatProvider", string.Format("{0:FMT}", new MyFormattable()));
+        }
+
+        [Test]
+        public void FormatWorksWithIFormattableAndFormatProvider_SPI_1598()
+        {
+            Assert.AreEqual("3.14", string.Format(new MyFormatProvider(), "{0:F2}", 22.0 / 7.0));
+            // #1598
+            //Assert.AreEqual("Formatted: FMT, StringTests+MyFormatProvider", string.Format(new MyFormatProvider(), "{0:FMT}", new MyFormattable()));
         }
 
         [Test]
         public void FormatCanUseEscapedBraces()
         {
             Assert.AreEqual("{0}", string.Format("{{0}}"));
-        }
-
-        [Test]
-        public void FromCharCodeWorks()
-        {
-            Assert.AreEqual("", string.FromCharCode());
-            Assert.AreEqual("a", string.FromCharCode('a'));
-            Assert.AreEqual("ab", string.FromCharCode('a', 'b'));
-            Assert.AreEqual("abc", string.FromCharCode('a', 'b', 'c'));
         }
 
         [Test]
@@ -316,8 +412,8 @@ namespace Bridge.ClientTest.SimpleTypes
         [Test]
         public void LastIndexOfCharWorks()
         {
-            Assert.AreEqual(1, "abc".LastIndexOf("b"));
-            Assert.AreEqual(-1, "abc".LastIndexOf("d"));
+            Assert.AreEqual(1, "abc".LastIndexOf('b'));
+            Assert.AreEqual(-1, "abc".LastIndexOf('d'));
         }
 
         [Test]
@@ -330,8 +426,8 @@ namespace Bridge.ClientTest.SimpleTypes
         [Test]
         public void LastIndexOfCharWithStartIndexWorks()
         {
-            Assert.AreEqual(1, "abcabc".LastIndexOf("b", 3));
-            Assert.AreEqual(-1, "abcabc".LastIndexOf("d", 3));
+            Assert.AreEqual(1, "abcabc".LastIndexOf('b', 3));
+            Assert.AreEqual(-1, "abcabc".LastIndexOf('d', 3));
         }
 
         [Test]
@@ -383,21 +479,6 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.AreEqual(1, "abcdabcd".LastIndexOfAny(new[] { 'b', 'x', 'y' }, 4, 4));
             Assert.AreEqual(-1, "abcdabcd".LastIndexOfAny(new[] { 'x', 'y' }, 4, 4));
             Assert.AreEqual(-1, "abcdabcd".LastIndexOfAny(new[] { 'b' }, 4, 2));
-        }
-
-        [Test]
-        public void LocaleCompareWorks()
-        {
-            Assert.True("abcd".LocaleCompare("abcd") == 0);
-            Assert.True("abcd".LocaleCompare("abcb") > 0);
-            Assert.True("abcd".LocaleCompare("abce") < 0);
-        }
-
-        [Test]
-        public void MatchWorks()
-        {
-            var result = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".Match(new Regex("[A-E]", "gi"));
-            Assert.AreDeepEqual(new[] { "A", "B", "C", "D", "E", "a", "b", "c", "d", "e" }, result);
         }
 
         [Test]
@@ -475,152 +556,78 @@ namespace Bridge.ClientTest.SimpleTypes
         [Test]
         public void ReplaceCharWorks()
         {
-            Assert.AreEqual("xbcxbcxbc", "abcabcabc".Replace("a", "x"));
-        }
-
-        [Test]
-        public void ReplaceRegexWithReplaceTextWorks()
-        {
-            Assert.AreEqual("xxcxxcxxc", "abcabcabc".Replace(new Regex("a|b", "g"), "x"));
-        }
-
-        [Test]
-        public void ReplaceRegexWithReplaceCallbackWorks()
-        {
-            Assert.AreEqual("xycxycxyc", "abcabcabc".Replace(new Regex("a|b", "g"), s => s == "a" ? "x" : "y"));
-        }
-
-        [Test]
-        public void SearchWorks()
-        {
-            Assert.AreEqual(2, "abcabcabc".Search(new Regex("ca")));
-            Assert.AreEqual(-1, "abcabcabc".Search(new Regex("x")));
-        }
-
-        [Test]
-        public void SliceWorks()
-        {
-            var numbers = "0123456789";
-
-            // Let's start by using both begin and end.
-            Assert.AreEqual(numbers.Slice(3, 7), "3456");
-
-            // What happens when we start with a negative number.
-            Assert.AreEqual(numbers.Slice(-7, 7), "3456");
-
-            // What happens when we use two negative numbers.
-            Assert.AreEqual(numbers.Slice(-7, -3), "3456");
-
-            // What happens when we omit the last argument.
-            Assert.AreEqual(numbers.Slice(3), "3456789");
-
-            // And with the negative, end-relevant index.
-            Assert.AreEqual(numbers.Slice(-7), "3456789");
-
-            // If the index is out of range, it returns the empty string.
-            Assert.AreEqual(numbers.Slice(100, 101), "");
-        }
-
-        [Test]
-        public void SplitWithStringWorks()
-        {
-            Assert.AreDeepEqual(new[] { "a", "ca", "ca", "c" }, "abcabcabc".Split("b"));
+            Assert.AreEqual("xbcxbcxbc", "abcabcabc".Replace('a', 'x'));
         }
 
         [Test]
         public void SplitWithCharWorks()
         {
-            Assert.AreDeepEqual(new[] { "a", "ca", "ca", "c" }, "abcabcabc".Split('b'));
-        }
-
-        [Test]
-        public void JsSplitWithStringAndLimitWorks()
-        {
-            Assert.AreDeepEqual(new[] { "a", "ax" }, "abcaxbcabce".Split("bc", 2));
-        }
-
-        [Test]
-        public void JsSplitWithCharAndLimitWorks()
-        {
-            Assert.AreDeepEqual(new[] { "a", "ca" }, "abcabcabc".Split('b', 2));
+            Assert.AreEqual(new[] { "a", "ca", "ca", "c" }, "abcabcabc".Split('b'));
         }
 
         [Test]
         public void SplitWithCharsAndLimitWorks()
         {
-            Assert.AreDeepEqual(new[] { "a", "cabcabc" }, "abcabcabc".Split(new[] { 'b' }, 2));
+            Assert.AreEqual(new[] { "a", "cabcabc" }, "abcabcabc".Split(new[] { 'b' }, 2));
         }
 
         [Test]
         public void SplitWithCharsAndStringSplitOptionsAndLimitWorks()
         {
-            Assert.AreDeepEqual(new[] { "a", "cabcabc" }, "abxcabcabc".Split(new[] { 'b', 'x' }, 2, StringSplitOptions.RemoveEmptyEntries));
-        }
-
-        [Test]
-        public void SplitWithRegexWorks()
-        {
-            Assert.AreDeepEqual(new[] { "a", "ca", "ca", "c" }, "abcaxcaxc".Split(new Regex("b|x", "g")));
+            Assert.AreEqual(new[] { "a", "cabcabc" }, "abxcabcabc".Split(new[] { 'b', 'x' }, 2, StringSplitOptions.RemoveEmptyEntries));
         }
 
         [Test]
         public void SomeNetSplitTests()
         {
-            Assert.AreDeepEqual(new[] { "a", "bc", "de" }, "axybcxzde".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "a", "bc", "de", "" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "", "a", "bc", "de", "" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "", "a", "", "bc", "de", "" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "", "a", "", "", "bc", "de", "" }, "xzaxyxzxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a", "bc", "de" }, "axybcxzde".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a", "bc", "de", "" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "", "a", "bc", "de", "" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "", "a", "", "bc", "de", "" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "", "a", "", "", "bc", "de", "" }, "xzaxyxzxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.None));
 
-            Assert.AreDeepEqual(new[] { "a", "bc", "de" }, "axybcxzde".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
-            Assert.AreDeepEqual(new[] { "a", "bc", "de" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
-            Assert.AreDeepEqual(new[] { "a", "bc", "de" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
-            Assert.AreDeepEqual(new[] { "a", "bc", "de" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
-            Assert.AreDeepEqual(new[] { "a", "bc", "de" }, "xzaxyxzxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bc", "de" }, "axybcxzde".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bc", "de" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bc", "de" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bc", "de" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bc", "de" }, "xzaxyxzxybcxzdexz".Split(new[] { "xy", "xz" }, StringSplitOptions.RemoveEmptyEntries));
 
-            Assert.AreDeepEqual(new[] { "a", "bc", "de" }, "axybcxzde".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "a", "bc", "de", "" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "", "a", "bc", "de", "" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "", "a", "", "bc", "de", "" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "", "a", "", "", "bc", "de", "" }, "xzaxyxzxybcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a", "bc", "de" }, "axybcxzde".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a", "bc", "de", "" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "", "a", "bc", "de", "" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "", "a", "", "bc", "de", "" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "", "a", "", "", "bc", "de", "" }, "xzaxyxzxybcxzdexz".Split(new[] { "xy", "xz" }, 100, StringSplitOptions.None));
 
-            Assert.AreDeepEqual(new[] { "a", "bcxzde" }, "axybcxzde".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "a", "bcxzdexz" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "a", "xzbcxzdexz" }, "axyxzbcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "", "axybcxzdexz" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a", "bcxzde" }, "axybcxzde".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a", "bcxzdexz" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a", "xzbcxzdexz" }, "axyxzbcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "", "axybcxzdexz" }, "xzaxybcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.None));
 
-            Assert.AreDeepEqual(new[] { "a", "bcxzde" }, "axybcxzde".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
-            Assert.AreDeepEqual(new[] { "a", "bcxzdexz" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
-            Assert.AreDeepEqual(new[] { "a", "bcxzdexz" }, "axyxzbcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
-            Assert.AreDeepEqual(new[] { "a", "bcxzdexz" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bcxzde" }, "axybcxzde".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bcxzdexz" }, "axybcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bcxzdexz" }, "axyxzbcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a", "bcxzdexz" }, "xzaxyxzbcxzdexz".Split(new[] { "xy", "xz" }, 2, StringSplitOptions.RemoveEmptyEntries));
         }
 
         [Test]
         public void SplitWithCharsWorks()
         {
-            Assert.AreDeepEqual(new[] { "Lorem", "Ipsum", "", "dolor", "sit", "amet" }, "Lorem Ipsum, dolor[sit amet".Split(new[] { ',', ' ', '[' }));
-            Assert.AreDeepEqual(new[] { "Lorem", "Ipsum", "", "dolor", "sit", "amet" }, "Lorem Ipsum, dolor[sit amet".Split(new[] { ',', ' ', '[' }, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "Lorem", "Ipsum", "dolor", "sit", "amet" }, "Lorem Ipsum, dolor[sit amet".Split(new[] { ',', ' ', '[' }, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "Lorem", "Ipsum", "", "dolor", "sit", "amet" }, "Lorem Ipsum, dolor[sit amet".Split(new[] { ',', ' ', '[' }));
+            Assert.AreEqual(new[] { "Lorem", "Ipsum", "", "dolor", "sit", "amet" }, "Lorem Ipsum, dolor[sit amet".Split(new[] { ',', ' ', '[' }, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "Lorem", "Ipsum", "dolor", "sit", "amet" }, "Lorem Ipsum, dolor[sit amet".Split(new[] { ',', ' ', '[' }, StringSplitOptions.RemoveEmptyEntries));
         }
 
         [Test]
         public void SplitWithStringsWorks()
         {
-            Assert.AreDeepEqual(new[] { "a ", " b ", " b ", " c and c ", "", "", " d ", " d ", " e" }, "a is b if b is c and c isifis d if d is e".Split(new[] { "is", "if" }, StringSplitOptions.None));
-            Assert.AreDeepEqual(new[] { "a ", " b ", " b ", " c and c ", " d ", " d ", " e" }, "a is b if b is c and c isifis d if d is e".Split(new[] { "is", "if" }, StringSplitOptions.RemoveEmptyEntries));
+            Assert.AreEqual(new[] { "a ", " b ", " b ", " c and c ", "", "", " d ", " d ", " e" }, "a is b if b is c and c isifis d if d is e".Split(new[] { "is", "if" }, StringSplitOptions.None));
+            Assert.AreEqual(new[] { "a ", " b ", " b ", " c and c ", " d ", " d ", " e" }, "a is b if b is c and c isifis d if d is e".Split(new[] { "is", "if" }, StringSplitOptions.RemoveEmptyEntries));
         }
 
         [Test]
         public void SplitWithStringsAndLimitWorks()
         {
-            Assert.AreDeepEqual(new[] { "a", "abcabc" }, "abcbcabcabc".Split(new[] { "bc" }, 2, StringSplitOptions.RemoveEmptyEntries));
-        }
-
-        [Test]
-        public void StartsWithCharWorks()
-        {
-            Assert.True("abc".StartsWith("a"));
-            Assert.False("abc".StartsWith("b"));
+            Assert.AreEqual(new[] { "a", "abcabc" }, "abcbcabcabc".Split(new[] { "bc" }, 2, StringSplitOptions.RemoveEmptyEntries));
         }
 
         [Test]
@@ -628,32 +635,6 @@ namespace Bridge.ClientTest.SimpleTypes
         {
             Assert.True("abc".StartsWith("ab"));
             Assert.False("abc".StartsWith("bc"));
-        }
-
-        [Test]
-        public void SubstrWorks()
-        {
-            Assert.AreEqual("cde", "abcde".Substr(2));
-            Assert.AreEqual("cd", "abcde".Substr(2, 2));
-
-            var numbers = "0123456789";
-
-            // Let's start by using both start and length
-            Assert.AreEqual(numbers.Substr(3, 4), "3456");
-
-            // What happens when we start with a negative number.
-            Assert.AreEqual(numbers.Substr(-7, 4), "3456");
-
-            // What happens when we omit the last argument.
-            Assert.AreEqual(numbers.Substr(3), "3456789");
-
-            // And with the negative, end-relevant index.
-            Assert.AreEqual(numbers.Substr(-7), "3456789");
-
-            // If the index is out of range, it returns the empty string.
-            Assert.AreEqual(numbers.Substr(100, 1), "");
-
-            Assert.AreEqual(numbers.Substr(2, 4), "2345");
         }
 
         [Test]
@@ -685,29 +666,9 @@ namespace Bridge.ClientTest.SimpleTypes
         }
 
         [Test]
-        public void JsSubstringWorks()
+        public void SubstringWithLengthWorks()
         {
-            var numbers = "0123456789";
-
-            // Let's start by using both begin and end.
-            Assert.AreEqual(numbers.JsSubstring(3, 7), "3456");
-
-            // What happens when we start with a negative number.
-            Assert.AreEqual(numbers.JsSubstring(-7, 7), "0123456");
-
-            // What happens when we use two negative numbers.
-            Assert.AreEqual(numbers.JsSubstring(-7, -3), "");
-
-            // What happens when we omit the last argument.
-            Assert.AreEqual(numbers.JsSubstring(3), "3456789");
-
-            // And with the negative, end-relevant index.
-            Assert.AreEqual(numbers.JsSubstring(-7), "0123456789");
-
-            // If the index is out of range, it returns the empty string.
-            Assert.AreEqual(numbers.JsSubstring(100, 101), "");
-
-            Assert.AreEqual(numbers.JsSubstring(2, 4), "23");
+            Assert.AreEqual("cd", "abcde".Substring(2, 2));
         }
 
         [Test]
@@ -855,12 +816,23 @@ namespace Bridge.ClientTest.SimpleTypes
         }
 
         [Test]
-        public void CompareToWorks()
+        public void StaticCompareToWorks()
         {
             Assert.True(string.Compare("abcd", "abcd") == 0);
             Assert.True(string.Compare("abcd", "abcD") != 0);
             Assert.True(string.Compare("abcd", "abcb") > 0);
             Assert.True(string.Compare("abcd", "abce") < 0);
+        }
+
+        [Test]
+        public void CompareToWorks()
+        {
+            Assert.True("abcd".CompareTo("abcd") == 0);
+            Assert.True("abcd".CompareTo("abcD") != 0);
+            Assert.True("abcd".CompareTo("abcb") > 0);
+            Assert.True("abcd".CompareTo("abce") < 0);
+
+            Assert.True("".CompareTo(null) > 0);
         }
 
         [Test]
@@ -875,18 +847,18 @@ namespace Bridge.ClientTest.SimpleTypes
         }
 
         [Test]
-        public void JoinWorks()
+        public void JoinWorks_SPI_1599()
         {
             Assert.AreEqual("a, ab, abc, abcd", string.Join(", ", new[] { "a", "ab", "abc", "abcd" }));
             Assert.AreEqual("ab, abc", string.Join(", ", new[] { "a", "ab", "abc", "abcd" }, 1, 2));
 
             IEnumerable<int> intValues = new MyEnumerable<int>(new[] { 1, 5, 6 });
+            // #1599
             Assert.AreEqual("1, 5, 6", String.Join(", ", intValues));
+
             IEnumerable<string> stringValues = new MyEnumerable<string>(new[] { "a", "ab", "abc", "abcd" });
             Assert.AreEqual("a, ab, abc, abcd", String.Join(", ", stringValues));
-
-            // TODO: c# makes it False but js false
-            Assert.AreEqual("a, 1, abc, false", String.Join(", ", new Object[] { "a", 1, "abc", false }));// False");
+            Assert.AreEqual("a, 1, abc, False", String.Join(", ", new Object[] { "a", 1, "abc", false }));
         }
 
         [Test]
@@ -902,7 +874,7 @@ namespace Bridge.ClientTest.SimpleTypes
         public void ToCharArrayWorks()
         {
             string text = "Lorem sit dolor";
-            Assert.AreDeepEqual(new[] { 'L', 'o', 'r', 'e', 'm', ' ', 's', 'i', 't', ' ', 'd', 'o', 'l', 'o', 'r' }, text.ToCharArray());
+            Assert.AreEqual(new[] { 'L', 'o', 'r', 'e', 'm', ' ', 's', 'i', 't', ' ', 'd', 'o', 'l', 'o', 'r' }, text.ToCharArray());
         }
 
         [Test]
@@ -918,21 +890,9 @@ namespace Bridge.ClientTest.SimpleTypes
             var s = "HELLO".ToLower();
             Assert.AreEqual("hello", s, "'HELLO'.ToLower()");
 
-            s = "HELLO".ToLowerCase();
-            Assert.AreEqual("hello", s, "'HELLO'.ToLowerCase()");
-
-            s = "HELLO".ToLocaleLowerCase();
-            Assert.AreEqual("hello", s, "'HELLO'.ToLocaleLowerCase()");
-
             // TEST ToUpper, ToUpperCase, ToLocaleUpperCase
             s = "hello".ToUpper();
             Assert.AreEqual("HELLO", s, "'hello'.ToUpper()");
-
-            s = "hello".ToUpperCase();
-            Assert.AreEqual("HELLO", s, "'hello'.ToUpperCase()");
-
-            s = "HELLO".ToLocaleUpperCase();
-            Assert.AreEqual("HELLO", s, "'hello'.ToLocaleUpperCase()");
 
             s = "Hello Bridge.NET";
 
@@ -1022,7 +982,7 @@ namespace Bridge.ClientTest.SimpleTypes
             Assert.AreEqual("Hello Bridge.NET234", s, "string.Concat()");
 
             s = string.Concat(null, true, 3, false);
-            Assert.AreEqual("true3false", s, "string.Concat()");
+            Assert.AreEqual("True3False", s, "string.Concat()");
 
             s = string.Concat(new string[] { "1", "2", "3", "4", "5" });
             Assert.AreEqual("12345", s, "string.Concat()");

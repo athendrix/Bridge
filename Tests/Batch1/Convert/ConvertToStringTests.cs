@@ -2,7 +2,7 @@
 // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Convert.ToString.cs
 // https://github.com/dotnet/corefx/blob/master/LICENSE
 
-using Bridge.Test;
+using Bridge.Test.NUnit;
 using System;
 using System.Globalization;
 
@@ -668,9 +668,9 @@ namespace Bridge.ClientTest.ConvertTests
         {
             Foo foo = new Foo(3);
             string result = Convert.ToString(foo);
-            Assert.AreEqual("Bridge.ClientTest.ConvertTests.ConvertToStringTests.Foo", result);
+            Assert.AreEqual("Bridge.ClientTest.ConvertTests.ConvertToStringTests+Foo", result);
             result = Convert.ToString(foo, NumberFormatInfo.CurrentInfo);
-            Assert.AreEqual("Bridge.ClientTest.ConvertTests.ConvertToStringTests.Foo", result);
+            Assert.AreEqual("Bridge.ClientTest.ConvertTests.ConvertToStringTests+Foo", result);
 
             foo = null;
             result = Convert.ToString(foo, NumberFormatInfo.CurrentInfo);

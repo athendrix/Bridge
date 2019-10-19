@@ -1,17 +1,16 @@
-using Bridge;
 using System.Reflection;
 
 namespace System.Linq.Expressions
 {
-    [External]
-    [Name("Object")]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Name("System.Object")]
     public abstract class MemberBinding
     {
-        [Name("btype")]
-        [FieldProperty]
+        [Bridge.Name("btype")]
         public extern MemberBindingType BindingType { get; private set; }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern MemberInfo Member { get; private set; }
 
         internal extern MemberBinding();

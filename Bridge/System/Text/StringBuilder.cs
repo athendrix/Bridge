@@ -1,9 +1,9 @@
-using Bridge;
-
 namespace System.Text
 {
-    [External]
-    public class StringBuilder : IBridgeClass
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Reflectable]
+    public class StringBuilder : Bridge.IBridgeClass
     {
         public extern StringBuilder();
 
@@ -11,9 +11,11 @@ namespace System.Text
 
         public extern StringBuilder(string value, int startIndex, int length);
 
+        public extern StringBuilder(string value, int startIndex, int length, int capacity);
+
         public extern StringBuilder(string value, int capacity);
 
-        [Template("new System.Text.StringBuilder(\"\", {capacity})")]
+        [Bridge.Template("new System.Text.StringBuilder(\"\", {capacity})")]
         public extern StringBuilder(int capacity);
 
         public override extern string ToString();
@@ -25,13 +27,17 @@ namespace System.Text
         /// </summary>
         public extern int Length
         {
+            [Bridge.Template("getLength()")]
             get;
+            [Bridge.Template("setLength({0})")]
             set;
         }
 
         public extern int Capacity
         {
+            [Bridge.Template("getCapacity()")]
             get;
+            [Bridge.Template("setCapacity({0})")]
             set;
         }
 
@@ -39,7 +45,7 @@ namespace System.Text
 
         public extern StringBuilder Append(byte value);
 
-        [Template("append(String.fromCharCode({value}))")]
+        [Bridge.Template("append(String.fromCharCode({value}))")]
         public extern StringBuilder Append(char value);
 
         public extern StringBuilder Append(decimal value);
@@ -50,19 +56,21 @@ namespace System.Text
 
         public extern StringBuilder Append(int value);
 
-        [Template("{this}.append({value}.toString())")]
+        [Bridge.Template("{this}.append({value}.toString())")]
         public extern StringBuilder Append(long value);
 
         public extern StringBuilder Append(object value);
 
         public extern StringBuilder Append(string value);
 
+        [CLSCompliant(false)]
         public extern StringBuilder Append(uint value);
 
-        [Template("{this}.append({value}.toString())")]
+        [Bridge.Template("{this}.append({value}.toString())")]
+        [CLSCompliant(false)]
         public extern StringBuilder Append(ulong value);
 
-        [Template("append(String.fromCharCode({value}), {repeatCount})")]
+        [Bridge.Template("append(String.fromCharCode({value}), {repeatCount})")]
         public extern StringBuilder Append(char value, int repeatCount);
 
         public extern StringBuilder Append(string value, int startIndex, int count);
@@ -79,7 +87,7 @@ namespace System.Text
 
         public extern StringBuilder Insert(int index, bool value);
 
-        [Template("insert({index}, String.fromCharCode({value}))")]
+        [Bridge.Template("insert({index}, String.fromCharCode({value}))")]
         public extern StringBuilder Insert(int index, char value);
 
         public extern StringBuilder Insert(int index, decimal value);
@@ -90,30 +98,40 @@ namespace System.Text
 
         public extern StringBuilder Insert(int index, int value);
 
-        [Template("{this}.insert({index}, {value}.toString())")]
+        [Bridge.Template("{this}.insert({index}, {value}.toString())")]
         public extern StringBuilder Insert(int index, long value);
 
         public extern StringBuilder Insert(int index, object value);
 
         public extern StringBuilder Insert(int index, string value);
 
+        [CLSCompliant(false)]
         public extern StringBuilder Insert(int index, uint value);
 
-        [Template("{this}.insert({index}, {value}.toString())")]
+        [Bridge.Template("{this}.insert({index}, {value}.toString())")]
+        [CLSCompliant(false)]
         public extern StringBuilder Insert(int index, ulong value);
 
         public extern StringBuilder Insert(int index, string value, int count);
 
         public extern StringBuilder Remove(int startIndex, int length);
 
-        [Template("replace(String.fromCharCode({oldChar}), String.fromCharCode({newChar}))")]
+        [Bridge.Template("replace(String.fromCharCode({oldChar}), String.fromCharCode({newChar}))")]
         public extern StringBuilder Replace(char oldChar, char newChar);
 
         public extern StringBuilder Replace(string oldValue, string newValue);
 
-        [Template("replace(String.fromCharCode({oldChar}), String.fromCharCode({newChar}), {startIndex}, {count})")]
+        [Bridge.Template("replace(String.fromCharCode({oldChar}), String.fromCharCode({newChar}), {startIndex}, {count})")]
         public extern StringBuilder Replace(char oldChar, char newChar, int startIndex, int count);
 
         public extern StringBuilder Replace(string oldValue, string newValue, int startIndex, int count);
+
+        [Bridge.Name("Char")]
+        [Bridge.AccessorsIndexer]
+        public extern char this[int index]
+        {
+            get;
+            set;
+        }
     }
 }

@@ -1,174 +1,173 @@
-using Bridge;
-
 namespace System.Globalization
 {
-    [External]
-    public sealed class NumberFormatInfo : IFormatProvider, ICloneable, IBridgeClass
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Reflectable]
+    public sealed class NumberFormatInfo : IFormatProvider, ICloneable, Bridge.IBridgeClass
     {
         public extern NumberFormatInfo();
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public static extern NumberFormatInfo InvariantInfo
         {
             get;
         }
 
-        [Name("nanSymbol")]
-        [FieldProperty]
+        [Bridge.Name("nanSymbol")]
         public extern string NaNSymbol
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string NegativeSign
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string PositiveSign
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string NegativeInfinitySymbol
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string PositiveInfinitySymbol
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string PercentSymbol
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int[] PercentGroupSizes
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int PercentDecimalDigits
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string PercentDecimalSeparator
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string PercentGroupSeparator
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int PercentPositivePattern
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int PercentNegativePattern
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string CurrencySymbol
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int[] CurrencyGroupSizes
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int CurrencyDecimalDigits
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string CurrencyDecimalSeparator
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string CurrencyGroupSeparator
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int CurrencyPositivePattern
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int CurrencyNegativePattern
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int[] NumberGroupSizes
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern int NumberDecimalDigits
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string NumberDecimalSeparator
         {
             get;
             set;
         }
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public extern string NumberGroupSeparator
         {
             get;
@@ -179,7 +178,7 @@ namespace System.Globalization
 
         public extern object Clone();
 
-        [FieldProperty]
+        [Bridge.Convention(Bridge.Notation.CamelCase)]
         public static extern NumberFormatInfo CurrentInfo
         {
             get;

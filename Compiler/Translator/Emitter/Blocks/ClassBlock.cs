@@ -3,6 +3,7 @@ using Bridge.Contract.Constants;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
+using Newtonsoft.Json;
 using Object.Net.Utilities;
 using System;
 using System.Collections.Generic;
@@ -45,11 +46,6 @@ namespace Bridge.Translator
 
         protected override void DoEmit()
         {
-            if (this.Emitter.Output.Length > 0)
-            {
-                this.WriteNewLine();
-            }
-
             XmlToJsDoc.EmitComment(this, this.Emitter.Translator.EmitNode);
             string globalTarget = BridgeTypes.GetGlobalTarget(this.TypeInfo.Type.GetDefinition(), this.TypeInfo.TypeDeclaration);
 
@@ -66,6 +62,7 @@ namespace Bridge.Translator
                 this.BeginBlock();
 
                 new MethodBlock(this.Emitter, this.TypeInfo, true).Emit();
+                this.EmitMetadata();
 
                 this.WriteNewLine();
                 this.EndBlock();
@@ -87,6 +84,26 @@ namespace Bridge.Translator
 
                 if (this.TypeInfo.TypeDeclaration.ClassType != ClassType.Interface)
                 {
+                    MethodDeclaration entryPoint = null;
+                    if (this.TypeInfo.StaticMethods.Any(group =>
+                    {
+                        return group.Value.Any(method =>
+                        {
+                            var result = Helpers.IsEntryPointMethod(this.Emitter, method);
+                            if (result)
+                            {
+                                entryPoint = method;
+                            }
+                            return result;
+                        });
+                    }))
+                    {
+                        if (!entryPoint.Body.IsNull)
+                        {
+                            this.Emitter.VisitMethodDeclaration(entryPoint);
+                        }
+                    }
+
                     this.EmitStaticBlock();
                     this.EmitInstantiableBlock();
                 }
@@ -119,21 +136,21 @@ namespace Bridge.Translator
             this.WriteTopInitMethods();
 
             var typeDef = this.Emitter.GetTypeDefinition();
-            string name = this.Emitter.Validator.GetCustomTypeName(typeDef, this.Emitter);
+            string name = this.Emitter.Validator.GetCustomTypeName(typeDef, this.Emitter, false);
             this.IsGeneric = typeDef.GenericParameters.Count > 0 && !Helpers.IsIgnoreGeneric(this.TypeInfo.Type, this.Emitter);
 
             if (name.IsEmpty())
             {
-                name = BridgeTypes.DefinitionToJsName(this.TypeInfo.Type, this.Emitter);
+                name = BridgeTypes.ToJsName(this.TypeInfo.Type, this.Emitter, asDefinition: true, nomodule: true, ignoreLiteralName: false);
             }
 
             if (typeDef.IsInterface && typeDef.HasGenericParameters)
             {
-                this.Write(JS.Funcs.BRIDGE_DEFINEI);
+                this.Write(JS.Types.Bridge.DEFINE_I);
             }
             else
             {
-                this.Write(JS.Funcs.BRIDGE_DEFINE);
+                this.Write(JS.Types.Bridge.DEFINE);
             }
 
             this.WriteOpenParentheses();
@@ -144,11 +161,21 @@ namespace Bridge.Translator
 
             if (this.IsGeneric)
             {
+                if (this.TypeInfo.Module != null)
+                {
+                    this.Write(this.TypeInfo.Module.Name);
+                    this.Write(", ");
+                }
+
                 this.WriteFunction();
                 this.WriteOpenParentheses();
 
                 foreach (var p in typeDef.GenericParameters)
                 {
+                    if (typeDef.GenericParameters.Count(gp => gp.FullName == p.FullName) > 1)
+                    {
+                        throw new EmitterException(this.TypeInfo.TypeDeclaration, $"Type parameter '{p.FullName}' has the same name as the type parameter from outer type.");
+                    }
                     this.EnsureComma(false);
                     this.Write(p.Name);
                     this.Emitter.Comma = true;
@@ -194,14 +221,33 @@ namespace Bridge.Translator
             }
 
             this.WriteKind();
+            this.EmitMetadata();
             this.WriteObjectLiteral();
 
             if (this.TypeInfo.Module != null)
             {
                 this.WriteScope();
+                this.WriteModule();
             }
 
             this.WriteVariance();
+        }
+
+        protected virtual void EmitMetadata()
+        {
+            if ((this.Emitter.HasModules || this.Emitter.AssemblyInfo.Reflection.Target == MetadataTarget.Type) && this.Emitter.ReflectableTypes.Any(t => t == this.Emitter.TypeInfo.Type))
+            {
+                var meta = MetadataUtils.ConstructTypeMetadata(this.TypeInfo.Type.GetDefinition(), this.Emitter, false, this.TypeInfo.TypeDeclaration.GetParent<SyntaxTree>());
+
+                if (meta != null)
+                {
+                    this.EnsureComma();
+                    this.Write("$metadata : function () { return ");
+                    this.Write(meta.ToString(Formatting.None));
+                    this.Write("; }");
+                    this.Emitter.Comma = true;
+                }
+            }
         }
 
         private void WriteTopInitMethods()
@@ -272,20 +318,32 @@ namespace Bridge.Translator
             this.EnsureComma();
             this.Write(JS.Vars.SCOPE);
             this.WriteColon();
-            this.Write(JS.Vars.EXPORTS);
+            this.Write(this.TypeInfo.Module.Name);
+            this.Emitter.Comma = true;
+        }
+
+        protected virtual void WriteModule()
+        {
+            this.EnsureComma();
+            this.Write(JS.Vars.MODULE);
+            this.WriteColon();
+            this.WriteScript(this.TypeInfo.Module.Name);
             this.Emitter.Comma = true;
         }
 
         protected virtual void WriteKind()
         {
-            if (this.TypeInfo.Type.Kind != TypeKind.Class)
+            var isNested = this.TypeInfo.Type.DeclaringType != null;
+            if (this.TypeInfo.Type.Kind == TypeKind.Class && !isNested)
             {
-                this.EnsureComma();
-                this.Write(JS.Fields.KIND);
-                this.WriteColon();
-                this.WriteScript(this.TypeInfo.Type.Kind.ToString().ToLowerInvariant());
-                this.Emitter.Comma = true;
+                return;
             }
+
+            this.EnsureComma();
+            this.Write(JS.Fields.KIND);
+            this.WriteColon();
+            this.WriteScript( (isNested ? "nested " : "") + this.TypeInfo.Type.Kind.ToString().ToLowerInvariant());
+            this.Emitter.Comma = true;
         }
 
         protected virtual void WriteObjectLiteral()
@@ -302,32 +360,45 @@ namespace Bridge.Translator
 
         protected virtual void EmitStaticBlock()
         {
-            if (this.TypeInfo.HasRealStatic(this.Emitter))
+            int pos = this.Emitter.Output.Length;
+            bool comma = this.Emitter.Comma;
+            bool newLine = this.Emitter.IsNewLine;
+
+            this.Emitter.StaticBlock = true;
+            this.EnsureComma();
+
+            if (this.TypeInfo.InstanceMethods.Any(m => m.Value.Any(subm => this.Emitter.GetEntityName(subm) == JS.Fields.STATICS)) ||
+                this.TypeInfo.InstanceConfig.Fields.Any(m => m.GetName(this.Emitter) == JS.Fields.STATICS))
             {
-                this.Emitter.StaticBlock = true;
-                this.EnsureComma();
-
-                if (this.TypeInfo.InstanceMethods.Any(m => m.Value.Any(subm => this.Emitter.GetEntityName(subm) == JS.Fields.STATICS)) ||
-                    this.TypeInfo.InstanceConfig.Fields.Any(m => m.GetName(this.Emitter) == JS.Fields.STATICS))
-                {
-                    this.Write(JS.Vars.D);
-                }
-
-                this.Write(JS.Fields.STATICS);
-                this.WriteColon();
-                this.BeginBlock();
-
-                var ctorBlock = new ConstructorBlock(this.Emitter, this.TypeInfo, true);
-                ctorBlock.Emit();
-                this.HasEntryPoint = ctorBlock.HasEntryPoint;
-
-                new MethodBlock(this.Emitter, this.TypeInfo, true).Emit();
-
-                this.WriteNewLine();
-                this.EndBlock();
-                this.Emitter.Comma = true;
-                this.Emitter.StaticBlock = false;
+                this.Write(JS.Vars.D);
             }
+
+            this.Write(JS.Fields.STATICS);
+            this.WriteColon();
+            this.BeginBlock();
+            int checkOutputPos = this.Emitter.Output.Length;
+
+            var ctorBlock = new ConstructorBlock(this.Emitter, this.TypeInfo, true);
+            ctorBlock.Emit();
+            this.HasEntryPoint = ctorBlock.HasEntryPoint;
+
+            new MethodBlock(this.Emitter, this.TypeInfo, true).Emit();
+            var clear = checkOutputPos == this.Emitter.Output.Length;
+            this.WriteNewLine();
+            this.EndBlock();
+
+            if (clear)
+            {
+                this.Emitter.Output.Length = pos;
+                this.Emitter.Comma = comma;
+                this.Emitter.IsNewLine = newLine;
+            }
+            else
+            {
+                this.Emitter.Comma = true;
+            }
+
+            this.Emitter.StaticBlock = false;
         }
 
         protected virtual void EmitInstantiableBlock()
@@ -343,13 +414,17 @@ namespace Bridge.Translator
                 }
 
                 var etype = this.TypeInfo.Type.GetDefinition().EnumUnderlyingType;
-                var enumMode = this.Emitter.Validator.EnumEmitMode(this.TypeInfo.Type);
+                var enumMode = Helpers.EnumEmitMode(this.TypeInfo.Type);
                 var isString = enumMode >= 3 && enumMode <= 6;
-                if (!etype.IsKnownType(KnownTypeCode.Int32) || isString)
+                if (isString)
+                {
+                    etype = this.Emitter.Resolver.Compilation.FindType(KnownTypeCode.String);
+                }
+                if (!etype.IsKnownType(KnownTypeCode.Int32))
                 {
                     this.EnsureComma();
                     this.Write(JS.Fields.UNDERLYINGTYPE + ": ");
-                    this.Write(isString ? "System.String" : BridgeTypes.ToJsName(etype, this.Emitter));
+                    this.Write(BridgeTypes.ToJsName(etype, this.Emitter));
 
                     this.Emitter.Comma = true;
                 }
@@ -431,8 +506,6 @@ namespace Bridge.Translator
             if (types.Any())
             {
                 this.Emitter.Comma = false;
-                this.IntroducePrivateVar();
-
                 foreach (IAnonymousTypeConfig type in types)
                 {
                     this.WriteNewLine();
@@ -449,8 +522,6 @@ namespace Bridge.Translator
             if (this.Emitter.NamedFunctions.Count > 0)
             {
                 this.Emitter.Comma = false;
-
-                this.IntroducePrivateVar();
 
                 var name = BridgeTypes.ToJsName(this.Emitter.TypeInfo.Type, this.Emitter, true);
 
@@ -483,41 +554,10 @@ namespace Bridge.Translator
             }
         }
 
-        private void IntroducePrivateVar()
-        {
-            if (!this.Emitter.EmitterOutput.IsPrivateVarIntroduced)
-            {
-                this.WriteNewLine();
-                this.WriteNewLine();
-                this.Write("var " + JS.Vars.D_ + " = {};");
-                this.Emitter.EmitterOutput.IsPrivateVarIntroduced = true;
-            }
-        }
-
-        protected virtual IEnumerable<string> GetDefineMethods(string prefix, Func<MethodDeclaration, IMethod, string> fn)
+        protected virtual IEnumerable<string> GetDefineMethods(InitPosition value, Func<MethodDeclaration, IMethod, string> fn)
         {
             var methods = this.TypeInfo.InstanceMethods;
             var attrName = "Bridge.InitAttribute";
-            int value = 0;
-
-            switch (prefix)
-            {
-                case "After":
-                    value = 0;
-                    break;
-
-                case "Before":
-                    value = 1;
-                    break;
-
-                case "Top":
-                    value = 2;
-                    break;
-
-                case "Bottom":
-                    value = 3;
-                    break;
-            }
 
             foreach (var methodGroup in methods)
             {
@@ -553,7 +593,7 @@ namespace Bridge.Translator
                             var rr = this.Emitter.Resolver.ResolveNode(attr.Type, this.Emitter);
                             if (rr.Type.FullName == attrName)
                             {
-                                int? initPosition = null;
+                                InitPosition? initPosition = null;
                                 if (attr.HasArgumentList)
                                 {
                                     if (attr.Arguments.Count > 0)
@@ -562,17 +602,17 @@ namespace Bridge.Translator
                                         var argrr = this.Emitter.Resolver.ResolveNode(argExpr, this.Emitter);
                                         if (argrr.ConstantValue is int)
                                         {
-                                            initPosition = (int)argrr.ConstantValue;
+                                            initPosition = (InitPosition)argrr.ConstantValue;
                                         }
                                     }
                                     else
                                     {
-                                        initPosition = 0; //Default InitPosition.After
+                                        initPosition = InitPosition.After;
                                     }
                                 }
                                 else
                                 {
-                                    initPosition = 0; //Default InitPosition.After
+                                    initPosition = InitPosition.After;
                                 }
 
                                 if (initPosition == value)
@@ -615,64 +655,107 @@ namespace Bridge.Translator
 
         protected virtual IEnumerable<string> GetBeforeDefineMethods()
         {
-            return this.GetDefineMethods("Before",
+            return this.GetDefineMethods(InitPosition.Before,
                 (method, rrMethod) =>
                 {
-                    this.PushWriter("(function(){0})();");
+                    var level = this.Emitter.Level;
+
+                    this.PushWriter(JS.Types.Bridge.INIT + "(function () {0});");
                     this.ResetLocals();
                     var prevMap = this.BuildLocalsMap();
                     var prevNamesMap = this.BuildLocalsNamesMap();
 
+                    this.Emitter.InitPosition = InitPosition.Before;
+                    this.Emitter.ResetLevel();
+
                     method.Body.AcceptVisitor(this.Emitter);
+
+                    this.Emitter.InitPosition = null;
+                    this.Emitter.ResetLevel(level);
 
                     this.ClearLocalsMap(prevMap);
                     this.ClearLocalsNamesMap(prevNamesMap);
+
                     return this.PopWriter(true);
                 });
         }
 
         protected virtual IEnumerable<string> GetTopDefineMethods()
         {
-            return this.GetDefineMethods("Top",
+            return this.GetDefineMethods(InitPosition.Top,
                 (method, rrMethod) =>
                 {
+                    var prevLevel = this.Emitter.Level;
+                    var prevInitialLevel = this.Emitter.InitialLevel;
+
                     this.PushWriter("{0}");
                     this.ResetLocals();
                     var prevMap = this.BuildLocalsMap();
                     var prevNamesMap = this.BuildLocalsNamesMap();
                     this.Emitter.NoBraceBlock = method.Body;
+
+                    this.Emitter.InitPosition = InitPosition.Top;
+                    ((Emitter)this.Emitter).InitialLevel = this.Emitter.InitialLevel > 1 ? this.Emitter.InitialLevel - 1 : 0;
+                    this.Emitter.ResetLevel();
+
                     method.Body.AcceptVisitor(this.Emitter);
+
+                    this.Emitter.InitPosition = null;
+                    ((Emitter)this.Emitter).InitialLevel = prevInitialLevel;
+                    this.Emitter.ResetLevel(prevLevel);
 
                     this.ClearLocalsMap(prevMap);
                     this.ClearLocalsNamesMap(prevNamesMap);
+
                     return this.PopWriter(true);
                 });
         }
 
         protected virtual IEnumerable<string> GetBottomDefineMethods()
         {
-            return this.GetDefineMethods("Bottom",
+            return this.GetDefineMethods(InitPosition.Bottom,
                 (method, rrMethod) =>
                 {
+                    var prevLevel = this.Emitter.Level;
+                    var prevInitialLevel = this.Emitter.InitialLevel;
+
                     this.PushWriter("{0}");
                     this.ResetLocals();
                     var prevMap = this.BuildLocalsMap();
                     var prevNamesMap = this.BuildLocalsNamesMap();
                     this.Emitter.NoBraceBlock = method.Body;
+
+                    this.Emitter.InitPosition = InitPosition.Bottom;
+                    ((Emitter)this.Emitter).InitialLevel = this.Emitter.InitialLevel > 1 ? this.Emitter.InitialLevel - 1 : 0;
+                    this.Emitter.ResetLevel();
+
                     method.Body.AcceptVisitor(this.Emitter);
+
+                    this.Emitter.InitPosition = null;
+                    ((Emitter)this.Emitter).InitialLevel = prevInitialLevel;
+                    this.Emitter.ResetLevel(prevLevel);
 
                     this.ClearLocalsMap(prevMap);
                     this.ClearLocalsNamesMap(prevNamesMap);
+
                     return this.PopWriter(true);
                 });
         }
 
         protected virtual IEnumerable<string> GetAfterDefineMethods()
         {
-            return this.GetDefineMethods("After",
+            return this.GetDefineMethods(InitPosition.After,
                 (method, rrMethod) =>
-                    BridgeTypes.ToJsName(rrMethod.DeclaringTypeDefinition, this.Emitter) + "." +
-                    this.Emitter.GetEntityName(method) + "();");
+                {
+                    this.Emitter.InitPosition = InitPosition.After;
+
+                    var callback = JS.Types.Bridge.INIT + "(function () { " + BridgeTypes.ToJsName(rrMethod.DeclaringTypeDefinition, this.Emitter) + "." +
+                           this.Emitter.GetEntityName(method) + "(); });";
+
+                    this.Emitter.InitPosition = null;
+
+                    return callback;
+                });
         }
     }
 }

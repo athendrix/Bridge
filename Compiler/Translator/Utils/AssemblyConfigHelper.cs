@@ -1,5 +1,7 @@
 using Bridge.Contract;
 using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Bridge.Translator.Utils
@@ -62,6 +64,89 @@ namespace Bridge.Translator.Utils
             return JsonConvert.SerializeObject(config);
         }
 
+        public void ApplyTokens(IAssemblyInfo config, ProjectProperties projectProperties)
+        {
+            Logger.Trace("ApplyTokens ...");
+
+            if (config == null)
+            {
+                throw new ArgumentNullException("config");
+            }
+
+            if (projectProperties == null)
+            {
+                throw new ArgumentNullException("projectProperties");
+            }
+
+            Logger.Trace("Properties:" + projectProperties.ToString());
+
+            var tokens = projectProperties.GetValues();
+
+            if (tokens == null || tokens.Count <= 0)
+            {
+                Logger.Trace("No tokens applied as no values to apply");
+                return;
+            }
+
+            config.FileName = helper.ApplyPathTokens(tokens, config.FileName);
+            config.Output = helper.ApplyPathTokens(tokens, config.Output);
+            config.BeforeBuild = helper.ApplyPathTokens(tokens, config.BeforeBuild);
+            config.AfterBuild = helper.ApplyPathTokens(tokens, config.AfterBuild);
+            config.PluginsPath = helper.ApplyPathTokens(tokens, config.PluginsPath);
+            config.CleanOutputFolderBeforeBuild = helper.ApplyTokens(tokens, config.CleanOutputFolderBeforeBuild);
+            config.CleanOutputFolderBeforeBuildPattern = helper.ApplyTokens(tokens, config.CleanOutputFolderBeforeBuildPattern);
+            config.Locales = helper.ApplyTokens(tokens, config.Locales);
+            config.LocalesOutput = helper.ApplyTokens(tokens, config.LocalesOutput);
+            config.LocalesFileName = helper.ApplyPathTokens(tokens, config.LocalesFileName);
+
+            if (config.Logging != null)
+            {
+                var logging = config.Logging;
+
+                logging.FileName = helper.ApplyPathTokens(tokens, logging.FileName);
+                logging.Folder = helper.ApplyPathTokens(tokens, logging.Folder);
+            }
+
+            if (config.Reflection != null)
+            {
+                config.Reflection.Filter = helper.ApplyTokens(tokens, config.Reflection.Filter);
+                config.Reflection.Output = helper.ApplyTokens(tokens, config.Reflection.Output);
+            }
+
+            if (config.Resources != null)
+            {
+                foreach (var resourceItem in config.Resources.Items)
+                {
+                    resourceItem.Header = helper.ApplyTokens(tokens, resourceItem.Header);
+                    resourceItem.Name = helper.ApplyTokens(tokens, resourceItem.Name);
+                    resourceItem.Remark = helper.ApplyTokens(tokens, resourceItem.Remark);
+
+                    var files = resourceItem.Files;
+
+                    if (files != null)
+                    {
+                        for (int i = 0; i < files.Length; i++)
+                        {
+                            files[i] = helper.ApplyPathTokens(tokens, files[i]);
+                        }
+                    }
+                }
+            }
+
+            if (config.Html != null)
+            {
+                config.Html.Name = helper.ApplyTokens(tokens, config.Html.Name);
+            }
+
+            if (config.Report != null)
+            {
+                config.Report.FileName = helper.ApplyPathTokens(tokens, config.Report.FileName);
+                config.Report.Path = helper.ApplyPathTokens(tokens, config.Report.Path);
+            }
+
+            Logger.Trace("ApplyTokens done");
+        }
+
         public void ConvertConfigPaths(IAssemblyInfo assemblyInfo)
         {
             assemblyInfo.AfterBuild = helper.ConvertPath(assemblyInfo.AfterBuild);
@@ -69,7 +154,21 @@ namespace Bridge.Translator.Utils
             assemblyInfo.Output = helper.ConvertPath(assemblyInfo.Output);
             assemblyInfo.PluginsPath = helper.ConvertPath(assemblyInfo.PluginsPath);
             assemblyInfo.LocalesOutput = helper.ConvertPath(assemblyInfo.LocalesOutput);
-            assemblyInfo.Logging.Folder = helper.ConvertPath(assemblyInfo.Logging.Folder);
+
+            if (assemblyInfo.Logging != null)
+            {
+                assemblyInfo.Logging.Folder = helper.ConvertPath(assemblyInfo.Logging.Folder);
+            }
+
+            if (assemblyInfo.Html != null)
+            {
+                assemblyInfo.Html.Name = helper.ConvertPath(assemblyInfo.Html.Name);
+            }
+
+            if (assemblyInfo.Report != null)
+            {
+                assemblyInfo.Report.Path = helper.ConvertPath(assemblyInfo.Report.Path);
+            }
 
             if (assemblyInfo.Resources != null)
             {

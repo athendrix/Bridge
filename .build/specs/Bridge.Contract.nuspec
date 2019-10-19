@@ -12,20 +12,19 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>A C# to JavaScript compiler. Write modern mobile and web apps in C#. Run them anywhere with JavaScript.</description>
     <summary>A C# to JavaScript compiler. Write modern mobile and web apps in C#. Run them anywhere in JavaScript with Bridge.NET.</summary>
-    <copyright>Copyright (c) 2008-2016, Object.NET, Inc. (http://object.net/). All rights reserved.</copyright>
+    <copyright>Copyright (c) 2008-2019, Object.NET, Inc. (http://object.net/). All rights reserved.</copyright>
     <tags>bridge bridge.net bridge js javascript C# csharp mobile ios asp.net aspnet mvc aspnetmvc web transpiler compiler object.net</tags>
     <dependencies>
-      <dependency id="Bridge.NRefactory" version="5.5.4" />
-      <dependency id="Mono.Cecil" version="0.9.6.1" />
-      <dependency id="Newtonsoft.Json" version="8.0.2" />
+      <dependency id="Bridge.NRefactory" version="5.5.8" />
+      <dependency id="Mono.Cecil" version="0.9.6.4" />
+      <dependency id="Newtonsoft.Json" version="10.0.3" />
       <dependency id="Object.NET.Utilities" version="2.5.0" />
     </dependencies>
     <frameworkAssemblies>
     </frameworkAssemblies>
   </metadata>
   <files>
-    <!--content-->
-    <file src="../../LICENSE.md" target="content/App_Readme/Bridge.NET/LICENSE.md" />
+    <file src="../../LICENSE.md" target="LICENSE.md" />
 
     <!--NET40-->
     <file src="../../Compiler/Contract/bin/Release/Bridge.Contract.dll" target="lib/net40/Bridge.Contract.dll" />

@@ -1,17 +1,17 @@
-﻿namespace Bridge.Contract
-{
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Converters;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
+namespace Bridge.Contract
+{
     public interface IReflectionConfig
     {
-        bool? Enabled
+        bool? Disabled
         {
             get; set;
         }
 
-        [JsonConverter(typeof(StringEnumConverter))]
-        MemberAccessibility? MemberAccessibility
+        [JsonProperty("memberAccessibility", ItemConverterType = typeof(StringEnumConverter))]
+        MemberAccessibility[] MemberAccessibility
         {
             get; set;
         }
@@ -31,5 +31,17 @@
         {
             get; set;
         }
+
+        MetadataTarget Target
+        {
+            get; set;
+        }
+    }
+
+    public enum MetadataTarget
+    {
+        File,
+        Inline,
+        Type
     }
 }

@@ -1,21 +1,20 @@
-using Bridge;
-
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace System
 {
     /// <summary>
     /// The Guid data type which is mapped to the string type in Javascript.
     /// </summary>
-    [Immutable]
+    [Bridge.Immutable]
     public struct Guid : IEquatable<Guid>, IComparable<Guid>, IFormattable
     {
         private const string error1 = "Byte array for GUID must be exactly {0} bytes long";
 
-        private static readonly Bridge.Text.RegularExpressions.Regex Valid = new Bridge.Text.RegularExpressions.Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "i");
-        private static readonly Bridge.Text.RegularExpressions.Regex Split = new Bridge.Text.RegularExpressions.Regex("^(.{8})(.{4})(.{4})(.{4})(.{12})$");
-        private static readonly Bridge.Text.RegularExpressions.Regex NonFormat = new Bridge.Text.RegularExpressions.Regex("^[{(]?([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})[)}]?$", "i");
-        private static readonly Bridge.Text.RegularExpressions.Regex Replace = new Bridge.Text.RegularExpressions.Regex("-", "g");
+        private static readonly RegExp Valid = new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "i");
+        private static readonly RegExp Split = new RegExp("^(.{8})(.{4})(.{4})(.{4})(.{12})$");
+        private static readonly RegExp NonFormat = new RegExp("^[{(]?([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})[)}]?$", "i");
+        private static readonly RegExp Replace = new RegExp("-", "g");
         private static readonly Random Rnd = new Random();
 
         /// <summary>
@@ -89,6 +88,7 @@ namespace System
         /// <param name="i">The next byte of the GUID.</param>
         /// <param name="j">The next byte of the GUID.</param>
         /// <param name="k">The next byte of the GUID.</param>
+        [CLSCompliant(false)]
         public Guid(uint a, ushort b, ushort c, byte d, byte e, byte f, byte g, byte h, byte i, byte j, byte k)
         {
             _a = (int)a;
@@ -163,6 +163,30 @@ namespace System
             _i = i;
             _j = j;
             _k = k;
+        }
+
+        /// <summary>
+        /// Returns the hash code for this instance.
+        /// </summary>
+        /// <returns>The hash code for this instance.</returns>
+        public override int GetHashCode()
+        {
+            return this._a ^ (((int)this._b << 16) | (int)(ushort)this._c) ^ (((int)this._f << 24) | this._k);
+        }
+
+        /// <summary>
+        /// Returns a value indicating whether this instance and a specified Guid object represent the same value.
+        /// </summary>
+        /// <param name="o">An object to compare to this instance.</param>
+        /// <returns>true if o is equal to this instance; otherwise, false.</returns>
+        public override bool Equals(Object o)
+        {
+            if (!(o is Guid))
+            {
+                return false;
+            }
+
+            return this.Equals((Guid)o);
         }
 
         /// <summary>
@@ -346,7 +370,11 @@ namespace System
 
             if (string.IsNullOrEmpty(input))
             {
-                throw new System.ArgumentNullException("input");
+                if (check)
+                {
+                    throw new System.ArgumentNullException("input");
+                }
+                return false;
             }
 
             if (string.IsNullOrEmpty(format))
@@ -355,7 +383,16 @@ namespace System
 
                 if (m != null)
                 {
-                    r = m.Slice(1).Join("-").ToLower();
+                    List<string> list = new List<string>();
+                    for (int i = 1; i <= m.Length; i++)
+                    {
+                        if (m[i] != null)
+                        {
+                            list.Add(m[i]);
+                        }
+                    }
+
+                    r = list.ToArray().Join("-").ToLower();
                 }
             }
             else
@@ -370,8 +407,17 @@ namespace System
 
                     if (m != null)
                     {
+                        List<string> list = new List<string>();
+                        for (int i = 1; i <= m.Length; i++)
+                        {
+                            if (m[i] != null)
+                            {
+                                list.Add(m[i]);
+                            }
+                        }
+
                         p = true;
-                        input = m.Slice(1).Join("-");
+                        input = list.ToArray().Join("-");
                     }
                 }
                 else if (format == "B" || format == "P")
@@ -381,14 +427,15 @@ namespace System
                     if ((input[0] == b[0]) && (input[input.Length - 1] == b[1]))
                     {
                         p = true;
-                        input = input.Substr(1, input.Length - 2);
+                        input = input.Substring(1, input.Length - 2);
                     }
-                } else
+                }
+                else
                 {
                     p = true;
                 }
 
-                if (p && input.Match(Valid) != null)
+                if (p && Guid.Valid.Test(input))
                 {
                     r = input.ToLower();
                 }
@@ -410,30 +457,61 @@ namespace System
 
         private string Format(string format)
         {
-            var s = ((uint)_a).ToString("x8") + ((ushort)_b).ToString("x4") + ((ushort)_c).ToString("x4");
-            s = s + (new[] { _d, _e, _f, _g, _h, _i, _j, _k }).Map(MakeBinary).Join("");
+            var s = ToHex((uint)_a, 8) + ToHex((ushort)_b, 4) + ToHex((ushort)_c, 4);
+            s = s + (new[] { _d, _e, _f, _g, _h, _i, _j, _k }).Map(ToHex).Join("");
 
-            s = Split.Exec(s).Slice(1).Join("-");
+            var m = Bridge.Script.Write<string[]>("/^(.{8})(.{4})(.{4})(.{4})(.{12})$/.exec(s)");
+            string[] list = new string[0];
+            for (int i = 1; i < m.Length; i++)
+            {
+                if (m[i] != null)
+                {
+                    list.Push(m[i]);
+                }
+            }
+            s = list.Join("-");
 
             switch (format)
             {
                 case "n":
                 case "N":
-                    return s.Replace(Replace, "");
+                    return s.ToDynamic().replace(Guid.Replace, "");
                 case "b":
                 case "B":
                     return '{' + s + '}';
+
                 case "p":
                 case "P":
                     return '(' + s + ')';
+
                 default:
                     return s;
             }
         }
 
-        private static string MakeBinary(byte x)
+        private static string ToHex(uint x, int precision)
         {
-            return (x & 0xff).ToString("x2");
+            var result = Bridge.Script.Call<string>("x.toString", 16);
+            precision -= result.Length;
+
+            for (var i = 0; i < precision; i++)
+            {
+                result = "0" + result;
+            }
+
+            return result;
+        }
+
+        private static string ToHex(byte x)
+        {
+            var result = Bridge.Script.Call<string>("x.toString", 16);
+
+            if (result.Length == 1)
+            {
+                result = "0" + result;
+            }
+
+            return result;
         }
 
         private void FromString(string s)
@@ -443,7 +521,7 @@ namespace System
                 return;
             }
 
-            s = s.Replace(Replace, "");
+            s = s.ToDynamic().replace(Guid.Replace, "");
 
             var r = new byte[8];
 
@@ -463,6 +541,11 @@ namespace System
             _i = r[5];
             _j = r[6];
             _k = r[7];
+        }
+
+        private string toJSON()
+        {
+            return this.ToString();
         }
     }
 }

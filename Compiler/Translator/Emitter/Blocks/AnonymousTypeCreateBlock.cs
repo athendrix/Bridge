@@ -4,6 +4,7 @@ using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.Semantics;
 using ICSharpCode.NRefactory.TypeSystem;
 using Newtonsoft.Json;
+using Object.Net.Utilities;
 
 namespace Bridge.Translator
 {
@@ -30,7 +31,7 @@ namespace Bridge.Translator
 
         protected override void DoEmit()
         {
-            if (this.Plain)
+            if (this.Plain || this.Emitter.Rules.AnonymousType == AnonymousTypeRule.Plain)
             {
                 this.VisitPlainAnonymousTypeCreateExpression();
             }
@@ -69,7 +70,7 @@ namespace Bridge.Translator
 
             if (anonymousTypeCreateExpression.Initializers.Count > 0)
             {
-                this.WriteObjectInitializer(anonymousTypeCreateExpression.Initializers, true);
+                this.WriteObjectInitializer(anonymousTypeCreateExpression.Initializers, false);
 
                 this.WriteSpace();
                 this.WriteCloseBrace();
@@ -118,23 +119,28 @@ namespace Bridge.Translator
             var oldWriter = this.SaveWriter();
             this.NewWriter();
 
-            this.Write(JS.Funcs.BRIDGE_DEFINE);
+            this.Write(JS.Types.Bridge.DEFINE);
             this.WriteOpenParentheses();
             this.WriteScript(config.Name);
-            config.Name = JS.Vars.D_ + "." + config.Name;
-            this.Write(", " + JS.Vars.D_ + ", ");
+            config.Name = JS.Vars.ASM + "." + config.Name;
+            this.Write(", " + JS.Vars.ASM + ", ");
             this.BeginBlock();
             this.Emitter.Comma = false;
             this.GenereateCtor(type);
-            this.GenereateGetters(config);
+
+            this.EnsureComma();
+            this.Write(JS.Fields.METHODS);
+            this.WriteColon();
+            this.BeginBlock();
+
             this.GenereateEquals(config);
             this.GenerateHashCode(config);
             this.GenereateToJSON(config);
 
-            if (this.Emitter.IsAnonymousReflectable)
-            {
-                this.GenereateMetadata(config);
-            }
+            this.WriteNewLine();
+            this.EndBlock();
+
+            this.GenereateMetadata(config);
 
             this.WriteNewLine();
             this.EndBlock();
@@ -153,11 +159,14 @@ namespace Bridge.Translator
             this.WriteColon();
             this.WriteScript(TypeKind.Anonymous.ToString().ToLowerInvariant());
             this.WriteComma(true);
+            this.Write(JS.Fields.CTORS);
+            this.WriteColon();
+            this.BeginBlock();
             this.Write(JS.Funcs.CONSTRUCTOR + ": function (");
             foreach (var property in type.Properties)
             {
                 this.EnsureComma(false);
-                this.Write(Object.Net.Utilities.StringUtils.ToLowerCamelCase(property.Name));
+                this.Write(property.Name.ToLowerCamelCase());
                 this.Emitter.Comma = true;
             }
             this.Write(") ");
@@ -166,12 +175,14 @@ namespace Bridge.Translator
 
             foreach (var property in type.Properties)
             {
-                var name = Object.Net.Utilities.StringUtils.ToLowerCamelCase(property.Name);
+                var name = this.Emitter.GetEntityName(property);
 
-                this.Write(string.Format("this.{0} = {0};", name));
+                this.Write(string.Format("this.{0} = {1};", name, property.Name.ToLowerCamelCase()));
                 this.WriteNewLine();
             }
 
+            this.EndBlock();
+            this.WriteNewLine();
             this.EndBlock();
             this.Emitter.Comma = true;
         }
@@ -185,27 +196,18 @@ namespace Bridge.Translator
                 this.EnsureComma();
                 this.Write("statics : ");
                 this.BeginBlock();
-                this.Write("$metadata : ");
-                this.Write(meta.ToString(Formatting.None));
-                this.WriteNewLine();
-                this.EndBlock();
-            }
-        }
 
-        private void GenereateGetters(IAnonymousTypeConfig config)
-        {
-            foreach (var property in config.Type.Properties)
-            {
-                this.EnsureComma();
-                var lowerName = Object.Net.Utilities.StringUtils.ToLowerCamelCase(property.Name);
-                var name = property.Name;
-
-                this.Write(string.Format("get{0} : function () ", name));
+                this.Write(JS.Fields.METHODS);
+                this.WriteColon();
                 this.BeginBlock();
-                this.Write(string.Format("return this.{0};", lowerName));
+
+                this.Write("$metadata : function () { return ");
+                this.Write(meta.ToString(Formatting.None));
+                this.Write("; }");
                 this.WriteNewLine();
                 this.EndBlock();
-                this.Emitter.Comma = true;
+                this.WriteNewLine();
+                this.EndBlock();
             }
         }
 
@@ -215,7 +217,7 @@ namespace Bridge.Translator
             this.Write(JS.Funcs.EQUALS + ": function (o) ");
             this.BeginBlock();
 
-            this.Write("if (!" + JS.Funcs.BRIDGE_IS + "(o, ");
+            this.Write("if (!" + JS.Types.Bridge.IS + "(o, ");
             this.Write(config.Name);
             this.Write(")) ");
             this.BeginBlock();
@@ -229,7 +231,7 @@ namespace Bridge.Translator
 
             foreach (var property in config.Type.Properties)
             {
-                var name = Object.Net.Utilities.StringUtils.ToLowerCamelCase(property.Name);
+                var name = this.Emitter.GetEntityName(property);
 
                 if (and)
                 {
@@ -252,8 +254,6 @@ namespace Bridge.Translator
             this.Emitter.Comma = true;
         }
 
-
-
         private void GenerateHashCode(IAnonymousTypeConfig config)
         {
             this.EnsureComma();
@@ -266,7 +266,7 @@ namespace Bridge.Translator
 
             foreach (var property in config.Type.Properties)
             {
-                var name = Object.Net.Utilities.StringUtils.ToLowerCamelCase(property.Name);
+                var name = this.Emitter.GetEntityName(property);
                 this.Write(", this." + name);
             }
 
@@ -290,7 +290,7 @@ namespace Bridge.Translator
             foreach (var property in config.Type.Properties)
             {
                 this.EnsureComma();
-                var name = Object.Net.Utilities.StringUtils.ToLowerCamelCase(property.Name);
+                var name = this.Emitter.GetEntityName(property);
 
                 this.Write(string.Format("{0} : this.{0}", name));
                 this.Emitter.Comma = true;

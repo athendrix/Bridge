@@ -22,6 +22,7 @@ namespace Bridge.Translator.Logging
 
         private bool IsInitializedSuccessfully { get; set; }
         private int InitializationCount { get; set; }
+        private bool IsCleanedUp { get; set; }
         private Queue<BufferedMessage> Buffer { get; set; }
 
         public bool AlwaysLogErrors { get { return false; } }
@@ -50,6 +51,7 @@ namespace Bridge.Translator.Logging
         public void SetParameters(string baseDir, string fileName, long? maxSize)
         {
             IsInitializedSuccessfully = false;
+            IsCleanedUp = false;
             InitializationCount = 0;
 
             if (string.IsNullOrEmpty(baseDir))
@@ -58,14 +60,7 @@ namespace Bridge.Translator.Logging
             }
             else
             {
-                if (string.IsNullOrWhiteSpace(Path.GetExtension(baseDir)))
-                {
-                    this.BaseDirectory = baseDir;
-                }
-                else
-                {
-                    this.BaseDirectory = Path.GetDirectoryName(baseDir);
-                }
+                this.BaseDirectory = (new FileHelper()).GetDirectoryAndFilenamePathComponents(baseDir)[0];
             }
 
             this.FileName = string.IsNullOrEmpty(fileName) ? LoggerFileName : Path.GetFileName(fileName);
@@ -110,10 +105,11 @@ namespace Bridge.Translator.Logging
                     loggerFile.Directory.Create();
                 }
 
-                if (loggerFile.Exists && loggerFile.Length > MaxLogFileSize)
-                {
-                    loggerFile.Delete();
-                }
+                // Uncomment this lines if max file size logic required and handle fileMode in Flush()
+                //if (loggerFile.Exists && loggerFile.Length > MaxLogFileSize)
+                //{
+                //    loggerFile.Delete();
+                //}
 
                 IsInitializedSuccessfully = true;
             }
@@ -127,19 +123,27 @@ namespace Bridge.Translator.Logging
 
         private void WriteOrBuffer(LoggerLevel level, string message, bool useWriteLine)
         {
-            if (!(IsInitializedSuccessfully || CanBeInitialized))
+            lock (this)
             {
-                return;
+                if (!(IsInitializedSuccessfully || CanBeInitialized))
+                {
+                    return;
+                }
+
+                Buffer.Enqueue(new BufferedMessage()
+                {
+                    LoggerLevel = level,
+                    Message = message,
+                    UseWriteLine = useWriteLine
+                });
+
+                if (BufferedMode)
+                {
+                    return;
+                }
+
+                Flush();
             }
-
-            Buffer.Enqueue(new BufferedMessage() { LoggerLevel = level, Message = message, UseWriteLine = useWriteLine });
-
-            if (BufferedMode)
-            {
-                return;
-            }
-
-            Flush();
         }
 
         private void WriteOrBufferLine(LoggerLevel level, string s)
@@ -154,61 +158,79 @@ namespace Bridge.Translator.Logging
 
         public void Flush()
         {
-            if (!CheckDirectoryAndLoggerSize())
+            lock (this)
             {
-                return;
-            }
 
-            if (Buffer.Any(x => CheckLoggerLevel(x.LoggerLevel)))
-            {
-                try
+                if (!CheckDirectoryAndLoggerSize())
                 {
-                    FileInfo file = new FileInfo(this.FullName);
-                    using (Stream stream = file.Open(FileMode.Append, FileAccess.Write, FileShare.Write | FileShare.ReadWrite | FileShare.Delete))
+                    return;
+                }
+
+                if (Buffer.Any(x => CheckLoggerLevel(x.LoggerLevel)))
+                {
+                    try
                     {
-                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8))
+                        var fileMode = FileMode.Append;
+
+                        if (!IsCleanedUp)
                         {
-                            stream.Position = stream.Length;
+                            fileMode = FileMode.Create;
+                            IsCleanedUp = true;
+                        }
 
-                            BufferedMessage message;
+                        FileInfo file = new FileInfo(this.FullName);
 
-                            while (Buffer.Count > 0)
+                        using (Stream stream = file.Open(fileMode, FileAccess.Write, FileShare.Write | FileShare.ReadWrite | FileShare.Delete))
+                        {
+                            using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8))
                             {
-                                message = Buffer.Dequeue();
+                                stream.Position = stream.Length;
 
-                                if (!CheckLoggerLevel(message.LoggerLevel))
-                                {
-                                    continue;
-                                }
+                                BufferedMessage message;
 
-                                if (message.UseWriteLine)
+                                while (Buffer.Count > 0)
                                 {
-                                    writer.WriteLine(message.Message);
-                                }
-                                else
-                                {
-                                    writer.Write(message.Message);
-                                }
+                                    message = Buffer.Dequeue();
 
-                                writer.Flush();
+                                    if (!CheckLoggerLevel(message.LoggerLevel))
+                                    {
+                                        continue;
+                                    }
+
+                                    if (message.UseWriteLine)
+                                    {
+                                        writer.WriteLine(message.Message);
+                                    }
+                                    else
+                                    {
+                                        writer.Write(message.Message);
+                                    }
+
+                                    writer.Flush();
+                                }
                             }
                         }
                     }
+                    catch (System.Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
                 }
-                catch (System.Exception ex)
+                else
                 {
-                    Console.WriteLine(ex.ToString());
+                    Buffer.Clear();
                 }
-            }
-            else
-            {
-                Buffer.Clear();
             }
         }
 
         public void Error(string message)
         {
             WriteOrBufferLine(LoggerLevel.Error, message);
+        }
+
+        public void Error(string message, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber)
+        {
+            Error(message);
         }
 
         public void Warn(string message)

@@ -1,49 +1,13 @@
-﻿    (function () {
-        var createIntType = function (name, min, max, precision) {
-            var type = Bridge.define(name, {
-                inherits: [System.IComparable, System.IFormattable],
-
-                statics: {
-                    $number: true,
-                    min: min,
-                    max: max,
-                    precision: precision,
-
-                    instanceOf: function (instance) {
-                        return typeof (instance) === "number" && Math.floor(instance, 0) === instance && instance >= min && instance <= max;
-                    },
-                    getDefaultValue: function () {
-                        return 0;
-                    },
-                    parse: function (s, radix) {
-                        return Bridge.Int.parseInt(s, min, max, radix);
-                    },
-                    tryParse: function (s, result, radix) {
-                        return Bridge.Int.tryParseInt(s, result, min, max, radix);
-                    },
-                    format: function (number, format, provider) {
-                        return Bridge.Int.format(number, format, provider, type);
-                    }
-                }
-            });
-
-            Bridge.Class.addExtend(type, [System.IComparable$1(type), System.IEquatable$1(type)]);
-        };
-
-        createIntType("System.Byte", 0, 255, 3);
-        createIntType("System.SByte", -128, 127, 3);
-        createIntType("System.Int16", -32768, 32767, 5);
-        createIntType("System.UInt16", 0, 65535, 5);
-        createIntType("System.Int32", -2147483648, 2147483647, 10);
-        createIntType("System.UInt32", 0, 4294967295, 10);
-    })();
 
     Bridge.define("Bridge.Int", {
         inherits: [System.IComparable, System.IFormattable],
         statics: {
             $number: true,
 
-            instanceOf: function (instance) {
+            MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER || Math.pow(2, 53) - 1,
+            MIN_SAFE_INTEGER: Number.MIN_SAFE_INTEGER || -(Math.pow(2, 53) - 1),
+
+            $is: function (instance) {
                 return typeof (instance) === "number" && isFinite(instance) && Math.floor(instance, 0) === instance;
             },
 
@@ -51,7 +15,7 @@
                 return 0;
             },
 
-            format: function (number, format, provider, T) {
+            format: function (number, format, provider, T, toUnsign) {
                 var nf = (provider || System.Globalization.CultureInfo.getCurrentCulture()).getFormat(System.Globalization.NumberFormatInfo),
                     decimalSeparator = nf.numberDecimalSeparator,
                     groupSeparator = nf.numberGroupSeparator,
@@ -64,7 +28,7 @@
                     fs;
 
                 if (!isLong && (isDecimal ? !number.isFinite() : !isFinite(number))) {
-                    return Number.NEGATIVE_INFINITY === number || (isDecimal && isNeg) ? nf.negativeInfinitySymbol : nf.positiveInfinitySymbol;
+                    return Number.NEGATIVE_INFINITY === number || (isDecimal && isNeg) ? nf.negativeInfinitySymbol : (isNaN(number) ? nf.nanSymbol : nf.positiveInfinitySymbol);
                 }
 
                 if (!format) {
@@ -76,7 +40,7 @@
                 if (match) {
                     fs = match[1].toUpperCase();
                     precision = parseInt(match[2], 10);
-                    precision = precision > 15 ? 15 : precision;
+                    //precision = precision > 15 ? 15 : precision;
 
                     switch (fs) {
                         case "D":
@@ -113,6 +77,7 @@
                                 } else {
                                     coefficient *= 10;
                                 }
+
                                 exponent--;
                             }
 
@@ -134,7 +99,8 @@
                                 if ((exponent > -5 && exponent < precision) || isDecimal && noPrecision) {
                                     minDecimals = 0;
                                     maxDecimals = precision - (exponent > 0 ? exponent + 1 : 1);
-                                    return this.defaultFormat(number, 1, minDecimals, maxDecimals, nf, true);
+
+                                    return this.defaultFormat(number, 1, isDecimal ? Math.min(27, Math.max(minDecimals, number.$precision)) : minDecimals, maxDecimals, nf, true);
                                 }
 
                                 exponentPrefix = exponentPrefix === "G" ? "E" : "e";
@@ -160,7 +126,7 @@
                                 }
                             }
 
-                            return this.defaultFormat(coefficient, 1, minDecimals, maxDecimals, nf) + exponentPrefix + this.defaultFormat(exponent, exponentPrecision, 0, 0, nf, true);
+                            return this.defaultFormat(coefficient, 1, isDecimal ? Math.min(27, Math.max(minDecimals, number.$precision)) : minDecimals, maxDecimals, nf) + exponentPrefix + this.defaultFormat(exponent, exponentPrecision, 0, 0, nf, true);
                         case "P":
                             if (isNaN(precision)) {
                                 precision = nf.percentDecimalDigits;
@@ -168,7 +134,17 @@
 
                             return this.defaultFormat(number * 100, 1, precision, precision, nf, false, "percent");
                         case "X":
-                            var result = isDecimal ? number.round().value.toHex().substr(2) : (isLong ? number.toString(16) : Math.round(number).toString(16));
+                            var result;
+
+                            if (isDecimal) {
+                                result = number.round().value.toHex().substr(2);
+                            } else if (isLong) {
+                                var uvalue = toUnsign ? toUnsign(number) : number;
+                                result = uvalue.toString(16);
+                            } else {
+                                var uvalue = toUnsign ? toUnsign(Math.round(number)) : Math.round(number) >>> 0;
+                                result = uvalue.toString(16);
+                            }
 
                             if (match[1] === "X") {
                                 result = result.toUpperCase();
@@ -287,7 +263,7 @@
                     str = "" + (+Math.abs(number).toFixed(maxDecLen));
                 }
 
-                isZero = str.split('').every(function (s) { return s === '0' || s === '.'; });
+                isZero = str.split("").every(function (s) { return s === "0" || s === "."; });
 
                 decimalIndex = str.indexOf(".");
 
@@ -454,7 +430,7 @@
                     number = "" + (Math.round(Math.abs(number) * roundingFactor) / roundingFactor);
                 }
 
-                isZero = number.split('').every(function (s) { return s === '0' || s === '.'; });
+                isZero = number.split("").every(function (s) { return s === "0" || s === "."; });
 
                 decimalIndex = number.indexOf(".");
                 integralDigits = decimalIndex < 0 ? number.length : decimalIndex;
@@ -552,53 +528,136 @@
                 cfg.groupIndex = groupIndex;
             },
 
-            parseFloat: function (str, provider) {
-                if (str == null) {
-                    throw new System.ArgumentNullException("str");
-                }
+            parseFloat: function (s, provider) {
+                var res = { };
 
-                var nfInfo = (provider || System.Globalization.CultureInfo.getCurrentCulture()).getFormat(System.Globalization.NumberFormatInfo),
-                    result = parseFloat(str.replace(nfInfo.numberDecimalSeparator, "."));
+                Bridge.Int.tryParseFloat(s, provider, res, false);
 
-                if (isNaN(result) && str !== nfInfo.nanSymbol) {
-                    if (str === nfInfo.negativeInfinitySymbol) {
-                        return Number.NEGATIVE_INFINITY;
-                    }
-
-                    if (str === nfInfo.positiveInfinitySymbol) {
-                        return Number.POSITIVE_INFINITY;
-                    }
-
-                    throw new System.FormatException("Input string was not in a correct format.");
-                }
-
-                return result;
+                return res.v;
             },
 
-            tryParseFloat: function (str, provider, result) {
+            tryParseFloat: function (s, provider, result, safe) {
                 result.v = 0;
 
-                if (str == null) {
-                    return false;
+                if (safe == null) {
+                    safe = true;
                 }
 
-                var nfInfo = (provider || System.Globalization.CultureInfo.getCurrentCulture()).getFormat(System.Globalization.NumberFormatInfo);
-
-                result.v = parseFloat(str.replace(nfInfo.numberDecimalSeparator, "."));
-
-                if (isNaN(result.v) && str !== nfInfo.nanSymbol) {
-                    if (str === nfInfo.negativeInfinitySymbol) {
-                        result.v = Number.NEGATIVE_INFINITY;
-                        return true;
+                if (s == null) {
+                    if (safe) {
+                        return false;
                     }
 
-                    if (str === nfInfo.positiveInfinitySymbol) {
-                        result.v = Number.POSITIVE_INFINITY;
-                        return true;
-                    }
-
-                    return false;
+                    throw new System.ArgumentNullException.$ctor1("s");
                 }
+
+                s = s.trim();
+
+                var nfInfo = (provider || System.Globalization.CultureInfo.getCurrentCulture()).getFormat(System.Globalization.NumberFormatInfo),
+                    point = nfInfo.numberDecimalSeparator,
+                    thousands = nfInfo.numberGroupSeparator;
+
+                var errMsg = "Input string was not in a correct format.";
+
+                var pointIndex = s.indexOf(point);
+                var thousandIndex = thousands ? s.indexOf(thousands) : -1;
+
+                if (pointIndex > -1) {
+                    // point before thousands is not allowed
+                    // "10.2,5" -> FormatException
+                    // "1,0.2,5" -> FormatException
+                    if (((pointIndex < thousandIndex) || ((thousandIndex > -1) && (pointIndex < s.indexOf(thousands, pointIndex))))
+                        // only one point is allowed
+                        || (s.indexOf(point, pointIndex + 1) > -1)) {
+                        if (safe) {
+                            return false;
+                        }
+
+                        throw new System.FormatException.$ctor1(errMsg);
+                    }
+                }
+
+                if ((point !== ".") && (thousands !== ".") && (s.indexOf(".") > -1)) {
+                    if (safe) {
+                        return false;
+                    }
+
+                    throw new System.FormatException.$ctor1(errMsg);
+                }
+
+                if (thousandIndex > -1) {
+                    // mutiple thousands are allowed, so we remove them before going further
+                    var tmpStr = "";
+
+                    for (var i = 0; i < s.length; i++) {
+                        if (s[i] !== thousands) {
+                            tmpStr += s[i];
+                        }
+                    }
+
+                    s = tmpStr;
+                }
+
+                if (s === nfInfo.negativeInfinitySymbol) {
+                    result.v = Number.NEGATIVE_INFINITY;
+
+                    return true;
+                } else if (s === nfInfo.positiveInfinitySymbol) {
+                    result.v = Number.POSITIVE_INFINITY;
+
+                    return true;
+                } else if (s === nfInfo.nanSymbol) {
+                    result.v = Number.NaN;
+
+                    return true;
+                }
+
+                var countExp = 0,
+                    ePrev = false;
+
+                for (var i = 0; i < s.length; i++) {
+                    if (!System.Char.isNumber(s[i].charCodeAt(0)) &&
+                        s[i] !== "." &&
+                        s[i] !== "," &&
+                        (s[i] !== nfInfo.positiveSign || i !== 0 && !ePrev) &&
+                        (s[i] !== nfInfo.negativeSign || i !== 0 && !ePrev) &&
+                        s[i] !== point &&
+                        s[i] !== thousands) {
+                        if (s[i].toLowerCase() === "e") {
+                            ePrev = true;
+                            countExp++;
+
+                            if (countExp > 1) {
+                                if (safe) {
+                                    return false;
+                                }
+
+                                throw new System.FormatException.$ctor1(errMsg);
+                            }
+                        } else {
+                            ePrev = false;
+                            if (safe) {
+                                return false;
+                            }
+
+                            throw new System.FormatException.$ctor1(errMsg);
+                        }
+                    } else {
+                        ePrev = false;
+                    }
+                }
+
+                var r = parseFloat(s.replace(point, "."));
+
+                if (isNaN(r)) {
+                    if (safe) {
+                        return false;
+                    }
+
+                    throw new System.FormatException.$ctor1(errMsg);
+                }
+
+                result.v = r;
 
                 return true;
             },
@@ -607,18 +666,20 @@
                 radix = radix || 10;
 
                 if (str == null) {
-                    throw new System.ArgumentNullException("str");
+                    throw new System.ArgumentNullException.$ctor1("str");
                 }
+
+                str = str.trim();
 
                 if ((radix <= 10 && !/^[+-]?[0-9]+$/.test(str))
                     || (radix == 16 && !/^[+-]?[0-9A-F]+$/gi.test(str))) {
-                    throw new System.FormatException("Input string was not in a correct format.");
+                    throw new System.FormatException.$ctor1("Input string was not in a correct format.");
                 }
 
                 var result = parseInt(str, radix);
 
                 if (isNaN(result)) {
-                    throw new System.FormatException("Input string was not in a correct format.");
+                    throw new System.FormatException.$ctor1("Input string was not in a correct format.");
                 }
 
                 if (result < min || result > max) {
@@ -632,6 +693,10 @@
                 result.v = 0;
                 radix = radix || 10;
 
+                if (str != null && str.trim === "".trim) {
+                    str = str.trim();
+                }
+
                 if ((radix <= 10 && !/^[+-]?[0-9]+$/.test(str))
                     || (radix == 16 && !/^[+-]?[0-9A-F]+$/gi.test(str))) {
                     return false;
@@ -640,6 +705,8 @@
                 result.v = parseInt(str, radix);
 
                 if (result.v < min || result.v > max) {
+                    result.v = 0;
+
                     return false;
                 }
 
@@ -659,7 +726,7 @@
             },
 
             div: function (x, y) {
-                if (!Bridge.isNumber(x) || !Bridge.isNumber(y)) {
+                if (x == null || y == null) {
                     return null;
                 }
 
@@ -671,7 +738,7 @@
             },
 
             mod: function (x, y) {
-                if (!Bridge.isNumber(x) || !Bridge.isNumber(y)) {
+                if (x == null || y == null) {
                     return null;
                 }
 
@@ -689,12 +756,20 @@
                     return System.Decimal.toInt(x, type);
                 }
 
-                if (Bridge.isNumber(x) && !type.instanceOf(x)) {
-                    throw new System.OverflowException();
+                if (Bridge.isNumber(x)) {
+                    if (System.Int64.is64BitType(type)) {
+                        if (type === System.UInt64 && x < 0) {
+                            throw new System.OverflowException();
+                        }
+
+                        return type === System.Int64 ? System.Int64(x) : System.UInt64(x);
+                    } else if (!type.$is(x)) {
+                        throw new System.OverflowException();
+                    }
                 }
 
-                if (Bridge.Int.isInfinite(x)) {
-                    if (type === System.Int64 || type === System.UInt64) {
+                if (Bridge.Int.isInfinite(x) || isNaN(x)) {
+                    if (System.Int64.is64BitType(type)) {
                         return type.MinValue;
                     }
 
@@ -705,111 +780,143 @@
             },
 
             sxb: function (x) {
-                return Bridge.isNumber(x) ? (x | (x & 0x80 ? 0xffffff00 : 0)) : (Bridge.Int.isInfinite(x) ? System.SByte.min : null);
+                return Bridge.isNumber(x) ? (x | (x & 0x80 ? 0xffffff00 : 0)) : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.SByte.min : null);
             },
 
             sxs: function (x) {
-                return Bridge.isNumber(x) ? (x | (x & 0x8000 ? 0xffff0000 : 0)) : (Bridge.Int.isInfinite(x) ? System.Int16.min : null);
+                return Bridge.isNumber(x) ? (x | (x & 0x8000 ? 0xffff0000 : 0)) : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.Int16.min : null);
             },
 
             clip8: function (x) {
-                return Bridge.isNumber(x) ? Bridge.Int.sxb(x & 0xff) : (Bridge.Int.isInfinite(x) ? System.SByte.min : null);
+                return Bridge.isNumber(x) ? Bridge.Int.sxb(x & 0xff) : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.SByte.min : null);
             },
 
             clipu8: function (x) {
-                return Bridge.isNumber(x) ? x & 0xff : (Bridge.Int.isInfinite(x) ? System.Byte.min : null);
+                return Bridge.isNumber(x) ? x & 0xff : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.Byte.min : null);
             },
 
             clip16: function (x) {
-                return Bridge.isNumber(x) ? Bridge.Int.sxs(x & 0xffff) : (Bridge.Int.isInfinite(x) ? System.Int16.min : null);
+                return Bridge.isNumber(x) ? Bridge.Int.sxs(x & 0xffff) : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.Int16.min : null);
             },
 
             clipu16: function (x) {
-                return Bridge.isNumber(x) ? x & 0xffff : (Bridge.Int.isInfinite(x) ? System.UInt16.min : null);
+                return Bridge.isNumber(x) ? x & 0xffff : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.UInt16.min : null);
             },
 
             clip32: function (x) {
-                return Bridge.isNumber(x) ? x | 0 : (Bridge.Int.isInfinite(x) ? System.Int32.min : null);
+                return Bridge.isNumber(x) ? x | 0 : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.Int32.min : null);
             },
 
             clipu32: function (x) {
-                return Bridge.isNumber(x) ? x >>> 0 : (Bridge.Int.isInfinite(x) ? System.UInt32.min : null);
+                return Bridge.isNumber(x) ? x >>> 0 : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.UInt32.min : null);
             },
 
             clip64: function (x) {
-                return Bridge.isNumber(x) ? System.Int64(Bridge.Int.trunc(x)) : (Bridge.Int.isInfinite(x) ? System.Int64.MinValue : null);
+                return Bridge.isNumber(x) ? System.Int64(Bridge.Int.trunc(x)) : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.Int64.MinValue : null);
             },
 
             clipu64: function (x) {
-                return Bridge.isNumber(x) ? System.UInt64(Bridge.Int.trunc(x)) : (Bridge.Int.isInfinite(x) ? System.UInt64.MinValue : null);
+                return Bridge.isNumber(x) ? System.UInt64(Bridge.Int.trunc(x)) : ((Bridge.Int.isInfinite(x) || isNaN(x)) ? System.UInt64.MinValue : null);
             },
 
             sign: function (x) {
+                if (x === Number.POSITIVE_INFINITY) {
+                    return 1;
+                }
+
+                if (x === Number.NEGATIVE_INFINITY) {
+                    return -1;
+                }
+
                 return Bridge.isNumber(x) ? (x === 0 ? 0 : (x < 0 ? -1 : 1)) : null;
+            },
+
+            $mul: Math.imul || function (a, b) {
+                var ah = (a >>> 16) & 0xffff,
+                    al = a & 0xffff,
+                    bh = (b >>> 16) & 0xffff,
+                    bl = b & 0xffff;
+
+                return ((al * bl) + (((ah * bl + al * bh) << 16) >>> 0) | 0);
+            },
+
+            mul: function (a, b, overflow) {
+                if (a == null || b == null) {
+                    return null;
+                }
+
+                if (overflow) {
+                    Bridge.Int.check(a * b, System.Int32)
+                }
+
+                return Bridge.Int.$mul(a, b);
+            },
+
+            umul: function (a, b, overflow) {
+                if (a == null || b == null) {
+                    return null;
+                }
+
+                if (overflow) {
+                    Bridge.Int.check(a * b, System.UInt32)
+                }
+
+                return Bridge.Int.$mul(a, b) >>> 0;
             }
         }
     });
 
+    Bridge.Int.$kind = "";
     Bridge.Class.addExtend(Bridge.Int, [System.IComparable$1(Bridge.Int), System.IEquatable$1(Bridge.Int)]);
 
-    Bridge.define("System.Double", {
-        inherits: [System.IComparable, System.IFormattable],
-        statics: {
-            min: -Number.MAX_VALUE,
+    (function () {
+        var createIntType = function (name, min, max, precision, toUnsign) {
+            var type = Bridge.define(name, {
+                inherits: [System.IComparable, System.IFormattable],
 
-            max: Number.MAX_VALUE,
+                statics: {
+                    $number: true,
+                    toUnsign: toUnsign,
+                    min: min,
+                    max: max,
+                    precision: precision,
 
-            precision: 15,
+                    $is: function (instance) {
+                        return typeof (instance) === "number" && Math.floor(instance, 0) === instance && instance >= min && instance <= max;
+                    },
+                    getDefaultValue: function () {
+                        return 0;
+                    },
+                    parse: function (s, radix) {
+                        return Bridge.Int.parseInt(s, min, max, radix);
+                    },
+                    tryParse: function (s, result, radix) {
+                        return Bridge.Int.tryParseInt(s, result, min, max, radix);
+                    },
+                    format: function (number, format, provider) {
+                        return Bridge.Int.format(number, format, provider, type, toUnsign);
+                    },
+                    equals: function (v1, v2) {
+                        if (Bridge.is(v1, type) && Bridge.is(v2, type)) {
+                            return Bridge.unbox(v1, true) === Bridge.unbox(v2, true);
+                        }
 
-            $number: true,
+                        return false;
+                    },
+                    equalsT: function (v1, v2) {
+                        return Bridge.unbox(v1, true) === Bridge.unbox(v2, true);
+                    }
+                }
+            });
 
-            instanceOf: function (instance) {
-                return typeof (instance) === "number";
-            },
+            type.$kind = "";
+            Bridge.Class.addExtend(type, [System.IComparable$1(type), System.IEquatable$1(type)]);
+        };
 
-            getDefaultValue: function () {
-                return 0;
-            },
-
-            parse: function (s, provider) {
-                return Bridge.Int.parseFloat(s, provider);
-            },
-
-            tryParse: function (s, provider, result) {
-                return Bridge.Int.tryParseFloat(s, provider, result);
-            },
-
-            format: function (number, format, provider) {
-                return Bridge.Int.format(number, format, provider, System.Double);
-            }
-        }
-    });
-
-    Bridge.Class.addExtend(System.Double, [System.IComparable$1(System.Double), System.IEquatable$1(System.Double)]);
-
-    Bridge.define("System.Single", {
-        inherits: [System.IComparable, System.IFormattable],
-        statics: {
-            min: -3.40282346638528859e+38,
-
-            max: 3.40282346638528859e+38,
-
-            precision: 7,
-
-            $number: true,
-
-            instanceOf: System.Double.instanceOf,
-
-            getDefaultValue: System.Double.getDefaultValue,
-
-            parse: System.Double.parse,
-
-            tryParse: System.Double.tryParse,
-
-            format: function (number, format, provider) {
-                return Bridge.Int.format(number, format, provider, System.Single);
-            }
-        }
-    });
-
-    Bridge.Class.addExtend(System.Single, [System.IComparable$1(System.Single), System.IEquatable$1(System.Single)]);
+        createIntType("System.Byte", 0, 255, 3);
+        createIntType("System.SByte", -128, 127, 3, Bridge.Int.clipu8);
+        createIntType("System.Int16", -32768, 32767, 5, Bridge.Int.clipu16);
+        createIntType("System.UInt16", 0, 65535, 5);
+        createIntType("System.Int32", -2147483648, 2147483647, 10, Bridge.Int.clipu32);
+        createIntType("System.UInt32", 0, 4294967295, 10);
+    })();

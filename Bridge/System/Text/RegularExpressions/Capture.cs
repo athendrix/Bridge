@@ -1,11 +1,11 @@
-﻿using Bridge;
-
-namespace System.Text.RegularExpressions
+﻿namespace System.Text.RegularExpressions
 {
     /// <summary>
     /// Represents the results from a single successful subexpression capture.
     /// </summary>
-    [External]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Reflectable]
     public class Capture
     {
         internal extern Capture(string text, int i, int l);
@@ -13,17 +13,29 @@ namespace System.Text.RegularExpressions
         /// <summary>
         /// The position in the original string where the first character of the captured substring is found.
         /// </summary>
-        public extern int Index { get; }
+        public extern int Index
+        {
+            [Bridge.Template("getIndex()")]
+            get;
+        }
 
         /// <summary>
         /// Gets the length of the captured substring.
         /// </summary>
-        public extern int Length { get; }
+        public extern int Length
+        {
+            [Bridge.Template("getLength()")]
+            get;
+        }
 
         /// <summary>
         /// Gets the captured substring from the input string.
         /// </summary>
-        public extern string Value { get; }
+        public extern string Value
+        {
+            [Bridge.Template("getValue()")]
+            get;
+        }
 
         /// <summary>
         /// Retrieves the captured substring from the input string by calling the Value property. (Overrides Object.ToString().)

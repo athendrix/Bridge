@@ -1,4 +1,4 @@
-using Bridge.Test;
+using Bridge.Test.NUnit;
 
 using System;
 using System.Collections.Generic;
@@ -16,6 +16,15 @@ namespace Bridge.ClientTest.Threading
                 yield return a;
         }
 
+        [Test]
+        public void IAsyncResultWorks()
+        {
+            Task res = new Task(s => { }, "state1");
+            Assert.False(res.IsCompleted, "Task's 'IsCompleted' is false.");
+            Assert.AreEqual("state1", res.AsyncState, "Task's 'AsyncState' is 'state1'.");
+            Assert.False(((IAsyncResult)res).CompletedSynchronously, "Task's 'CompletedSynchronously' is false.");
+        }
+
         [Test(ExpectedCount = 2)]
         public void TaskCompletionSourceTypePropertiesAreCorrect()
         {
@@ -28,14 +37,14 @@ namespace Bridge.ClientTest.Threading
         public void TaskTypePropertiesAreCorrect()
         {
             Assert.AreEqual("System.Threading.Tasks.Task", typeof(Task).FullName, "FullName for non-generic task should be correct");
-            Assert.AreEqual("System.Threading.Tasks.Task", typeof(Task<int>).FullName, "FullName for generic task should be correct");
+            Assert.AreEqual("System.Threading.Tasks.Task`1[[System.Int32, mscorlib]]", typeof(Task<int>).FullName, "FullName for generic task should be correct");
 
             var task = new TaskCompletionSource<int>().Task;
             Assert.True(task is Task<int>);
             Assert.True(task is Task);
             Assert.True(task is IDisposable);
 
-            task.Dispose();	// Should not throw
+            task.Dispose();    // Should not throw
         }
 
         [Test(ExpectedCount = 10)]

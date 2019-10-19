@@ -32,7 +32,7 @@ namespace Bridge.Translator
 
             foreach (var p in declarations)
             {
-                var name = this.Emitter.GetEntityName(p);
+                var name = this.Emitter.GetParameterName(p);
 
                 name = name.Replace(JS.Vars.FIX_ARGUMENT_NAME, "");
 
@@ -47,6 +47,8 @@ namespace Bridge.Translator
                 }
 
                 needComma = true;
+                this.WriteSourceMapName(p.Name);
+                this.WriteSequencePoint(p.Region);
                 this.Write(name);
             }
 
@@ -70,6 +72,8 @@ namespace Bridge.Translator
                 }
 
                 needComma = true;
+                this.WriteSourceMapName(p.Name);
+                this.WriteSequencePoint(p.Region);
                 this.Write(p.Name.Replace(JS.Vars.FIX_ARGUMENT_NAME, ""));
                 this.Emitter.Comma = true;
             }

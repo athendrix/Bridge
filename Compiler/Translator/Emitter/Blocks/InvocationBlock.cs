@@ -171,14 +171,14 @@ namespace Bridge.Translator
                             value = value.Trim();
                             if (value[value.Length - 1] == ';' || value.EndsWith("*/", StringComparison.InvariantCulture) || value.StartsWith("//"))
                             {
-                                this.Emitter.EnableSemicolon = false;
+                                this.Emitter.SkipSemiColon = true;
                                 this.WriteNewLine();
                             }
                         }
                         else
                         {
                             // Empty string, emit nothing.
-                            this.Emitter.EnableSemicolon = false;
+                            this.Emitter.SkipSemiColon = true;
                         }
 
                         this.Emitter.ReplaceAwaiterByVar = oldValue;
@@ -195,12 +195,17 @@ namespace Bridge.Translator
                     if (!String.IsNullOrEmpty(inlineScript) && (isBase || invocationExpression.Target is IdentifierExpression))
                     {
                         argsInfo.ThisArgument = "this";
-                        bool noThis = !inlineScript.Contains("{this}");
+                        bool noThis = !Helpers.HasThis(inlineScript);
 
                         if (inlineScript.StartsWith("<self>"))
                         {
                             noThis = false;
                             inlineScript = inlineScript.Substring(6);
+                        }
+
+                        if (!noThis)
+                        {
+                            Emitter.ThisRefCounter++;
                         }
 
                         if (!isStaticMethod && noThis)
@@ -306,41 +311,57 @@ namespace Bridge.Translator
                                 else if (!isNative)
                                 {
                                     var overloads = OverloadsCollection.Create(this.Emitter, resolvedMethod);
-                                    string name = BridgeTypes.ToJsName(resolvedMethod.DeclaringType, this.Emitter) + ".";
 
-                                    if (isObjectLiteral && !resolvedMethod.IsStatic)
+                                    if (isObjectLiteral && !resolvedMethod.IsStatic && resolvedMethod.DeclaringType.Kind == TypeKind.Interface)
                                     {
-                                        name += JS.Fields.PROTOTYPE + "." + overloads.GetOverloadName() + ".";
-                                        name += JS.Funcs.CALL;
+                                        this.Write("Bridge.getType(");
+                                        this.WriteThisExtension(invocationExpression.Target);
+                                        this.Write(").");
                                     }
                                     else
                                     {
-                                        name += overloads.GetOverloadName();
+                                        string name = BridgeTypes.ToJsName(resolvedMethod.DeclaringType, this.Emitter, ignoreLiteralName: false) + ".";
+                                        this.Write(name);
                                     }
 
-                                    var isIgnoreClass = resolvedMethod.DeclaringTypeDefinition != null && this.Emitter.Validator.IsIgnoreType(resolvedMethod.DeclaringTypeDefinition);
+                                    if (isObjectLiteral && !resolvedMethod.IsStatic)
+                                    {
+                                        this.Write(JS.Fields.PROTOTYPE + "." + overloads.GetOverloadName() + "." + JS.Funcs.CALL);
+                                    }
+                                    else
+                                    {
+                                        this.Write(overloads.GetOverloadName());
+                                    }
 
-                                    this.Write(name);
+                                    var isIgnoreClass = resolvedMethod.DeclaringTypeDefinition != null && this.Emitter.Validator.IsExternalType(resolvedMethod.DeclaringTypeDefinition);
                                     int openPos = this.Emitter.Output.Length;
                                     this.WriteOpenParentheses();
 
                                     this.Emitter.Comma = false;
 
-                                    if (!isIgnoreClass && !Helpers.IsIgnoreGeneric(resolvedMethod, this.Emitter) && argsInfo.HasTypeArguments)
-                                    {
-                                        new TypeExpressionListBlock(this.Emitter, argsInfo.TypeArguments).Emit();
-                                    }
-
-                                    this.EnsureComma(false);
-
-                                    if (!isObjectLiteral || !resolvedMethod.IsStatic)
+                                    if (isObjectLiteral && !resolvedMethod.IsStatic)
                                     {
                                         this.WriteThisExtension(invocationExpression.Target);
+                                        this.Emitter.Comma = true;
+                                    }
 
-                                        if (invocationExpression.Arguments.Count > 0)
-                                        {
-                                            this.WriteComma();
-                                        }
+                                    if (!isIgnoreClass && !Helpers.IsIgnoreGeneric(resolvedMethod, this.Emitter) && argsInfo.HasTypeArguments)
+                                    {
+                                        this.EnsureComma(false);
+                                        new TypeExpressionListBlock(this.Emitter, argsInfo.TypeArguments).Emit();
+                                        this.Emitter.Comma = true;
+                                    }
+
+                                    if (!isObjectLiteral && resolvedMethod.IsStatic)
+                                    {
+                                        this.EnsureComma(false);
+                                        this.WriteThisExtension(invocationExpression.Target);
+                                        this.Emitter.Comma = true;
+                                    }
+
+                                    if (invocationExpression.Arguments.Count > 0)
+                                    {
+                                        this.EnsureComma(false);
                                     }
 
                                     new ExpressionListBlock(this.Emitter, argsExpressions, paramsArg, invocationExpression, openPos).Emit();
@@ -420,12 +441,7 @@ namespace Bridge.Translator
             {
                 var baseType = this.Emitter.GetBaseMethodOwnerTypeDefinition(targetMember.MemberName, targetMember.TypeArguments.Count);
 
-                bool isIgnore = this.Emitter.Validator.IsIgnoreType(baseType);
-
-                if (isIgnore)
-                {
-                    //throw (System.Exception)this.Emitter.CreateException(targetMember.Target, "Cannot call base method, because parent class code is ignored");
-                }
+                bool isIgnore = this.Emitter.Validator.IsExternalType(baseType);
 
                 bool needComma = false;
 
@@ -444,13 +460,7 @@ namespace Bridge.Translator
 
                 string baseMethod;
                 bool isIgnoreGeneric = false;
-                if (resolveResult is InvocationResolveResult)
-                {
-                    InvocationResolveResult invocationResult = (InvocationResolveResult)resolveResult;
-                    baseMethod = OverloadsCollection.Create(this.Emitter, invocationResult.Member).GetOverloadName();
-                    isIgnoreGeneric = Helpers.IsIgnoreGeneric(invocationResult.Member, this.Emitter);
-                }
-                else if (resolveResult is MemberResolveResult)
+                if (resolveResult is MemberResolveResult)
                 {
                     MemberResolveResult memberResult = (MemberResolveResult)resolveResult;
                     baseMethod = OverloadsCollection.Create(this.Emitter, memberResult.Member).GetOverloadName();
@@ -459,7 +469,7 @@ namespace Bridge.Translator
                 else
                 {
                     baseMethod = targetMember.MemberName;
-                    baseMethod = this.Emitter.AssemblyInfo.PreserveMemberCase ? baseMethod : Object.Net.Utilities.StringUtils.ToLowerCamelCase(baseMethod);
+                    baseMethod = Object.Net.Utilities.StringUtils.ToLowerCamelCase(baseMethod);
                 }
 
                 this.Write(name, "." + JS.Fields.PROTOTYPE + ".", baseMethod);
@@ -498,6 +508,7 @@ namespace Bridge.Translator
             else
             {
                 var dynamicResolveResult = this.Emitter.Resolver.ResolveNode(invocationExpression, this.Emitter) as DynamicInvocationResolveResult;
+                IMethod method = null;
 
                 if (dynamicResolveResult != null)
                 {
@@ -505,17 +516,46 @@ namespace Bridge.Translator
 
                     if (group != null && group.Methods.Count() > 1)
                     {
-                        throw new EmitterException(invocationExpression, "Cannot compile this dynamic invocation because there are two or more method overloads with the same parameter count. To work around this limitation, assign the dynamic value to a non-dynamic variable before use or call a method with different parameter count");
+                        method = group.Methods.FirstOrDefault(m =>
+                        {
+                            if (dynamicResolveResult.Arguments.Count != m.Parameters.Count)
+                            {
+                                return false;
+                            }
+
+                            for (int i = 0; i < m.Parameters.Count; i++)
+                            {
+                                var argType = dynamicResolveResult.Arguments[i].Type;
+
+                                if (argType.Kind == TypeKind.Dynamic)
+                                {
+                                    argType = this.Emitter.Resolver.Compilation.FindType(TypeCode.Object);
+                                }
+
+                                if (!m.Parameters[i].Type.Equals(argType))
+                                {
+                                    return false;
+                                }
+                            }
+
+                            return true;
+                        });
+
+                        if (method == null)
+                        {
+                            throw new EmitterException(invocationExpression, Bridge.Translator.Constants.Messages.Exceptions.DYNAMIC_INVOCATION_TOO_MANY_OVERLOADS);
+                        }
                     }
                 }
-
-                var targetResolveResult = this.Emitter.Resolver.ResolveNode(invocationExpression.Target, this.Emitter);
-                var invocationResolveResult = targetResolveResult as MemberResolveResult;
-                IMethod method = null;
-
-                if (invocationResolveResult != null)
+                else
                 {
-                    method = invocationResolveResult.Member as IMethod;
+                    var targetResolveResult = this.Emitter.Resolver.ResolveNode(invocationExpression.Target, this.Emitter);
+                    var invocationResolveResult = targetResolveResult as MemberResolveResult;
+
+                    if (invocationResolveResult != null)
+                    {
+                        method = invocationResolveResult.Member as IMethod;
+                    }
                 }
 
                 if (this.IsEmptyPartialInvoking(method) || IsConditionallyRemoved(invocationExpression, method))
@@ -526,7 +566,7 @@ namespace Bridge.Translator
                     return;
                 }
 
-                bool isIgnore = method != null && method.DeclaringTypeDefinition != null && this.Emitter.Validator.IsIgnoreType(method.DeclaringTypeDefinition);
+                bool isIgnore = method != null && method.DeclaringTypeDefinition != null && this.Emitter.Validator.IsExternalType(method.DeclaringTypeDefinition);
 
                 bool needExpand = false;
                 if (method != null)
@@ -596,6 +636,8 @@ namespace Bridge.Translator
                         isIgnoreGeneric = Helpers.IsIgnoreGeneric(invocationResult.Member, this.Emitter);
                     }
 
+                    bool isWrapRest = false;
+
                     if (needExpand && isIgnore)
                     {
                         StringBuilder savedBuilder = this.Emitter.Output;
@@ -618,10 +660,14 @@ namespace Bridge.Translator
                         if (argsExpressions.Length > 1)
                         {
                             this.WriteOpenBracket();
-                            new ExpressionListBlock(this.Emitter, argsExpressions.Take(argsExpressions.Length - 1).ToArray(), paramsArg, invocationExpression, openPos).Emit();
+                            var elb = new ExpressionListBlock(this.Emitter, argsExpressions.Take(argsExpressions.Length - 1).ToArray(), paramsArg, invocationExpression, openPos);
+                            elb.IgnoreExpandParams = true;
+                            elb.Emit();
                             this.WriteCloseBracket();
                             this.Write(".concat(");
-                            new ExpressionListBlock(this.Emitter, new Expression[] { argsExpressions[argsExpressions.Length - 1] }, paramsArg, invocationExpression, openPos).Emit();
+                            elb = new ExpressionListBlock(this.Emitter, new Expression[] { argsExpressions[argsExpressions.Length - 1] }, paramsArg, invocationExpression, openPos);
+                            elb.IgnoreExpandParams = true;
+                            elb.Emit();
                             this.Write(")");
                         }
                         else
@@ -631,13 +677,18 @@ namespace Bridge.Translator
                     }
                     else
                     {
+                        if (method != null && method.Attributes.Any(a => a.AttributeType.FullName == "Bridge.WrapRestAttribute"))
+                        {
+                            isWrapRest = true;
+                        }
+
                         this.Emitter.Comma = false;
                         if (!isIgnore && !isIgnoreGeneric && argsInfo.HasTypeArguments)
                         {
                             new TypeExpressionListBlock(this.Emitter, argsInfo.TypeArguments).Emit();
                         }
 
-                        if (invocationExpression.Arguments.Count > 0)
+                        if (invocationExpression.Arguments.Count > 0 || argsExpressions.Length > 0 && !argsExpressions.All(expr => expr == null))
                         {
                             this.EnsureComma(false);
                         }
@@ -645,11 +696,27 @@ namespace Bridge.Translator
                         new ExpressionListBlock(this.Emitter, argsExpressions, paramsArg, invocationExpression, openPos).Emit();
                     }
 
-                    this.WriteCloseParentheses();
+
+                    if (isWrapRest)
+                    {
+                        this.EnsureComma(false);
+                        this.Write("Bridge.fn.bind(this, function () ");
+                        this.BeginBlock();
+                        this.Emitter.WrapRestCounter++;
+                        this.Emitter.SkipSemiColon = true;
+                    } else
+                    {
+                        this.Emitter.Comma = false;
+                        this.WriteCloseParentheses();
+                    }
                 }
             }
 
-            Helpers.CheckValueTypeClone(this.Emitter.Resolver.ResolveNode(invocationExpression, this.Emitter), invocationExpression, this, pos);
+            var irr = targetResolve as InvocationResolveResult;
+            if (irr != null && irr.Member.MemberDefinition != null && irr.Member.MemberDefinition.ReturnType.Kind == TypeKind.TypeParameter)
+            {
+                Helpers.CheckValueTypeClone(this.Emitter.Resolver.ResolveNode(invocationExpression, this.Emitter), invocationExpression, this, pos);
+            }
 
             this.Emitter.ReplaceAwaiterByVar = oldValue;
             this.Emitter.AsyncExpressionHandling = oldAsyncExpressionHandling;
@@ -658,7 +725,7 @@ namespace Bridge.Translator
         private bool IsNativeMethod(IMethod resolvedMethod)
         {
             return resolvedMethod.DeclaringTypeDefinition != null &&
-                   this.Emitter.Validator.IsIgnoreType(resolvedMethod.DeclaringTypeDefinition);
+                   this.Emitter.Validator.IsExternalType(resolvedMethod.DeclaringTypeDefinition);
         }
     }
 }

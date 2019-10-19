@@ -1,4 +1,4 @@
-﻿using Bridge.Test;
+﻿using Bridge.Test.NUnit;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -21,20 +21,30 @@ namespace Bridge.ClientTest.Collections.Generic
                 return GetEnumerator();
             }
 
-            public List<string> Items { get; private set; }
+            public List<string> Items
+            {
+                get;
+                private set;
+            }
 
             public IEnumerator<string> GetEnumerator()
             {
                 return Items.GetEnumerator();
             }
 
-            public int Count { get { return Items.Count; } }
+            public int Count
+            {
+                get
+                {
+                    return Items.Count;
+                }
+            }
 
             public bool IsReadOnly
             {
                 get
                 {
-                    return true;
+                    return false;
                 }
             }
 
@@ -85,6 +95,17 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
+        public void TypePropertiesAreCorrect()
+        {
+            Assert.AreEqual("System.Collections.Generic.ICollection`1[[System.Object, mscorlib]]", typeof(ICollection<object>).FullName, "FullName should be correct");
+            Assert.True(typeof(ICollection<object>).IsInterface, "IsInterface should be true");
+
+            var interfaces = typeof(ICollection<object>).GetInterfaces();
+            Assert.AreEqual(2, interfaces.Length, "Interfaces length");
+            Assert.AreEqual(typeof(IEnumerable<object>), interfaces[0], "Interfaces");
+        }
+
+        [Test]
         public void ArrayImplementsICollection()
         {
             Assert.True((object)new int[1] is ICollection<int>);
@@ -123,13 +144,13 @@ namespace Bridge.ClientTest.Collections.Generic
         [Test]
         public void ClassImplementingICollectionIsReadOnlyWorks()
         {
-            Assert.AreEqual(true, new MyCollection(new[] { "x", "y" }).IsReadOnly);
+            Assert.AreEqual(false, new MyCollection(new[] { "x", "y" }).IsReadOnly);
         }
 
         [Test]
         public void ClassImplementingICollectionCastToICollectionIsReadOnlyWorks()
         {
-            Assert.AreEqual(true, ((ICollection<string>)new MyCollection(new[] { "x", "y", "z" })).IsReadOnly);
+            Assert.AreEqual(false, ((ICollection<string>)new MyCollection(new[] { "x", "y", "z" })).IsReadOnly);
         }
 
         [Test]

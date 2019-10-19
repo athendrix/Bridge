@@ -1,13 +1,13 @@
-﻿Bridge.merge(new System.Globalization.CultureInfo("hr-HR", true), {
+Bridge.merge(new System.Globalization.CultureInfo("hr-HR", true), {
     englishName: "Croatian (Croatia)",
     nativeName: "hrvatski (Hrvatska)",
 
     numberFormat: Bridge.merge(new System.Globalization.NumberFormatInfo(), {
-        naNSymbol: "NaN",
+        nanSymbol: "NaN",
         negativeSign: "-",
         positiveSign: "+",
-        negativeInfinitySymbol: "-Infinity",
-        positiveInfinitySymbol: "Infinity",
+        negativeInfinitySymbol: "-∞",
+        positiveInfinitySymbol: "∞",
         percentSymbol: "%",
         percentGroupSizes: [3],
         percentDecimalDigits: 2,
@@ -53,6 +53,18 @@
         timeSeparator: ":",
         universalSortableDateTimePattern: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
         yearMonthPattern: "MMMM, yyyy",
-        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.uzzz"
+        roundtripFormat: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffffffzzz"
+    }),
+
+    TextInfo: Bridge.merge(new System.Globalization.TextInfo(), {
+        ANSICodePage: 1250,
+        CultureName: "hr-HR",
+        EBCDICCodePage: 500,
+        IsRightToLeft: false,
+        LCID: 1050,
+        listSeparator: ";",
+        MacCodePage: 10082,
+        OEMCodePage: 852,
+        IsReadOnly: true
     })
 });

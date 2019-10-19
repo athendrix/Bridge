@@ -47,8 +47,13 @@
     <Compile Include="BridgeIssues\0500\N065.cs" />
     <Compile Include="BridgeIssues\0500\N064.cs" />
     <Compile Include="BridgeIssues\0500\N062.cs" />
+    <Compile Include="BridgeIssues\0500\N384.cs" />
     <Compile Include="BridgeIssues\0500\N391.cs" />
+    <Compile Include="BridgeIssues\0500\N411.cs" />
     <Compile Include="BridgeIssues\0500\N447.cs" />
+    <Compile Include="BridgeIssues\0500\N475A.cs" />
+    <Compile Include="BridgeIssues\0500\N475B.cs" />
+    <Compile Include="BridgeIssues\0500\N477.cs" />
     <Compile Include="BridgeIssues\1000\N527.cs" />
     <Compile Include="BridgeIssues\1000\N644B.cs" />
     <Compile Include="BridgeIssues\1000\N644A.cs" />
@@ -58,19 +63,15 @@
     <Compile Include="BridgeIssues\1000\N534.cs" />
     <Compile Include="BridgeIssues\1000\N528.cs" />
     <Compile Include="BridgeIssues\1000\N524.cs" />
-    <Compile Include="BridgeIssues\0500\N477.cs" />
-    <Compile Include="BridgeIssues\0500\N411.cs" />
-    <Compile Include="BridgeIssues\0500\N475A.cs" />
-    <Compile Include="BridgeIssues\0500\N475B.cs" />
     <Compile Include="BridgeIssues\1000\N883A.cs" />
     <Compile Include="BridgeIssues\1000\N963.cs" />
     <Compile Include="BridgeIssues\1000\N883.cs" />
     <Compile Include="BridgeIssues\1000\N882.cs" />
     <Compile Include="BridgeIssues\1000\N856.cs" />
+    <Compile Include="BridgeIssues\1500\N1424.cs" />
     <Compile Include="BridgeIssues\1500\N1499.cs" />
     <Compile Include="BridgeIssues\1500\N1472.cs" />
     <Compile Include="BridgeIssues\1500\N1461.cs" />
-    <Compile Include="BridgeIssues\1500\N1424.cs" />
     <Compile Include="BridgeIssues\1500\N1412.cs" />
     <Compile Include="BridgeIssues\1500\N1215.cs" />
     <Compile Include="BridgeIssues\1500\N1212.cs" />
@@ -80,8 +81,22 @@
     <Compile Include="BridgeIssues\2000\N1537.cs" />
     <Compile Include="BridgeIssues\2000\N1508.cs" />
     <Compile Include="BridgeIssues\2000\N1552.cs" />
+    <Compile Include="BridgeIssues\2500\N2420.cs" />
+    <Compile Include="BridgeIssues\2500\N2318.cs" />
+    <Compile Include="BridgeIssues\2500\N2277.cs" />
+    <Compile Include="BridgeIssues\2500\N2143.cs" />
+    <Compile Include="BridgeIssues\2500\N2113.cs" />
+    <Compile Include="BridgeIssues\3000\N2567.cs" />
+    <Compile Include="BridgeIssues\3000\N2747.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3386.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3438.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3488.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3587.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3592.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3745.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3815.cs" />
+    <Compile Include="BridgeIssues\3000-3999\N3891.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="BridgeIssues\0500\N384.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Bridge\bridge.json" />
@@ -91,10 +106,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\Bridge\bin\$(Configuration)\Bridge.dll</HintPath>
     </Reference>
-    <Reference Include="Bridge.Html5">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\Html5\bin\$(Configuration)\Bridge.Html5.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Bridge\build\" />
@@ -103,9 +114,9 @@
   <!-- Bridge Compiler -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup Condition="$(UseBridgeTask) != true">
-    <PostBuildEvent Condition="$(OS) != Unix">"$(ProjectDir)..\..\..\Builder\$(OutDir)Bridge.Builder.exe" -p "$(ProjectPath)" -b "$(ProjectDir)$(OutDir)Bridge.dll" -cfg "$(Configuration)"</PostBuildEvent>
-    <PostBuildEvent Condition="$(OS) == Unix">mono "$(ProjectDir)../../../Builder/$(OutDir)Bridge.Builder.exe" -p "$(ProjectDir)/$(MSBuildProjectFile)" -b "$(ProjectDir)$(OutDir)Bridge.dll"  -cfg "$(Configuration)"</PostBuildEvent>
-  </PropertyGroup>  
+    <PostBuildEvent Condition="$(OS) != Unix">"$(ProjectDir)..\..\..\Builder\$(OutDir)bridge.exe" -p "$(ProjectPath)" -b "$(ProjectDir)$(OutDir)Bridge.dll" -cfg "$(Configuration)" --platform "$(Platform)"</PostBuildEvent>
+    <PostBuildEvent Condition="$(OS) == Unix">mono "$(ProjectDir)../../../Builder/$(OutDir)bridge.exe" -p "$(ProjectDir)/$(MSBuildProjectFile)" -b "$(ProjectDir)$(OutDir)Bridge.dll"  -cfg "$(Configuration)" --platform "$(Platform)"</PostBuildEvent>
+  </PropertyGroup>
   <UsingTask Condition="$(UseBridgeTask) == true" TaskName="GenerateScript" AssemblyFile="$(ProjectDir)..\..\..\Build\$(OutDir)Bridge.Build.dll" />
   <Target Condition="$(UseBridgeTask) == true" Name="AfterBuild">
     <Message Text="Using Bridge Task" Importance="high" />

@@ -1,140 +1,277 @@
-using Bridge;
-
 namespace System
 {
-    [External]
-    [Name("Math")]
+    [Bridge.Convention(Member = Bridge.ConventionMember.Field | Bridge.ConventionMember.Method, Notation = Bridge.Notation.CamelCase)]
+    [Bridge.External]
+    [Bridge.Name("Math")]
     public static class Math
     {
-        [Name(false)]
-        public static readonly double E = 0;
+        [Bridge.Convention]
+        public const double E = 2.7182818284590452354;
 
-        [Name(false)]
-        public static readonly double LN10 = 0;
-
-        [Name(false)]
-        public static readonly double LN2 = 0;
-
-        [Name(false)]
-        public static readonly double LOG2E = 0;
-
-        [Name(false)]
-        public static readonly double LOG10E = 0;
-
-        [Name(false)]
-        public static readonly double PI = 0;
-
-        [Name(false)]
-        public static readonly double SQRT1_2 = 0;
-
-        [Name(false)]
-        public static readonly double SQRT2 = 0;
+        [Bridge.Convention]
+        public const double PI = 3.14159265358979323846;
 
         public static extern int Abs(int x);
 
         public static extern double Abs(double x);
 
-        [Template("{l}.abs()")]
+        [Bridge.Template("{l}.abs()")]
         public static extern long Abs(long l);
 
-        [Template("{l}.abs()")]
+        [Bridge.Template("{l}.abs()")]
         public static extern decimal Abs(decimal l);
 
-        public static extern int Max(params int[] values);
+        /// <summary>
+        /// Returns the larger of two 8-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 8-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 8-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        public static extern byte Max(byte val1, byte val2);
 
-        public static extern int Max(params uint[] values);
+        /// <summary>
+        /// Returns the larger of two 8-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 8-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 8-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        [CLSCompliant(false)]
+        public static extern sbyte Max(sbyte val1, sbyte val2);
 
-        public static extern double Max(params double[] values);
+        /// <summary>
+        /// Returns the larger of two 16-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 16-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 16-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        public static extern short Max(short val1, short val2);
 
-        [Template("System.Int64.max({*values})")]
-        public static extern long Max(params long[] values);
+        /// <summary>
+        /// Returns the larger of two 16-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 16-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 16-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        [CLSCompliant(false)]
+        public static extern ushort Max(ushort val1, ushort val2);
 
-        [Template("System.UInt64.max({*values})")]
-        public static extern ulong Max(params ulong[] values);
+        /// <summary>
+        /// Returns the larger of two single-precision floating-point numbers.
+        /// </summary>
+        /// <param name="val1">The first of two single-precision floating-point numbers to compare.</param>
+        /// <param name="val2">The second of two single-precision floating-point numbers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        public static extern float Max(float val1, float val2);
 
-        [Template("System.Decimal.max({*values})")]
-        public static extern decimal Max(params decimal[] values);
+        /// <summary>
+        /// Returns the larger of two 32-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 32-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 32-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        public static extern int Max(int val1, int val2);
 
-        public static extern int Min(params int[] values);
+        /// <summary>
+        /// Returns the larger of two 32-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 32-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 32-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        [CLSCompliant(false)]
+        public static extern uint Max(uint val1, uint val2);
 
-        public static extern int Min(params uint[] values);
+        /// <summary>
+        /// Returns the larger of two double-precision floating-point numbers.
+        /// </summary>
+        /// <param name="val1">The first of two double-precision floating-point numbers to compare.</param>
+        /// <param name="val2">The second of two double-precision floating-point numbers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        public static extern double Max(double val1, double val2);
 
-        public static extern double Min(params double[] values);
+        /// <summary>
+        /// Returns the larger of two 64-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 64-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 64-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        [Bridge.Template("System.Int64.max({val1}, {val2})")]
+        public static extern long Max(long val1, long val2);
 
-        [Template("System.Int64.min({*values})")]
-        public static extern long Min(params long[] values);
+        /// <summary>
+        /// Returns the larger of two 64-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 64-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 64-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        [Bridge.Template("System.UInt64.max({val1}, {val2})")]
+        [CLSCompliant(false)]
+        public static extern ulong Max(ulong val1, ulong val2);
 
-        [Template("System.UInt64.min({*values})")]
-        public static extern ulong Min(params ulong[] values);
+        /// <summary>
+        /// Returns the larger of two decimal numbers.
+        /// </summary>
+        /// <param name="val1">The first of two decimal numbers to compare.</param>
+        /// <param name="val2">The second of two decimal numbers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is larger.</returns>
+        [Bridge.Template("System.Decimal.max({val1}, {val2})")]
+        public static extern decimal Max(decimal val1, decimal val2);
 
-        [Template("System.Decimal.min({*values})")]
-        public static extern decimal Min(params decimal[] values);
+        /// <summary>
+        /// Returns the smaller of two 8-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 8-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 8-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        public static extern byte Min(byte val1, byte val2);
+
+        /// <summary>
+        /// Returns the smaller of two 8-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 8-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 8-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        [CLSCompliant(false)]
+        public static extern sbyte Min(sbyte val1, sbyte val2);
+
+        /// <summary>
+        /// Returns the smaller of two 16-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 16-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 16-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        public static extern short Min(short val1, short val2);
+
+        /// <summary>
+        /// Returns the smaller of two 16-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 16-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 16-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        [CLSCompliant(false)]
+        public static extern ushort Min(ushort val1, ushort val2);
+
+        /// <summary>
+        /// Returns the smaller of two single-precision floating-point numbers.
+        /// </summary>
+        /// <param name="val1">The first of two single-precision floating-point numbers to compare.</param>
+        /// <param name="val2">The second of two single-precision floating-point numbers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        public static extern float Min(float val1, float val2);
+
+        /// <summary>
+        /// Returns the smaller of two 32-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 32-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 32-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        public static extern int Min(int val1, int val2);
+
+        /// <summary>
+        /// Returns the smaller of two 32-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 32-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 32-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        [CLSCompliant(false)]
+        public static extern uint Min(uint val1, uint val2);
+
+        /// <summary>
+        /// Returns the smaller of two double-precision floating-point numbers.
+        /// </summary>
+        /// <param name="val1">The first of two double-precision floating-point numbers to compare.</param>
+        /// <param name="val2">The second of two double-precision floating-point numbers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        public static extern double Min(double val1, double val2);
+
+        /// <summary>
+        /// Returns the smaller of two 64-bit signed integers.
+        /// </summary>
+        /// <param name="val1">The first of two 64-bit signed integers to compare.</param>
+        /// <param name="val2">The second of two 64-bit signed integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        [Bridge.Template("System.Int64.min({val1}, {val2})")]
+        public static extern long Min(long val1, long val2);
+
+        /// <summary>
+        /// Returns the smaller of two 64-bit unsigned integers.
+        /// </summary>
+        /// <param name="val1">The first of two 64-bit unsigned integers to compare.</param>
+        /// <param name="val2">The second of two 64-bit unsigned integers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        [Bridge.Template("System.UInt64.min({val1}, {val2})")]
+        [CLSCompliant(false)]
+        public static extern ulong Min(ulong val1, ulong val2);
+
+        /// <summary>
+        /// Returns the smaller of two decimal numbers.
+        /// </summary>
+        /// <param name="val1">The first of two decimal numbers to compare.</param>
+        /// <param name="val2">The second of two decimal numbers to compare.</param>
+        /// <returns>Parameter val1 or val2, whichever is smaller.</returns>
+        [Bridge.Template("System.Decimal.min({val1}, {val2})")]
+        public static extern decimal Min(decimal val1, decimal val2);
 
         public static extern double Random();
 
-        public static extern double Sqrt(int x);
-
         public static extern double Sqrt(double x);
 
-        [Template("{d}.ceil()")]
+        [Bridge.Template("{d}.ceil()")]
         public static extern decimal Ceiling(decimal d);
 
-        [Name("ceil")]
+        [Bridge.Name("ceil")]
         public static extern double Ceiling(double d);
 
         public static extern double Floor(double x);
 
-        [Template("{d}.floor()")]
+        [Bridge.Template("{d}.floor()")]
         public static extern decimal Floor(decimal d);
 
-        [Template("System.Decimal.round({x}, 6)")]
+        [Bridge.Template("System.Decimal.round({x}, 6)")]
         public static extern decimal Round(decimal x);
 
-        [Template("Bridge.Math.round({d}, 0, 6)")]
+        [Bridge.Template("Bridge.Math.round({d}, 0, 6)")]
         public static extern double Round(double d);
 
-        [Template("Math.round({d})")]
+        [Bridge.Template("Math.round({d})")]
         public static extern double JsRound(double d);
 
-        [Template("System.Decimal.toDecimalPlaces({d}, {digits}, 6)")]
+        [Bridge.Template("System.Decimal.toDecimalPlaces({d}, {digits}, 6)")]
         public static extern decimal Round(decimal d, int digits);
 
-        [Template("Bridge.Math.round({d}, {digits}, 6)")]
+        [Bridge.Template("Bridge.Math.round({d}, {digits}, 6)")]
         public static extern double Round(double d, int digits);
 
-        [Template("System.Decimal.round({d}, {method})")]
+        [Bridge.Template("System.Decimal.round({d}, {method})")]
         public static extern decimal Round(decimal d, MidpointRounding method);
 
-        [Template("Bridge.Math.round({d}, 0, {method})")]
+        [Bridge.Template("Bridge.Math.round({d}, 0, {method})")]
         public static extern double Round(double d, MidpointRounding method);
 
-        [Template("System.Decimal.toDecimalPlaces({d}, {digits}, {method})")]
+        [Bridge.Template("System.Decimal.toDecimalPlaces({d}, {digits}, {method})")]
         public static extern decimal Round(decimal d, int digits, MidpointRounding method);
 
-        [Template("Bridge.Math.round({d}, {digits}, {method})")]
+        [Bridge.Template("Bridge.Math.round({d}, {digits}, {method})")]
         public static extern double Round(double d, int digits, MidpointRounding method);
 
-        [Template("{x} - ({y} * Math.round({x} / {y}))")]
+        [Bridge.Template("Bridge.Math.IEEERemainder({x}, {y})")]
         public static extern double IEEERemainder(double x, double y);
 
         public static extern double Exp(double x);
 
-        [Template("{x}.exponential()")]
+        [Bridge.Template("{x}.exponential()")]
         public static extern decimal Exp(decimal x);
 
-        [Template("{x}.ln()")]
-        public static extern decimal Ln(decimal x);
-
-        [Template("{x}.log({logBase})")]
-        public static extern decimal Log(decimal x, decimal logBase);
-
-        [Template("{x}.pow({y})")]
-        public static extern decimal Pow(decimal x, decimal y);
-
-        [Template("{x}.sqrt()")]
-        public static extern decimal Sqrt(decimal x);
-
+        [Bridge.Template("Bridge.Math.log({x})")]
         public static extern double Log(double x);
+
+        [Bridge.Template("Bridge.Math.logWithBase({x}, {logBase})")]
+        public static extern double Log(double x, double logBase);
+
+        [Bridge.Template("Bridge.Math.logWithBase({x}, 10.0)")]
+        public static extern double Log10(double x);
+
+        [Bridge.Template("{x}.pow({y})")]
+        public static extern decimal Pow(decimal x, decimal y);
 
         public static extern double Pow(double x, double y);
 
@@ -154,31 +291,31 @@ namespace System
 
         public static extern double Tan(double x);
 
-        [Template("Bridge.Int.trunc({d})")]
+        [Bridge.Template("Bridge.Int.trunc({d})")]
         public static extern double Truncate(double d);
 
-        [Template("{d}.trunc()")]
+        [Bridge.Template("{d}.trunc()")]
         public static extern decimal Truncate(decimal d);
 
-        [Template("Bridge.Int.sign({value})")]
+        [Bridge.Template("Bridge.Int.sign({value})")]
         public static extern int Sign(double value);
 
-        [Template("{value}.sign()")]
+        [Bridge.Template("{value}.sign()")]
         public static extern int Sign(decimal value);
 
-        [Template("Bridge.Math.divRem({a}, {b}, {result})")]
+        [Bridge.Template("Bridge.Math.divRem({a}, {b}, {result})")]
         public static extern int DivRem(int a, int b, out int result);
 
-        [Template("System.Int64.divRem({a}, {b}, {result})")]
+        [Bridge.Template("System.Int64.divRem({a}, {b}, {result})")]
         public static extern long DivRem(long a, long b, out long result);
 
-        [Template("Bridge.Math.sinh({value})")]
+        [Bridge.Template("Bridge.Math.sinh({value})")]
         public static extern double Sinh(double value);
 
-        [Template("Bridge.Math.cosh({value})")]
+        [Bridge.Template("Bridge.Math.cosh({value})")]
         public static extern double Cosh(double value);
 
-        [Template("Bridge.Math.tanh({value})")]
+        [Bridge.Template("Bridge.Math.tanh({value})")]
         public static extern double Tanh(double value);
     }
 }

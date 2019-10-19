@@ -46,7 +46,7 @@ namespace Bridge.Translator
             if (Helpers.Is64Type(toType, block.Emitter.Resolver) && expression.Parent is IndexerExpression &&
                 ((IndexerExpression)expression.Parent).Arguments.Contains(expression))
             {
-                var memberResolveResult = rr as MemberResolveResult;
+                var memberResolveResult = block.Emitter.Resolver.ResolveNode(expression.Parent, block.Emitter) as MemberResolveResult;
                 var isIgnore = true;
                 var isAccessorsIndexer = false;
                 IProperty member = null;
@@ -55,7 +55,7 @@ namespace Bridge.Translator
                 if (memberResolveResult != null)
                 {
                     var resolvedMember = memberResolveResult.Member;
-                    isIgnore = block.Emitter.Validator.IsIgnoreType(resolvedMember.DeclaringTypeDefinition);
+                    isIgnore = block.Emitter.Validator.IsExternalType(resolvedMember.DeclaringTypeDefinition);
                     isAccessorsIndexer = block.Emitter.Validator.IsAccessorsIndexer(resolvedMember);
 
                     var property = resolvedMember as IProperty;
@@ -86,11 +86,8 @@ namespace Bridge.Translator
                     if (be == null || be.Operator != BinaryOperatorType.Divide || be.Left != expression)
                     {
                         block.Write(JS.Types.System.Int64.TONUMBER);
-                        if (!(expression is CastExpression && ((CastExpression)expression).Expression is ParenthesizedExpression))
-                        {
-                            block.Write("(");
-                            block.AfterOutput += ")";
-                        }
+                        block.Write("(");
+                        block.AfterOutput += ")";
                     }
                 }
                 else if (Helpers.IsDecimalType(toType, block.Emitter.Resolver) && !Helpers.IsDecimalType(fromType, block.Emitter.Resolver))
@@ -132,11 +129,8 @@ namespace Bridge.Translator
                 if (be == null || be.Operator != BinaryOperatorType.Divide || be.Left != expression)
                 {
                     block.Write(JS.Types.System.Int64.TONUMBER);
-                    if (!(expression is CastExpression && ((CastExpression)expression).Expression is ParenthesizedExpression))
-                    {
-                        block.Write("(");
-                        block.AfterOutput += ")";
-                    }
+                    block.Write("(");
+                    block.AfterOutput += ")";
                 }
             }
             else if (((!Helpers.Is64Type(toType, block.Emitter.Resolver) && Helpers.IsIntegerType(toType, block.Emitter.Resolver)) ||
@@ -302,11 +296,8 @@ namespace Bridge.Translator
             if (toFloat || (block.Emitter.IsJavaScriptOverflowMode && !InsideOverflowContext(block.Emitter, expression)))
             {
                 block.Write(JS.Types.SYSTEM_DECIMAL + ".toFloat");
-                if (!(expression is CastExpression && ((CastExpression)expression).Expression is ParenthesizedExpression))
-                {
-                    block.Write("(");
-                    block.AfterOutput += ")";
-                }
+                block.Write("(");
+                block.AfterOutput += ")";
             }
             else
             {
@@ -324,6 +315,7 @@ namespace Bridge.Translator
 
             if (isChecked)
             {
+                expectedType = NullableType.IsNullable(expectedType) ? NullableType.GetUnderlyingType(expectedType) : expectedType;
                 block.Write(JS.Types.System.Int64.CHECK);
                 block.WriteOpenParentheses();
 
@@ -383,11 +375,8 @@ namespace Bridge.Translator
 
                 block.Write(JS.Types.System.Int64.NAME + ".");
                 block.Write(action);
-                if (!(expression is CastExpression && ((CastExpression)expression).Expression is ParenthesizedExpression))
-                {
-                    block.Write("(");
-                    block.AfterOutput += ")";
-                }
+                block.Write("(");
+                block.AfterOutput += ")";
             }
         }
 
@@ -406,9 +395,62 @@ namespace Bridge.Translator
 
         private static void NarrowingNumericOrEnumerationConversion(ConversionBlock block, Expression expression, IType targetType, bool fromFloatingPoint, bool isChecked, bool isNullable, bool isExplicit = true)
         {
-            if (block.Emitter.IsJavaScriptOverflowMode && !InsideOverflowContext(block.Emitter, expression))
+            if (block.Emitter.IsJavaScriptOverflowMode && !InsideOverflowContext(block.Emitter, expression) || block.Emitter.Rules.Integer == IntegerRule.Plain)
             {
                 return;
+            }
+
+            var binaryOperatorExpression = expression as BinaryOperatorExpression;
+            if (binaryOperatorExpression != null)
+            {
+                var rr = block.Emitter.Resolver.ResolveNode(expression, block.Emitter);
+                var leftResolverResult = block.Emitter.Resolver.ResolveNode(binaryOperatorExpression.Left, block.Emitter);
+                var rightResolverResult = block.Emitter.Resolver.ResolveNode(binaryOperatorExpression.Right, block.Emitter);
+                if (rr != null)
+                {
+                    if (binaryOperatorExpression.Operator == BinaryOperatorType.Multiply &&
+                        !(block.Emitter.IsJavaScriptOverflowMode && !ConversionBlock.InsideOverflowContext(block.Emitter, binaryOperatorExpression)) &&
+                        (
+                            (Helpers.IsInteger32Type(leftResolverResult.Type, block.Emitter.Resolver) &&
+                            Helpers.IsInteger32Type(rightResolverResult.Type, block.Emitter.Resolver) &&
+                            Helpers.IsInteger32Type(rr.Type, block.Emitter.Resolver)) ||
+
+                            (Helpers.IsInteger32Type(block.Emitter.Resolver.Resolver.GetExpectedType(binaryOperatorExpression.Left), block.Emitter.Resolver) &&
+                            Helpers.IsInteger32Type(block.Emitter.Resolver.Resolver.GetExpectedType(binaryOperatorExpression.Right), block.Emitter.Resolver) &&
+                            Helpers.IsInteger32Type(rr.Type, block.Emitter.Resolver))
+                        ))
+                    {
+                        return;
+                    }
+                }
+            }
+
+            var assignmentExpression = expression as AssignmentExpression;
+            if (assignmentExpression != null)
+            {
+                var leftResolverResult = block.Emitter.Resolver.ResolveNode(assignmentExpression.Left, block.Emitter);
+                var rightResolverResult = block.Emitter.Resolver.ResolveNode(assignmentExpression.Right, block.Emitter);
+                var rr = block.Emitter.Resolver.ResolveNode(assignmentExpression, block.Emitter);
+
+                if (assignmentExpression.Operator == AssignmentOperatorType.Multiply &&
+                    !(block.Emitter.IsJavaScriptOverflowMode ||
+                      ConversionBlock.InsideOverflowContext(block.Emitter, assignmentExpression)) &&
+                    (
+                        (Helpers.IsInteger32Type(leftResolverResult.Type, block.Emitter.Resolver) &&
+                         Helpers.IsInteger32Type(rightResolverResult.Type, block.Emitter.Resolver) &&
+                         Helpers.IsInteger32Type(rr.Type, block.Emitter.Resolver)) ||
+
+                        (Helpers.IsInteger32Type(
+                             block.Emitter.Resolver.Resolver.GetExpectedType(assignmentExpression.Left),
+                             block.Emitter.Resolver) &&
+                         Helpers.IsInteger32Type(
+                             block.Emitter.Resolver.Resolver.GetExpectedType(assignmentExpression.Right),
+                             block.Emitter.Resolver) &&
+                         Helpers.IsInteger32Type(rr.Type, block.Emitter.Resolver))
+                    ))
+                {
+                    return;
+                }
             }
 
             if (isChecked)
@@ -481,11 +523,8 @@ namespace Bridge.Translator
 
                     block.Write(JS.Types.BRIDGE_INT + ".");
                     block.Write(action);
-                    if (!(expression is CastExpression && ((CastExpression)expression).Expression is ParenthesizedExpression))
-                    {
-                        block.Write("(");
-                        block.AfterOutput += ")";
-                    }
+                    block.Write("(");
+                    block.AfterOutput += ")";
                 }
                 else
                 {
@@ -625,7 +664,7 @@ namespace Bridge.Translator
             NarrowingNumericOrEnumerationConversion(block, expression, NullableType.IsNullable(targetType) ? NullableType.GetUnderlyingType(targetType) : targetType, true, isChecked, NullableType.IsNullable(sourceType));
         }
 
-        public static bool IsInCheckedContext(IEmitter emitter, Expression expression)
+        public static bool IsInCheckedContext(IEmitter emitter, Expression expression, bool? defValue = null)
         {
             var found = false;
             expression.GetParent(p =>
@@ -650,10 +689,15 @@ namespace Bridge.Translator
                 return true;
             }
 
+            if (defValue.HasValue)
+            {
+                return defValue.Value;
+            }
+
             return emitter.AssemblyInfo.OverflowMode.HasValue && emitter.AssemblyInfo.OverflowMode == OverflowMode.Checked;
         }
 
-        public static bool IsInUncheckedContext(IEmitter emitter, Expression expression)
+        public static bool IsInUncheckedContext(IEmitter emitter, Expression expression, bool? defValue = null)
         {
             var found = false;
             expression.GetParent(p =>
@@ -676,6 +720,11 @@ namespace Bridge.Translator
             if (found)
             {
                 return true;
+            }
+
+            if (defValue.HasValue)
+            {
+                return defValue.Value;
             }
 
             return !emitter.AssemblyInfo.OverflowMode.HasValue || emitter.AssemblyInfo.OverflowMode == OverflowMode.Unchecked;

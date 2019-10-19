@@ -42,9 +42,13 @@
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Issues\Issue2407.cs" />
+    <Compile Include="Issues\Issue2140.cs" />
+    <Compile Include="Issues\Issue2141.cs" />
     <Compile Include="Issues\Issue1050.cs" />
     <Compile Include="Issues\Issue1230.cs" />
     <Compile Include="Issues\Issue1754.cs" />
+    <Compile Include="Issues\Issue2077.cs" />
     <Compile Include="Issues\Issue921Generic.cs" />
     <Compile Include="Issues\Issue921Nested.cs" />
     <Compile Include="Issues\Issue1035.cs" />
@@ -59,15 +63,12 @@
     <Compile Include="Issues\Issue948.cs" />
     <Compile Include="Issues\Issue599ReadyAttribute.cs" />
     <Compile Include="Issues\Issue461.cs" />
+    <Compile Include="Issues\Issue3516.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Bridge">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\Bridge\bin\$(Configuration)\Bridge.dll</HintPath>
-    </Reference>
-    <Reference Include="Bridge.Html5">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\Html5\bin\$(Configuration)\Bridge.Html5.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -81,12 +82,16 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Bridge\res\header.js" />
+    <Content Include="Bridge\res\style2429_1.css" />
+    <Content Include="Bridge\res\style2429_2.css" />
+    <Content Include="Bridge\res\utf16.js" />
+    <Content Include="Bridge\res\utf8.js" />
   </ItemGroup>
   <!-- Bridge Compiler -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup Condition="$(UseBridgeTask) != true">
-    <PostBuildEvent Condition="$(OS) != Unix">"$(ProjectDir)..\..\..\Builder\$(OutDir)Bridge.Builder.exe" -p "$(ProjectPath)" -b "$(ProjectDir)$(OutDir)Bridge.dll" -cfg "$(Configuration)"</PostBuildEvent>
-    <PostBuildEvent Condition="$(OS) == Unix">mono "$(ProjectDir)../../../Builder/$(OutDir)Bridge.Builder.exe" -p "$(ProjectDir)/$(MSBuildProjectFile)" -b "$(ProjectDir)$(OutDir)Bridge.dll"  -cfg "$(Configuration)"</PostBuildEvent>
+    <PostBuildEvent Condition="$(OS) != Unix">"$(ProjectDir)..\..\..\Builder\$(OutDir)bridge.exe" -p "$(ProjectPath)" -b "$(ProjectDir)$(OutDir)Bridge.dll" -cfg "$(Configuration)" --platform "$(Platform)"</PostBuildEvent>
+    <PostBuildEvent Condition="$(OS) == Unix">mono "$(ProjectDir)../../../Builder/$(OutDir)bridge.exe" -p "$(ProjectDir)/$(MSBuildProjectFile)" -b "$(ProjectDir)$(OutDir)Bridge.dll"  -cfg "$(Configuration)" --platform "$(Platform)"</PostBuildEvent>
   </PropertyGroup>
   <UsingTask Condition="$(UseBridgeTask) == true" TaskName="GenerateScript" AssemblyFile="$(ProjectDir)..\..\..\Build\$(OutDir)Bridge.Build.dll" />
   <Target Condition="$(UseBridgeTask) == true" Name="AfterBuild">
