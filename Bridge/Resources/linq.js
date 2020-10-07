@@ -314,7 +314,7 @@
 
     Enumerable.from = function (obj, T) {
         if (obj == null) {
-            return Enumerable.empty();
+            return null;
         }
         if (obj instanceof Enumerable) {
             return obj;
@@ -989,6 +989,10 @@
         if (arguments.length == 2) {
             var second = arguments[0];
 
+            if (second == null) {
+                throw new System.ArgumentNullException();
+            }
+
             return new Enumerable(function () {
                 var firstEnumerator;
                 var secondEnumerator;
@@ -1092,6 +1096,10 @@
         innerKeySelector = Utils.createLambda(innerKeySelector);
         resultSelector = Utils.createLambda(resultSelector);
 
+        if (inner == null) {
+            throw new System.ArgumentNullException();
+        }
+
         var source = this;
 
         return new Enumerable(function () {
@@ -1136,6 +1144,10 @@
         innerKeySelector = Utils.createLambda(innerKeySelector);
         resultSelector = Utils.createLambda(resultSelector);
         var source = this;
+
+        if (inner == null) {
+            throw new System.ArgumentNullException();
+        }
 
         return new Enumerable(function () {
             var enumerator = source.GetEnumerator();
@@ -1202,6 +1214,10 @@
 
         if (arguments.length == 1) {
             var second = arguments[0];
+
+            if (second == null) {
+                throw new System.ArgumentNullException();
+            }
 
             return new Enumerable(function () {
                 var firstEnumerator;
@@ -1444,6 +1460,10 @@
     Enumerable.prototype.except = function (second, comparer) {
         var source = this;
 
+        if (second == null) {
+            throw new System.ArgumentNullException();
+        }
+
         return new Enumerable(function () {
             var enumerator,
                 keys,
@@ -1487,6 +1507,10 @@
     // Overload:function (second, compareSelector)
     Enumerable.prototype.intersect = function (second, comparer) {
         var source = this;
+
+        if (second == null) {
+            throw new System.ArgumentNullException();
+        }
 
         return new Enumerable(function () {
             var enumerator;
@@ -1534,6 +1558,10 @@
     Enumerable.prototype.sequenceEqual = function (second, comparer) {
         comparer = comparer || System.Collections.Generic.EqualityComparer$1.$default;
 
+        if (second == null) {
+            throw new System.ArgumentNullException();
+        }
+
         var firstEnumerator = this.GetEnumerator();
         try {
             var secondEnumerator = Enumerable.from(second).GetEnumerator();
@@ -1559,6 +1587,10 @@
 
     Enumerable.prototype.union = function (second, comparer) {
         var source = this;
+
+        if (second == null) {
+            throw new System.ArgumentNullException();
+        }
 
         return new Enumerable(function () {
             var firstEnumerator;

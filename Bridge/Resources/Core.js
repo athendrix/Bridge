@@ -1707,6 +1707,20 @@
                     return false;
                 }
 
+                if (this.$invocationList && fn.$invocationList) {
+                    if (this.$invocationList.length !== fn.$invocationList.length) {
+                        return false;
+                    }
+
+                    for (var i = 0; i < this.$invocationList.length; i++) {
+                        if (this.$invocationList[i] !== fn.$invocationList[i]) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+
                 return this.equals && (this.equals === fn.equals) && this.$method && (this.$method === fn.$method) && this.$scope && (this.$scope === fn.$scope);
             },
 
@@ -1965,32 +1979,41 @@
                     return fn1 || null;
                 }
 
-                var list1 = fn1.$invocationList ? fn1.$invocationList : [fn1],
+                var list1 = fn1.$invocationList ? fn1.$invocationList.slice(0) : [fn1],
                     list2 = fn2.$invocationList ? fn2.$invocationList : [fn2],
                     result = [],
                     exclude,
                     i,
                     j;
 
-                for (j = 0; j < list2.length; j++) {
-                    exclude = -1;
+                exclude = -1;
 
-                    for (i = list1.length - 1; i >= 0; i--) {
-                        if (list1[i] === list2[j] ||
-                            ((list1[i].$method && (list1[i].$method === list2[j].$method)) && (list1[i].$scope && (list1[i].$scope === list2[j].$scope)))) {
-                            exclude = i;
+                for (i = list1.length - list2.length; i >= 0; i--) {
+                    if (Bridge.fn.equalInvocationLists(list1, list2, i, list2.length)) {
+                        if (list1.length - list2.length == 0) {
+                            return null;
+                        } else if (list1.length - list2.length == 1) {
+                            return list1[i != 0 ? 0 : list1.length - 1];
+                        } else {
+                            list1.splice(i, list2.length);
 
-                            break;
+                            return Bridge.fn.$build(list1);
                         }
-                    }
-
-                    if (exclude > -1) {
-                        list1.splice(exclude, 1);
                     }
                 }
 
-                return Bridge.fn.$build(list1);
-            }
+                return fn1;
+            },
+
+            equalInvocationLists: function (a, b, start, count) {
+                for (var i = 0; i < count; i = (i + 1) | 0) {
+                    if (!(Bridge.equals(a[System.Array.index(((start + i) | 0), a)], b[System.Array.index(i, b)]))) {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
         },
 
         sleep: function (ms, timeout) {

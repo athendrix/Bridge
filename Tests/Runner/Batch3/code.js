@@ -64,10 +64,10 @@ var Bridge3627_Logger = (function () {
 
 /**
  * Bridge Test library - test github issues up to #1999
- * @version 17.9.0
+ * @version 17.10.1
  * @author Object.NET, Inc.
  * @copyright Copyright 2008-2019 Object.NET, Inc.
- * @compiler Bridge.NET 17.9.0
+ * @compiler Bridge.NET 17.10.1
  */
 Bridge.assembly("Bridge.ClientTest.Batch3", function ($asm, globals) {
     "use strict";
@@ -2555,7 +2555,7 @@ Bridge.assembly("Bridge.ClientTest.Batch3", function ($asm, globals) {
 
                     var items = System.Array.init([new (Bridge.ClientTest.Batch3.BridgeIssues.Bridge1176.Item$1(System.Int32))(), new (Bridge.ClientTest.Batch3.BridgeIssues.Bridge1176.Item$1(System.Int32))()], Bridge.ClientTest.Batch3.BridgeIssues.Bridge1176.Item$1(System.Int32));
                     var values = Bridge.ClientTest.Batch3.BridgeIssues.Bridge1176.GetItemValues(System.Int32, items);
-                    Bridge.Test.NUnit.Assert.AreEqual("Item, Item", values.join(", "));
+                    Bridge.Test.NUnit.Assert.AreEqual("Item, Item", (values).join(", "));
                 },
                 GetItemValues: function (TValue, items) {
                     return System.Linq.Enumerable.from(items, Bridge.ClientTest.Batch3.BridgeIssues.Bridge1176.Item$1(TValue)).select(function (item) {
@@ -8513,6 +8513,178 @@ Bridge.$N1391Result =                     r;
         }
     });
 
+    /**
+     * The tests here ensures math involving delegates works.
+     *
+     * @public
+     * @class Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+     */
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563", {
+        statics: {
+            methods: {
+                /**
+                 * Tests the scenario provided in gitter.
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @return  {void}
+                 */
+                TestRemove: function () {
+                    var buffer = "";
+                    var a1 = function () {
+                        buffer = (buffer || "") + "a1";
+                    };
+                    var a2 = function () {
+                        buffer = (buffer || "") + "a2";
+                    };
+                    var a3 = Bridge.fn.combine(a1, a2);
+                    var a4 = function () {
+                        buffer = (buffer || "") + "a4";
+                    };
+                    var a5 = Bridge.fn.combine(Bridge.fn.combine(a1, a4), a2);
+
+                    a5 = Bridge.fn.remove(a5, a3);
+
+                    a5();
+
+                    Bridge.Test.NUnit.Assert.AreEqual("a1a4a2", buffer, "The delegates' side effects were applied in the expected order.");
+                },
+                
+                TestRemove2: function () {
+                    var buffer = "";
+                    var a1 = function () {
+                        buffer = (buffer || "") + "a1";
+                    };
+                    var a2 = function () {
+                        buffer = (buffer || "") + "a2";
+                    };
+                    var a3 = Bridge.fn.combine(a1, a2);
+                    var a4 = function () {
+                        buffer = (buffer || "") + "a4";
+                    };
+                    var a41 = function () {
+                        buffer = (buffer || "") + "a41";
+                    };
+                    var a5 = Bridge.fn.combine(Bridge.fn.combine(Bridge.fn.combine(Bridge.fn.combine(Bridge.fn.combine(Bridge.fn.combine(a4, a1), a2), a41), a1), a2), a4);
+
+                    a5 = Bridge.fn.remove(a5, a3);
+
+                    a5();
+                    Bridge.Test.NUnit.Assert.AreEqual("a4a1a2a41a4", buffer, "The delegates' Side effects were applied in the expected order.");
+                },
+                /**
+                 * Checks combination
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @return  {void}
+                 */
+                CombineDoesNotAffectOriginal_SPI_1563: function () {
+                    // #1563
+                    var c = new Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.C();
+                    var a = Bridge.fn.cacheBind(c, c.F1);
+                    var a2 = Bridge.fn.combine(a, Bridge.fn.cacheBind(c, c.F2));
+                    Bridge.Test.NUnit.Assert.AreEqual(1, Bridge.fn.getInvocationList(a).length, "Invocation list in base delegate has 1 entry.");
+                    Bridge.Test.NUnit.Assert.AreEqual(2, Bridge.fn.getInvocationList(a2).length, "Invocation list in combined delegate has 2 entries.");
+                },
+                /**
+                 * Checks combination and removal
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @return  {void}
+                 */
+                RemoveDoesNotAffectOriginal_SPI_1563: function () {
+                    // #1563
+                    var c = new Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.C();
+                    var a = Bridge.fn.cacheBind(c, c.F1);
+                    var a2 = Bridge.fn.combine(a, Bridge.fn.cacheBind(c, c.F2));
+                    var a3 = Bridge.fn.remove(a2, a);
+                    Bridge.Test.NUnit.Assert.AreEqual(Bridge.fn.getInvocationList(a).length, 1, "Invocation list in original delegate has 1 entry.");
+                    Bridge.Test.NUnit.Assert.AreEqual(Bridge.fn.getInvocationList(a2).length, 2, "Invocation list in combined delegate has 2 entries.");
+                    Bridge.Test.NUnit.Assert.AreEqual(Bridge.fn.getInvocationList(a3).length, 1, "Invocation list in differentiated delegate has 1 entry.");
+                },
+                /**
+                 * Checks removal with method group.
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @return  {void}
+                 */
+                RemoveWorksWithMethodGroupConversion: function () {
+                    var a = $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.f1;
+                    var a2 = Bridge.fn.combine(a, Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.A);
+                    var a3 = Bridge.fn.remove(a2, Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.A);
+                    Bridge.Test.NUnit.Assert.False(Bridge.equals(a, a2), "Base delegate .Equals() against its aggregate delegate returns false.");
+                    Bridge.Test.NUnit.Assert.True(Bridge.equals(a, a3), "Base delegate .Equals() against a differentiate aggregate are equal (when all other aggregated delegates are removed).");
+                },
+                /**
+                 * Checks cloning deleates
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @return  {void}
+                 */
+                CloningDelegateToTheSameTypeCreatesANewClone: function () {
+                    var x = 0;
+                    var d1 = function () {
+                        Bridge.identity(x, ((x = (x + 1) | 0)));
+                    };
+                    var d2 = Bridge.fn.$build([d1]);
+                    d1();
+                    d2();
+
+                    Bridge.Test.NUnit.Assert.False(Bridge.staticEquals(d1, d2), "A delegate is not equal to another delegate cloned from it.");
+                    Bridge.Test.NUnit.Assert.AreEqual(x, 2, "Both the original and cloned delegates' calls side effects works.");
+                },
+                /**
+                 * Checks equality-related operators
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563
+                 * @return  {void}
+                 */
+                EqualityAndInequalityOperatorsAndEqualsMethod: function () {
+                    var c1 = new Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.C(), c2 = new Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.C();
+                    var f11 = Bridge.fn.cacheBind(c1, c1.F1), f11_2 = Bridge.fn.cacheBind(c1, c1.F1), f12 = Bridge.fn.cacheBind(c1, c1.F2), f21 = Bridge.fn.cacheBind(c2, c2.F1);
+
+                    var m1 = Bridge.fn.combine(f11, f21), m2 = Bridge.fn.combine(f11, f21), m3 = Bridge.fn.combine(f21, f11);
+
+                    Bridge.Test.NUnit.Assert.True(Bridge.staticEquals(m1, m2), "Two delegates declared with the same aggregation expression are equal via the '==' operator.");
+                    Bridge.Test.NUnit.Assert.True(Bridge.equals(m1, m2), "Two delegates declared with the same aggregation expression are equal via the .Equals() call.");
+                    Bridge.Test.NUnit.Assert.False(!Bridge.staticEquals(m1, m2), "Two delegates declared with the same aggregation expression are not different ('!=' operator works).");
+                },
+                A: function () { }
+            }
+        }
+    });
+
+    Bridge.ns("Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563", $asm.$);
+
+    Bridge.apply($asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563, {
+        f1: function () { }
+    });
+
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge1563.C", {
+        $kind: "nested class",
+        methods: {
+            F1: function () { },
+            F2: function () { }
+        }
+    });
+
     Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge1566", {
         methods: {
             TestMathLog10: function () {
@@ -8854,10 +9026,10 @@ Bridge.$N1391Result =                     r;
             },
             methods: {
                 M1: function () {
-                    ($asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge169.f1)();
+                    (Bridge.fn.$build([$asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge169.f1]))();
                 },
                 M2: function () {
-                    ($asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge169.f2)();
+                    (Bridge.fn.$build([$asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge169.f2]))();
                 }
             }
         }
@@ -9488,11 +9660,11 @@ Bridge.$N1391Result =                     r;
         },
         methods: {
             TestDelegateCreationOfGenericMethods: function () {
-                var foo = function () { return Bridge.ClientTest.Batch3.BridgeIssues.Bridge1722.Foo(Bridge.ClientTest.Batch3.BridgeIssues.Bridge1722.ClassA); };
+                var foo = Bridge.fn.$build([function () { return Bridge.ClientTest.Batch3.BridgeIssues.Bridge1722.Foo(Bridge.ClientTest.Batch3.BridgeIssues.Bridge1722.ClassA); }]);
                 foo();
             },
             TestDelegateCreationOfGenericMethodsWithLambda: function () {
-                var foo = $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge1722.f1;
+                var foo = Bridge.fn.$build([$asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge1722.f1]);
                 foo();
             }
         }
@@ -25715,7 +25887,7 @@ Bridge.$N1391Result =                     r;
             },
             ctors: {
                 init: function () {
-                    Bridge.event(this, "Test", $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge2923.f1);
+                    Bridge.event(this, "Test", Bridge.fn.$build([$asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge2923.f1]));
                 }
             },
             methods: {
@@ -25977,7 +26149,7 @@ Bridge.$N1391Result =                     r;
         statics: {
             methods: {
                 TestReflectionBoxing: function () {
-                    var str = System.Array.convertAll(Bridge.Reflection.getMembers(Bridge.ClientTest.Batch3.BridgeIssues.Bridge2940.A, 4, 56), $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge2940.f1).join(", ");
+                    var str = (System.Array.convertAll(Bridge.Reflection.getMembers(Bridge.ClientTest.Batch3.BridgeIssues.Bridge2940.A, 4, 56), $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge2940.f1)).join(", ");
 
                     Bridge.Test.NUnit.Assert.AreEqual("A, B, C", str);
                     Bridge.Test.NUnit.Assert.AreEqual("B", Bridge.toString(Bridge.Reflection.midel(System.Linq.Enumerable.from(Bridge.Reflection.getMembers(Bridge.ClientTest.Batch3.BridgeIssues.Bridge2940.C, 16, 56), System.Reflection.PropertyInfo).first().g, null)()));
@@ -26863,8 +27035,6 @@ Bridge.$N1391Result =                     r;
             isSet: false
         },
         methods: {
-            addOnChange: function (value) { },
-            removeOnChange: function (value) { },
             on: function (eventName, handler) {
                 this.isSet = true;
                 this.name = eventName;
@@ -30486,14 +30656,6 @@ Bridge.$N1391Result =                     r;
         }
     });
 
-    /** @namespace System */
-
-    /**
-     * @memberof System
-     * @callback System.Action
-     * @return  {void}
-     */
-
     /**
      * The test here consists in checking whether templates on events would
      replace the {value} placeholder even if the {this} placeholder is not
@@ -30533,24 +30695,6 @@ Bridge.$N1391Result =                     r;
         },
         props: {
             status: null
-        },
-        methods: {
-            /**
-             * @instance
-             * @public
-             * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge3418
-             * @event Bridge.ClientTest.Batch3.BridgeIssues.Bridge3418#OnDragEnd
-             * @return  {System.Action}
-             */
-            addOnDragEnd: function (value) { },
-            /**
-             * @instance
-             * @public
-             * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge3418
-             * @event Bridge.ClientTest.Batch3.BridgeIssues.Bridge3418#OnDragEnd
-             * @return  {System.Action}
-             */
-            removeOnDragEnd: function (value) { }
         }
     });
 
@@ -35353,7 +35497,8 @@ Bridge.$N1391Result =                     r;
                 TestConversion: function () {
                     var good = Bridge.ClientTest.Batch3.BridgeIssues.Bridge3628.A.op_Implicit(System.Array.init([Bridge.box(1, System.Int32), Bridge.box(2, System.Int32), Bridge.box(3, System.Int32), Bridge.box(4, System.Int32), Bridge.box(5, System.Int32)], System.Object));
                     var bad = Bridge.ClientTest.Batch3.BridgeIssues.Bridge3628.A.op_Implicit(System.Array.init([Bridge.box(1, System.Int32), Bridge.box(2, System.Int32), Bridge.box(3, System.Int32), Bridge.box(4, System.Int32), Bridge.box(5, System.Int32)], System.Object));
-                    Bridge.Test.NUnit.Assert.True(0 === System.Linq.Enumerable.from(good, System.Object).count() && System.Linq.Enumerable.from(good, System.Object).count() === System.Linq.Enumerable.from(bad, System.Object).count(), "Implicit casting works (original test case, array elements dropped).");
+                    Bridge.Test.NUnit.Assert.Null(good, "Implicit casting works 1/2 (original test case, array elements dropped).");
+                    Bridge.Test.NUnit.Assert.Null(bad, "Implicit casting works 2/2 (original test case, array elements dropped).");
 
                     var good_b = Bridge.ClientTest.Batch3.BridgeIssues.Bridge3628.B.op_Implicit(System.Array.init([Bridge.box(1, System.Int32), Bridge.box(2, System.Int32), Bridge.box(3, System.Int32), Bridge.box(4, System.Int32), Bridge.box(5, System.Int32)], System.Object));
                     var bad_b = Bridge.ClientTest.Batch3.BridgeIssues.Bridge3628.B.op_Implicit(System.Array.init([Bridge.box(1, System.Int32), Bridge.box(2, System.Int32), Bridge.box(3, System.Int32), Bridge.box(4, System.Int32), Bridge.box(5, System.Int32)], System.Object));
@@ -35684,7 +35829,7 @@ Bridge.$N1391Result =                     r;
                     var b = System.Array.init(["4", "5", "6"], System.String);
                     var fn = $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge3678.f1;
                     var result = Bridge.ClientTest.Batch3.BridgeIssues.Bridge3678Extensions.Zipper(System.String, System.String, System.String, a, b, fn);
-                    Bridge.Test.NUnit.Assert.AreEqual("14.25.36", ($t = System.String, System.Linq.Enumerable.from(result, $t).ToArray($t)).join("."), "Nested usings in a yield resumable method produces valid javascript code.");
+                    Bridge.Test.NUnit.Assert.AreEqual("14.25.36", (($t = System.String, System.Linq.Enumerable.from(result, $t).ToArray($t))).join("."), "Nested usings in a yield resumable method produces valid javascript code.");
                 }
             }
         }
@@ -35697,6 +35842,8 @@ Bridge.$N1391Result =                     r;
             return (s1 || "") + (s2 || "");
         }
     });
+
+    /** @namespace System */
 
     /**
      * @memberof System
@@ -37505,7 +37652,7 @@ Bridge.$N1391Result =                     r;
         statics: {
             methods: {
                 TestUseCase: function () {
-                    var s1 = System.Array.init(["a", "b"], System.String).join(",");
+                    var s1 = (System.Array.init(["a", "b"], System.String)).join(",");
                     Bridge.Test.NUnit.Assert.AreEqual("a,b", s1, "Join1");
 
                     var animals = new (System.Collections.Generic.List$1(Bridge.ClientTest.Batch3.BridgeIssues.Bridge381.Animal)).ctor();
@@ -37523,11 +37670,11 @@ Bridge.$N1391Result =                     r;
                         Bridge.box(11434, System.Int32), 
                         Bridge.box(0.366, System.Double, System.Double.format, System.Double.getHashCode)
                     ], System.Object);
-                    var s31 = values.join("|");
+                    var s31 = (values).join("|");
                     Bridge.Test.NUnit.Assert.AreEqual("|Cobb|4189|11434|0.366", s31, "Join31");
 
                     values[System.Array.index(0, values)] = "";
-                    var s32 = values.join("|");
+                    var s32 = (values).join("|");
                     Bridge.Test.NUnit.Assert.AreEqual("|Cobb|4189|11434|0.366", s32, "Join32");
 
                     var sArr = System.Array.init(10, null, System.String);
@@ -37535,11 +37682,11 @@ Bridge.$N1391Result =                     r;
                         sArr[System.Array.index(i, sArr)] = System.String.format("{0,-3}", [Bridge.box(Bridge.Int.mul(i, 5), System.Int32)]);
                     }
 
-                    var s4 = sArr.join(":");
+                    var s4 = (sArr).join(":");
                     Bridge.Test.NUnit.Assert.AreEqual("0  :5  :10 :15 :20 :25 :30 :35 :40 :45 ", s4, "Join4");
 
                     var val = System.Array.init(["apple", "orange", "grape", "pear"], System.String);
-                    var s5 = val.slice(1, 1 + 2).join(", ");
+                    var s5 = (val).slice(1, 1 + 2).join(", ");
                     Bridge.Test.NUnit.Assert.AreEqual("orange, grape", s5, "Join5");
                 }
             }
@@ -40418,6 +40565,86 @@ Bridge.$N1391Result =                     r;
         }
     });
 
+    /**
+     * Specify Kind on DateTime
+     *
+     * @public
+     * @class Bridge.ClientTest.Batch3.BridgeIssues.Bridge4014
+     */
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge4014", {
+        statics: {
+            methods: {
+                /**
+                 * Checks whether specifying Kind on DateTime then getting Date.Kind is the same
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge4014
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge4014
+                 * @return  {void}
+                 */
+                TestDateTimeHasKindForDateProperty: function () {
+                    var date1 = System.DateTime.specifyKind(System.DateTime.getToday(), 1);
+                    var date2 = System.DateTime.getDate(date1);
+
+                    Bridge.Test.NUnit.Assert.AreEqual(System.DateTime.getKind(date1), 1, "Kind is Utc");
+                    Bridge.Test.NUnit.Assert.AreEqual(System.DateTime.getKind(date2), 1, "Kind is Utc");
+                    Bridge.Test.NUnit.Assert.AreEqual(System.DateTime.getKind(date1), System.DateTime.getKind(date2), "Kind are the same");
+                }
+            }
+        }
+    });
+
+    /**
+     * The test here ensures an extern-marked indexer works when it is subject
+     to a Bridge Template.
+     *
+     * @public
+     * @class Bridge.ClientTest.Batch3.BridgeIssues.Bridge4015
+     */
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge4015", {
+        statics: {
+            methods: {
+                TestExternalIndexer: function () {
+                    Bridge.Test.NUnit.Assert.AreEqual(5, new Bridge.ClientTest.Batch3.BridgeIssues.Bridge4015.SomethingWithExternIndexer().Get(5), "Extern Indexer with template attribute works.");
+                }
+            }
+        }
+    });
+
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge4015.SomethingWithExternIndexer", {
+        $kind: "nested class",
+        methods: {
+            Get: function (i) {
+                return i;
+            }
+        }
+    });
+
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge4019", {
+        statics: {
+            methods: {
+                TestLinqNull: function () {
+                    var values = null;
+                    Bridge.Test.NUnit.Assert.Throws$2(System.NullReferenceException, function () {
+                        var arr = System.Linq.Enumerable.from(values, System.Int32).take(2).ToArray(System.Int32);
+                    }, "Linq take() throws null reference exception when used against a null array.");
+                }
+            }
+        }
+    });
+
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge4023", {
+        statics: {
+            methods: {
+                TestStringJoinTemplate: function () {
+                    var ids = System.Array.init(["1", "2", "3"], System.String);
+                    Bridge.Test.NUnit.Assert.AreEqual("1;2;3", (ids || System.Array.init(0, null, System.String)).join(";"), "Null-coalescing operator works as parameter expression to string.Join().");
+                }
+            }
+        }
+    });
+
     Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge407", {
         $kind: "struct",
         statics: {
@@ -40452,6 +40679,97 @@ Bridge.$N1391Result =                     r;
                 var s = to || new Bridge.ClientTest.Batch3.BridgeIssues.Bridge407();
                 s.A = this.A;
                 return s;
+            }
+        }
+    });
+
+    /**
+     * The tests here consists in ensuring 'out Type variable' syntax is
+     supported on TryGet.
+     *
+     * @public
+     * @class Bridge.ClientTest.Batch3.BridgeIssues.Bridge4072
+     */
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge4072", {
+        statics: {
+            methods: {
+                /**
+                 * TryGet() implementation using type 'Wrapper' as parameter.
+                 *
+                 * @static
+                 * @private
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge4072
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge4072
+                 * @param   {System.Collections.Generic.List}    x
+                 * @return  {boolean}
+                 */
+                TryGet: function (x) {
+                    x.v = new (System.Collections.Generic.List$1(System.Int32)).ctor();
+                    return true;
+                },
+                /**
+                 * Tests by simply calling the TryGet() implementation in the
+                 required format. Notice if the x variable is declared somewhere
+                 else and used there (as just '(out x)'), the issue related to this
+                 test is not reproduced.
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge4072
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge4072
+                 * @return  {void}
+                 */
+                TestTypeAlias: function () {
+                    var x = { };
+                    var c = Bridge.ClientTest.Batch3.BridgeIssues.Bridge4072.TryGet(x);
+                    Bridge.Test.NUnit.Assert.True(c, "'out <type> <variable>' parameter syntax is supported.");
+                }
+            }
+        }
+    });
+
+    /**
+     * The tests here ensures generic types supports being "shorthand" by
+     the 'using [var] = [full_class_path]'.
+     *
+     * @public
+     * @class Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076
+     */
+    Bridge.define("Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076", {
+        statics: {
+            methods: {
+                /**
+                 * @static
+                 * @private
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076
+                 * @param   {Function}    T    
+                 * @param   {T}           t
+                 * @return  {string}
+                 */
+                F: function (T, t) {
+                    return Bridge.Reflection.getTypeName(T);
+                },
+                /**
+                 * Tests by instantiating the type that is shorthanded by 'using' and
+                 also another generic type that's not shorthanded.
+                 *
+                 * @static
+                 * @public
+                 * @this Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076
+                 * @memberof Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076
+                 * @return  {void}
+                 */
+                TestTypeAlias: function () {
+                    var x = new (System.Collections.Generic.List$1(System.Int32)).ctor();
+                    Bridge.Test.NUnit.Assert.AreEqual("List`1", Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076.F(System.Collections.Generic.List$1(System.Int32), x), "Type instantiation expanded from 'using <name> = <full class>' works.");
+
+                    var y = new (System.Collections.Generic.List$1(System.Int32)).ctor();
+                    Bridge.Test.NUnit.Assert.AreEqual("List`1", Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076.F(System.Collections.Generic.List$1(System.Int32), y), "Full class name type instantiation when same type is subject to 'using <name> = <full class>', works.");
+
+                    var z = new (System.Collections.Generic.Stack$1(System.Int32)).ctor();
+                    Bridge.Test.NUnit.Assert.AreEqual("Stack`1", Bridge.ClientTest.Batch3.BridgeIssues.Bridge4076.F(System.Collections.Generic.Stack$1(System.Int32), z), "Type instantiation from direct class name (not shorthanded by 'using') works.");
+                }
             }
         }
     });
@@ -41163,7 +41481,7 @@ Bridge.$N1391Result =                     r;
         },
         methods: {
             Fire: function () {
-                var getEvt = $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge520.Source.f1;
+                var getEvt = Bridge.fn.$build([$asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge520.Source.f1]);
                 var evt = getEvt(this);
 
                 evt = Bridge.fn.combine(evt, Bridge.fn.bind(this, $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge520.Source.f2));
@@ -46036,11 +46354,11 @@ Bridge.$N1391Result =                     r;
                     var $t;
                     var testA = ($t = new Bridge.ClientTest.Batch3.BridgeIssues.Bridge861A(), $t.MyId = 1, $t);
 
-                    testA.Delegates = Bridge.fn.combine(testA.Delegates, $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge861.f1);
+                    testA.Delegates = Bridge.fn.combine(testA.Delegates, Bridge.fn.$build([$asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge861.f1]));
 
                     var testB = ($t = new Bridge.ClientTest.Batch3.BridgeIssues.Bridge861A(), $t.MyId = 2, $t.Delegates = testA.Delegates, $t);
 
-                    testB.Delegates = Bridge.fn.combine(testB.Delegates, $asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge861.f2);
+                    testB.Delegates = Bridge.fn.combine(testB.Delegates, Bridge.fn.$build([$asm.$.Bridge.ClientTest.Batch3.BridgeIssues.Bridge861.f2]));
                     testB.InvokeDelegates();
 
                     Bridge.Test.NUnit.Assert.AreEqual(0, testB.MyId);
@@ -49826,7 +50144,7 @@ Bridge.$N1391Result =                     r;
         },
         methods: {
             MyMethod: function () {
-                return System.Array.init([Bridge.toString(this.A.a), this.A.b.toString(), this.B.a.toString(), Bridge.toString(this.B.b)], System.String).join("|");
+                return (System.Array.init([Bridge.toString(this.A.a), this.A.b.toString(), this.B.a.toString(), Bridge.toString(this.B.b)], System.String)).join("|");
             }
         }
     }; });
